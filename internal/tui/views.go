@@ -145,27 +145,27 @@ func (m Model) detailView(w, h int) string {
 	}
 	s := m.detail.Spec
 	var b strings.Builder
-	b.WriteString(styleTitle.Render(fmt.Sprintf("Instancia %s · %s", s.Slug, s.Name)) + "\n")
-	b.WriteString(fmt.Sprintf("  estado      %s\n", stateStyle(m.detail.State).Render(stateLabel(m.detail.State))))
+	fmt.Fprintf(&b, "%s\n", styleTitle.Render("Instancia "+s.Slug+" · "+s.Name))
+	fmt.Fprintf(&b, "  estado      %s\n", stateStyle(m.detail.State).Render(stateLabel(m.detail.State)))
 	if m.detail.HostIP != "" {
-		b.WriteString(fmt.Sprintf("  dirección   %s:%d\n", m.detail.HostIP, s.Port))
+		fmt.Fprintf(&b, "  dirección   %s:%d\n", m.detail.HostIP, s.Port)
 	}
-	b.WriteString(fmt.Sprintf("  motor       %s %s\n", s.Engine, s.Version))
+	fmt.Fprintf(&b, "  motor       %s %s\n", s.Engine, s.Version)
 	if p := pinsLabel(s.Pins); p != "" {
-		b.WriteString(fmt.Sprintf("  pines       %s\n", p))
+		fmt.Fprintf(&b, "  pines       %s\n", p)
 	}
-	b.WriteString(fmt.Sprintf("  recursos    %s RAM · %d CPU · puerto %d\n", s.Memory, s.CPU, s.Port))
-	b.WriteString(fmt.Sprintf("  juego       %s · %s · %d jugadores máx · online=%v\n",
-		s.Difficulty, s.Gamemode, s.MaxPlayers, s.OnlineMode))
+	fmt.Fprintf(&b, "  recursos    %s RAM · %d CPU · puerto %d\n", s.Memory, s.CPU, s.Port)
+	fmt.Fprintf(&b, "  juego       %s · %s · %d jugadores máx · online=%v\n",
+		s.Difficulty, s.Gamemode, s.MaxPlayers, s.OnlineMode)
 	if m.detail.Metrics != nil {
 		mtr := m.detail.Metrics
-		b.WriteString(fmt.Sprintf("  métricas    CPU %.1f%% · RAM %.0f/%.0f MB · mundo %.1f MB\n",
-			mtr.CPUPercent, mtr.MemUsedMB, mtr.MemLimitMB, mtr.WorldMB))
+		fmt.Fprintf(&b, "  métricas    CPU %.1f%% · RAM %.0f/%.0f MB · mundo %.1f MB\n",
+			mtr.CPUPercent, mtr.MemUsedMB, mtr.MemLimitMB, mtr.WorldMB)
 	}
-	b.WriteString(fmt.Sprintf("  backups     %d (b abrir) · whitelist=%v · ops %d\n",
-		len(m.detail.Backups), s.WhitelistEnabled, len(s.Ops)))
+	fmt.Fprintf(&b, "  backups     %d (b abrir) · whitelist=%v · ops %d\n",
+		len(m.detail.Backups), s.WhitelistEnabled, len(s.Ops))
 	if s.Motd != "" {
-		b.WriteString(fmt.Sprintf("  motd        %s\n", truncate(s.Motd, w-14)))
+		fmt.Fprintf(&b, "  motd        %s\n", truncate(s.Motd, w-14))
 	}
 	return b.String()
 }
@@ -184,8 +184,8 @@ func (m Model) backupsView(w, h int) string {
 		if i >= h-2 {
 			break
 		}
-		b.WriteString(fmt.Sprintf("  %-25s %10s  %s",
-			truncate(bk.Name, 25), humanBytes(bk.Size), shortSha(bk.Sha256)))
+		fmt.Fprintf(&b, "  %-25s %10s  %s",
+			truncate(bk.Name, 25), humanBytes(bk.Size), shortSha(bk.Sha256))
 		if i < len(m.backups)-1 {
 			b.WriteString("\n")
 		}
@@ -226,7 +226,7 @@ func (m Model) helpView(w int) string {
 	var b strings.Builder
 	b.WriteString(styleTitle.Render("Teclas") + "\n")
 	for _, row := range help {
-		b.WriteString(fmt.Sprintf("  %-16s %s\n", styleKey.Render(row[0]), row[1]))
+		fmt.Fprintf(&b, "  %-16s %s\n", styleKey.Render(row[0]), row[1])
 	}
 	return b.String()
 }

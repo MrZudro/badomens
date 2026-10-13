@@ -11,7 +11,6 @@ var (
 	colOK     = lipgloss.Color("#22c55e")
 	colWarn   = lipgloss.Color("#f59e0b")
 	colBad    = lipgloss.Color("#ef4444")
-	colPanel  = lipgloss.AdaptiveColor{Light: "#f3f4f6", Dark: "#21242e"}
 )
 
 var (
@@ -28,7 +27,6 @@ var (
 	styleWarn     = lipgloss.NewStyle().Foreground(colWarn)
 	styleBad      = lipgloss.NewStyle().Foreground(colBad)
 	styleGood     = lipgloss.NewStyle().Foreground(colOK)
-	stylePanel    = lipgloss.NewStyle().Background(colPanel).Foreground(colText)
 )
 
 // stateStyle colorea el estado según su significado.

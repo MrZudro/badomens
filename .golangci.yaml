@@ -27,6 +27,12 @@ linters:
       excludes:
         # G115: conversión de enteros en mensajes y conteos; revisado a mano.
         - G115
+        # G301/G302/G306: permisos de directorios y archivos de servidor que el
+        # contenedor Docker (root) debe poder leer/escribir (0o755/0o644
+        # intencionados, revisados).
+        - G301
+        - G302
+        - G306
   exclusions:
     rules:
       - linters: [errcheck]

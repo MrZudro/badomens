@@ -100,8 +100,10 @@ func (f *fakeBackend) record(op string) error {
 }
 
 func rowSpec(slug string) *instance.Spec {
-	return &instance.Spec{Slug: slug, Name: "N " + slug, Engine: "paper", Version: "1.21.6",
-		Memory: "4G", Port: 25565, Difficulty: "normal", Gamemode: "survival", MaxPlayers: 20}
+	return &instance.Spec{
+		Slug: slug, Name: "N " + slug, Engine: "paper", Version: "1.21.6",
+		Memory: "4G", Port: 25565, Difficulty: "normal", Gamemode: "survival", MaxPlayers: 20,
+	}
 }
 
 func sampleRows() []Row {
@@ -236,7 +238,7 @@ func TestNoDespachaSiOcupada(t *testing.T) {
 		t.Fatal("la primera 's' debe despachar start")
 	}
 	before := len(f.calls)
-	m, cmd = upd(m, tecla("s"))
+	_, cmd = upd(m, tecla("s"))
 	if cmd != nil {
 		t.Fatal("con la instancia ocupada no se debe despachar otra operación")
 	}
@@ -303,7 +305,7 @@ func TestConsolaEnviaComando(t *testing.T) {
 	m := nuevoTestModel(t, f)
 	m, cmd := upd(m, tea.KeyMsg{Type: tea.KeyEnter})
 	m, _ = upd(m, ejecuta(t, cmd).(detailMsg))
-	m, cmd = upd(m, tecla("e"))
+	m, _ = upd(m, tecla("e"))
 	if m.mode != modeConsole {
 		t.Fatalf("con 'e' quiero modo consola, tengo %d", m.mode)
 	}

@@ -102,7 +102,8 @@ type Runtime struct {
 
 // New crea un Runtime.
 func New(cfg *config.Config) *Runtime {
-	return &Runtime{Cfg: cfg,
+	return &Runtime{
+		Cfg:   cfg,
 		types: map[string]string{"paper": "PAPER", "fabric": "FABRIC", "forge": "FORGE", "neoforge": "NEOFORGE", "vanilla": "VANILLA"},
 		dirs:  map[string]string{"paper": "plugins", "fabric": "mods", "forge": "mods", "neoforge": "mods", "vanilla": ""},
 	}
@@ -298,7 +299,7 @@ func (r *Runtime) copyIcon(ctx context.Context, spec *instance.Spec, dir string)
 	if err != nil {
 		return nil // icono no disponible: se omite con aviso del llamador
 	}
-	return os.WriteFile(filepath.Join(dir, "server", "icon.png"), raw, 0o644)
+	return os.WriteFile(filepath.Join(dir, "server", "icon.png"), raw, 0o644) // #nosec G703 -- ruta fija (icon.png) dentro de la instancia (slug validado)
 }
 
 func iconContainer(spec *instance.Spec) string {

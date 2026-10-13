@@ -40,7 +40,7 @@ func TestCreateListRestore(t *testing.T) {
 	if err := b.Restore(slug, "one"); err != nil {
 		t.Fatalf("restore: %v", err)
 	}
-	raw, err := os.ReadFile(filepath.Join(server, "level.dat"))
+	raw, err := os.ReadFile(filepath.Join(server, "level.dat")) // #nosec G304 -- fixture de test en t.TempDir()
 	if err != nil || string(raw) != "v1" {
 		t.Fatalf("tras restaurar level.dat = %q, %v (quiero v1)", raw, err)
 	}

@@ -321,7 +321,7 @@ func resultPhase(name string) []result.Phase {
 
 func atoiPrompt(s string) int {
 	n := 0
-	fmt.Sscanf(s, "%d", &n)
+	_, _ = fmt.Sscanf(s, "%d", &n)
 	return n
 }
 

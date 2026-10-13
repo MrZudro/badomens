@@ -48,11 +48,11 @@ func (i *Installer) Add(ctx context.Context, spec *instance.Spec, source string)
 	if name == "." || name == string(os.PathSeparator) || name == "" {
 		return "", errx.Usage("ruta de plugin inválida", "indica un archivo .jar o una URL de descarga")
 	}
-	raw, err := os.ReadFile(source)
+	raw, err := os.ReadFile(source) // #nosec G304 -- ruta local de plugin indicada por el usuario (add)
 	if err != nil {
 		return "", errx.NotFound("no se pudo leer el archivo "+source, "revisa la ruta")
 	}
-	if err := os.WriteFile(filepath.Join(targetDir, name), raw, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(targetDir, name), raw, 0o644); err != nil { // #nosec G703 -- name viene de filepath.Base(source); sin separadores
 		return "", err
 	}
 	return name, nil
@@ -157,7 +157,7 @@ func (i *Installer) download(ctx context.Context, source, targetDir string) (str
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(filepath.Join(targetDir, name), raw, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(targetDir, name), raw, 0o644); err != nil { // #nosec G703 -- name saneado desde la URL (base + sin separadores)
 		return "", err
 	}
 	return name, nil

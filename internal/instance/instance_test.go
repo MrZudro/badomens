@@ -42,8 +42,10 @@ func TestValidate(t *testing.T) {
 func TestManagerRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	m := New(dir, []string{"paper", "vanilla"})
-	s := &Spec{Slug: "test", Engine: "paper", Version: "1.21.6", Memory: "4G", Port: 25565,
-		Difficulty: "normal", Gamemode: "survival", MaxPlayers: 20, Whitelist: []string{"ana"}}
+	s := &Spec{
+		Slug: "test", Engine: "paper", Version: "1.21.6", Memory: "4G", Port: 25565,
+		Difficulty: "normal", Gamemode: "survival", MaxPlayers: 20, Whitelist: []string{"ana"},
+	}
 	if err := m.Save(s); err != nil {
 		t.Fatalf("save: %v", err)
 	}

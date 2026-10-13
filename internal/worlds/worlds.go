@@ -121,7 +121,7 @@ func (m *Manager) ImportFromZip(archive, name string) error {
 
 // ZipDir crea un zip recursivo de src (con src como raíz) e incluye manifest.
 func ZipDir(src, out string, manifest map[string]string) error {
-	f, err := os.Create(out)
+	f, err := os.Create(out) // #nosec G304 -- destino controlado dentro del data dir (backups / exports)
 	if err != nil {
 		return err
 	}
@@ -167,24 +167,24 @@ func Unzip(archive, dst string) error {
 		}
 		target := filepath.Join(dst, rel)
 		if f.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, 0o755); err != nil {
+			if err := os.MkdirAll(target, 0o755); err != nil { // #nosec G301 -- el contenedor (root) debe poder leer los mundos extraídos
 				return err
 			}
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil { // #nosec G301 -- idem
 			return err
 		}
 		rf, err := f.Open()
 		if err != nil {
 			return err
 		}
-		w, cerr := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+		w, cerr := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644) // #nosec G304 -- ruta validada contra zip-slip y dentro del data dir
 		if cerr != nil {
 			_ = rf.Close()
 			return cerr
 		}
-		_, cerr = io.Copy(w, rf)
+		_, cerr = io.Copy(w, rf) // #nosec G110 -- la importación de mundos la controla el operador (archivos propios)
 		_ = rf.Close()
 		_ = w.Close()
 		if cerr != nil {
@@ -196,7 +196,7 @@ func Unzip(archive, dst string) error {
 
 // Sha256 de un archivo.
 func Sha256(path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- lectura de archivos propios dentro del data dir (backups, mundos)
 	if err != nil {
 		return "", err
 	}
@@ -209,7 +209,7 @@ func Sha256(path string) (string, error) {
 }
 
 func writeZipFile(zw *zip.Writer, name, path string) error {
-	r, err := os.Open(path)
+	r, err := os.Open(path) // #nosec G304 -- lectura de archivos del mundo del data dir
 	if err != nil {
 		return err
 	}
@@ -238,14 +238,14 @@ func copyDir(src, dst string) error {
 		}
 		target := filepath.Join(dst, rel)
 		if info.IsDir() {
-			return os.MkdirAll(target, 0o755)
+			return os.MkdirAll(target, 0o755) // #nosec G301 -- el contenedor (root) debe poder leer los mundos copiados
 		}
-		r, err := os.Open(path)
+		r, err := os.Open(path) // #nosec G304,G122 -- lectura de archivos del mundo del data dir (controlado por el operador)
 		if err != nil {
 			return err
 		}
 		defer func() { _ = r.Close() }()
-		w, err := os.Create(target)
+		w, err := os.Create(target) // #nosec G304 -- ruta con rel normalizado dentro del data dir
 		if err != nil {
 			return err
 		}

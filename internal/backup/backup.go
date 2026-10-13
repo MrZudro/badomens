@@ -82,7 +82,7 @@ func (b *Backend) List(slug string) ([]Info, error) {
 		name := strings.TrimSuffix(e.Name(), ".zip")
 		path := filepath.Join(dir, e.Name())
 		info := Info{Name: name, Path: path, Size: fileSize(path)}
-		if sha, err := os.ReadFile(path + ".sha256"); err == nil {
+		if sha, err := os.ReadFile(path + ".sha256"); err == nil { // #nosec G304 -- path construido por List() dentro del data dir
 			info.Sha256 = strings.TrimSpace(string(sha))
 		}
 		out = append(out, info)

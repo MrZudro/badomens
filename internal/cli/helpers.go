@@ -90,7 +90,7 @@ func (e *Env) prompt(label, def string) string {
 	if def != "" {
 		suffix = " [" + def + "]"
 	}
-	fmt.Fprintf(e.stderr, "%s%s: ", label, suffix)
+	_, _ = fmt.Fprintf(e.stderr, "%s%s: ", label, suffix)
 	line, _ := reader.ReadString('\n')
 	line = strings.TrimSpace(line)
 	if line == "" {

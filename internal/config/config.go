@@ -90,7 +90,7 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	raw, rerr := os.ReadFile(path)
+	raw, rerr := os.ReadFile(path) // #nosec G304 -- la ruta del config la elige el usuario (config.Path)
 	switch {
 	case rerr == nil:
 		if err := yaml.Unmarshal(raw, cfg); err != nil {

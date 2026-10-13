@@ -6,6 +6,7 @@ package execx
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os/exec"
 	"strings"
 
@@ -22,7 +23,7 @@ type Result struct {
 // Run ejecuta name con args y devuelve el resultado. Si el binario no existe,
 // devuelve un error de dependencia ausente.
 func Run(ctx context.Context, name string, args ...string) (Result, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, args...) // #nosec G204 -- ejecutar procesos externos es el propósito de execx (sin shell, argumentos separados)
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errb
@@ -52,9 +53,12 @@ func LookPath(name string) bool {
 }
 
 func asExitError(err error, target **exec.ExitError) bool {
-	e, ok := err.(*exec.ExitError)
-	if ok {
-		*target = e
+	// errorlint/govet: errors.As en vez de un type assert para no fallar con
+	// errores envueltos (errx.Wrap); el puntero a *exec.ExitError es &ee.
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) {
+		return false
 	}
-	return ok
+	*target = ee
+	return true
 }

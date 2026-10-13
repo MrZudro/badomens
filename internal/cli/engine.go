@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/MrZudro/badomens/internal/errx"
@@ -149,11 +148,4 @@ func newEngineUseCmd(e *Env) *cobra.Command {
 	cmd.Flags().StringVar(&version, "version", "", "versión de Minecraft (vacía = última)")
 	cmd.Flags().BoolVar(&noApply, "no-apply", false, "solo escribir la configuración, no aplicar")
 	return cmd
-}
-
-// sortedEngines para orden estable.
-func sortedEngineNames() []string {
-	names := engineNames()
-	sort.Strings(names)
-	return names
 }
