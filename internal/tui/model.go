@@ -11,6 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/MrZudro/badomens/internal/backup"
+	"github.com/MrZudro/badomens/internal/doctor"
+	"github.com/MrZudro/badomens/internal/provision"
 )
 
 // modos de la TUI correspondientes a una pantalla.
@@ -23,6 +25,7 @@ const (
 	modeConsole
 	modeBackups
 	modeHelp
+	modeCreate
 )
 
 // mensajes internos del programa bubbletea.
@@ -54,6 +57,14 @@ type healthMsg struct {
 	health map[string]string
 	err    error
 }
+type requirementsMsg struct {
+	checks []doctor.Check
+	err    error
+}
+type createdMsg struct {
+	slug string
+	err  error
+}
 type refreshTickMsg struct{}
 
 // Model es el modelo de la vista: guarda estado, responde a mensajes y pinta.
@@ -73,6 +84,12 @@ type Model struct {
 	maxInstances int
 	health       map[string]string
 	querying     bool
+
+	requirements  []doctor.Check
+	noPreflight   bool
+	pendingSelect string
+	creating      bool
+	create        *createForm
 
 	loading bool
 	busy    map[string]string // slug -> operación en curso
@@ -115,9 +132,14 @@ func NewModel(backend Backend) (Model, error) {
 	}, nil
 }
 
-// Init arranca con el primer refresco de la lista.
+// Init arranca con el primer refresco de la lista y, si procede, el preflight
+// de requisitos.
 func (m Model) Init() tea.Cmd {
-	return refreshCmd(m.ctx, m.backend)
+	cmds := []tea.Cmd{refreshCmd(m.ctx, m.backend)}
+	if !m.noPreflight {
+		cmds = append(cmds, requirementsCmd(m.ctx, m.backend))
+	}
+	return tea.Batch(cmds...)
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +149,20 @@ func refreshCmd(ctx context.Context, b Backend) tea.Cmd {
 	return func() tea.Msg {
 		rows, running, err := b.ListRows(ctx)
 		return rowsMsg{rows: rows, running: running, err: err}
+	}
+}
+
+func requirementsCmd(ctx context.Context, b Backend) tea.Cmd {
+	return func() tea.Msg {
+		checks, err := b.Preflight(ctx)
+		return requirementsMsg{checks: checks, err: err}
+	}
+}
+
+func createCmd(ctx context.Context, b Backend, req provision.Request) tea.Cmd {
+	return func() tea.Msg {
+		slug, err := b.Create(ctx, req)
+		return createdMsg{slug: slug, err: err}
 	}
 }
 
@@ -238,6 +274,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.nextRefresh()
 
+	case requirementsMsg:
+		if msg.err != nil {
+			m.errText = "requisitos: " + msg.err.Error()
+		} else {
+			m.requirements = msg.checks
+		}
+		return m, nil
+
+	case createdMsg:
+		return m.onCreated(msg)
+
 	case refreshTickMsg:
 		return m.onRefreshTick()
 	}
@@ -282,6 +329,15 @@ func (m Model) onRows(msg rowsMsg) (tea.Model, tea.Cmd) {
 				break
 			}
 		}
+	}
+	if m.pendingSelect != "" {
+		for i, r := range m.rows {
+			if r.Slug == m.pendingSelect {
+				m.cursor = i
+				break
+			}
+		}
+		m.pendingSelect = ""
 	}
 	if msg.err != nil {
 		m.errText = "lista: " + msg.err.Error()
@@ -357,6 +413,25 @@ func (m Model) onOpDone(msg opDoneMsg) (tea.Model, tea.Cmd) {
 	return m, refreshCmd(m.ctx, m.backend)
 }
 
+// onCreated cierra el asistente: con éxito vuelve a la lista y selecciona la
+// instancia nueva; con error mantiene el formulario para corregir.
+func (m Model) onCreated(msg createdMsg) (tea.Model, tea.Cmd) {
+	m.creating = false
+	if msg.err != nil {
+		if m.create != nil {
+			m.create.err = msg.err.Error()
+		}
+		m.errText = ""
+		return m, nil
+	}
+	m.mode = modeList
+	m.create = nil
+	m.errText = ""
+	m.status = "instancia " + msg.slug + " creada"
+	m.pendingSelect = msg.slug
+	return m, refreshCmd(m.ctx, m.backend)
+}
+
 // ---------------------------------------------------------------------------
 // teclado
 
@@ -382,6 +457,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleConsoleKey(msg)
 	case modeBackups:
 		return m.handleBackupsKey(msg)
+	case modeCreate:
+		return m.handleCreateKey(msg)
 	}
 	return m, nil
 }
@@ -450,8 +527,55 @@ func (m Model) handleListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "?":
 		m.mode = modeHelp
 		m.status = ""
+	case "N":
+		return m.openCreate()
+	case "R":
+		if m.noPreflight {
+			return m, nil
+		}
+		m.status = "comprobando requisitos…"
+		return m, requirementsCmd(m.ctx, m.backend)
 	}
 	return m, nil
+}
+
+// handleCreateKey delega en el formulario de creación.
+func (m Model) handleCreateKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.create == nil {
+		m.mode = modeList
+		return m, nil
+	}
+	if msg.String() == "esc" {
+		m.mode = modeList
+		m.create = nil
+		m.status = ""
+		m.errText = ""
+		return m, nil
+	}
+	if m.creating {
+		return m, nil // ya hay una creación en curso
+	}
+	cmd, submit := m.create.update(msg)
+	if !submit {
+		return m, cmd
+	}
+	req, ok := m.create.request()
+	if !ok {
+		return m, nil
+	}
+	m.creating = true
+	m.status = "creando instancia…"
+	m.errText = ""
+	return m, tea.Batch(cmd, createCmd(m.ctx, m.backend, req))
+}
+
+// openCreate abre el asistente de creación de instancias.
+func (m Model) openCreate() (tea.Model, tea.Cmd) {
+	m.mode = modeCreate
+	m.create = newCreateForm(m.backend.Engines(), m.backend.DefaultMemory())
+	m.status = ""
+	m.errText = ""
+	return m, textinput.Blink
 }
 
 func (m Model) handleDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

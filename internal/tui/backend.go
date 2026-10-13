@@ -10,9 +10,11 @@ import (
 
 	"github.com/MrZudro/badomens/internal/backup"
 	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/doctor"
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/provision"
 	"github.com/MrZudro/badomens/internal/runtime"
 	"github.com/MrZudro/badomens/internal/tps"
 )
@@ -32,6 +34,14 @@ type Backend interface {
 	Logs(ctx context.Context, slug string, lines int) (string, error)
 	// Backups lista los backups de una instancia.
 	Backups(ctx context.Context, slug string) ([]backup.Info, error)
+	// Preflight comprueba los requisitos para operar (Docker, red privada…).
+	Preflight(ctx context.Context) ([]doctor.Check, error)
+	// Engines devuelve el catálogo de motores para el asistente de creación.
+	Engines() []engines.Engine
+	// DefaultMemory devuelve la RAM por defecto configurada.
+	DefaultMemory() string
+	// Create crea una instancia nueva y devuelve su slug.
+	Create(ctx context.Context, req provision.Request) (string, error)
 	Start(ctx context.Context, slug string, force bool) error
 	Stop(ctx context.Context, slug string) error
 	Close(ctx context.Context, slug string) error
@@ -177,6 +187,34 @@ func (b *realBackend) Logs(ctx context.Context, slug string, lines int) (string,
 
 func (b *realBackend) Backups(ctx context.Context, slug string) ([]backup.Info, error) {
 	return b.be.List(slug)
+}
+
+// Preflight comprueba los requisitos para operar (directorios, Docker, red).
+func (b *realBackend) Preflight(ctx context.Context) ([]doctor.Check, error) {
+	return doctor.Preflight(ctx, b.cfg).Checks, nil
+}
+
+// Engines devuelve el catálogo de motores en orden estable.
+func (b *realBackend) Engines() []engines.Engine { return engines.Order }
+
+// DefaultMemory devuelve la RAM por defecto de la configuración.
+func (b *realBackend) DefaultMemory() string { return b.cfg.DefaultMemory }
+
+// Create crea una instancia nueva con el núcleo compartido (provision).
+func (b *realBackend) Create(ctx context.Context, req provision.Request) (string, error) {
+	res, err := provision.Create(ctx, provision.Deps{
+		Cfg:      b.cfg,
+		Manager:  b.m,
+		Resolver: engines.NewRegistry(engines.DefaultClient()),
+		Runtime:  b.rt,
+	}, req)
+	if err != nil {
+		if res != nil && res.Spec != nil {
+			return res.Spec.Slug, err
+		}
+		return "", err
+	}
+	return res.Spec.Slug, nil
 }
 
 func (b *realBackend) Start(ctx context.Context, slug string, force bool) error {

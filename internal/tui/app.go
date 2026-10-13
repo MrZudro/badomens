@@ -8,10 +8,16 @@ import (
 	"github.com/MrZudro/badomens/internal/config"
 )
 
+// Options controla la apertura del panel.
+type Options struct {
+	// Preflight comprueba y muestra los requisitos (Docker, red) al abrir.
+	Preflight bool
+}
+
 // Run lanza el panel interactivo en la terminal actual (pantalla alternativa)
 // y devuelve nil al salir. Requiere una terminal; el comando CLI lo comprueba
 // antes con isTTY.
-func Run(cfg *config.Config) error {
+func Run(cfg *config.Config, opts Options) error {
 	b, err := newBackend(cfg)
 	if err != nil {
 		return err
@@ -20,6 +26,7 @@ func Run(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+	model.noPreflight = !opts.Preflight
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	_, err = p.Run()
 	return err

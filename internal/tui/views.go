@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/MrZudro/badomens/internal/doctor"
 	"github.com/MrZudro/badomens/internal/version"
 )
 
@@ -21,10 +22,20 @@ func (m Model) View() string {
 		h = 24
 	}
 	header := m.headerView(w)
-	body := m.bodyView(w, bodyHeight(h))
+	banner := m.requirementsView(w)
+	bh := bodyHeight(h)
+	if banner != "" {
+		bh--
+	}
+	body := m.bodyView(w, bh)
 	status := m.statusLine(w)
 	keys := m.keysView(w)
-	return lipgloss.JoinVertical(lipgloss.Left, header, body, status, keys)
+	parts := []string{header}
+	if banner != "" {
+		parts = append(parts, banner)
+	}
+	parts = append(parts, body, status, keys)
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
 }
 
 func (m Model) headerView(w int) string {
@@ -50,9 +61,36 @@ func (m Model) bodyView(w, h int) string {
 		return m.backupsView(w, h)
 	case modeHelp:
 		return m.helpView(w)
+	case modeCreate:
+		return m.createView(w)
 	default:
 		return m.listView(w, h)
 	}
+}
+
+// requirementsView resume en una línea los requisitos que fallan (aviso o
+// error). Devuelve cadena vacía si todo está correcto o no hay preflight.
+func (m Model) requirementsView(w int) string {
+	var issues []string
+	for _, c := range m.requirements {
+		if c.Status == doctor.StatusOK {
+			continue
+		}
+		issues = append(issues, c.Name+": "+c.Message)
+	}
+	if len(issues) == 0 {
+		return ""
+	}
+	text := fmt.Sprintf("⚠ Requisitos (%d) · %s  (R revisar)", len(issues), strings.Join(issues, " · "))
+	return styleWarn.Render(truncate(text, w))
+}
+
+// createView delega en el formulario de creación.
+func (m Model) createView(w int) string {
+	if m.create == nil {
+		return styleMuted.Render("  cargando asistente…")
+	}
+	return m.create.view(w)
 }
 
 // statusLine muestra el último error (rojo) o estado (tenue).
@@ -73,6 +111,7 @@ func (m Model) listView(w, h int) string {
 	if len(m.rows) == 0 {
 		msg := "  Sin instancias registradas aún.\n" +
 			"  Crea la primera con:  badomens setup\n" +
+			"  o pulsa N aquí dentro para usar el asistente.\n" +
 			"  El resto de comandos del CLI funcionan igual (badomens --help)."
 		return styleMuted.Render(msg) + "\n"
 	}
@@ -210,6 +249,7 @@ func (m Model) helpView(w int) string {
 	help := [][2]string{
 		{"↑/↓ j/k", "seleccionar instancia"},
 		{"enter", "abrir detalle"},
+		{"N", "crear una instancia nueva (asistente)"},
 		{"s", "start · arrancar (respeta el máximo de paralelas)"},
 		{"p", "stop · detener rápido"},
 		{"c", "close · apagado con cuidado (guarda el mundo)"},
@@ -219,6 +259,7 @@ func (m Model) helpView(w int) string {
 		{"n", "crear backup (en detalle)"},
 		{"e", "consola · enviar comando al servidor (en detalle)"},
 		{"d", "salud · doctor tps de las instancias corriendo"},
+		{"R", "requisitos · volver a comprobar el entorno"},
 		{"?", "esta ayuda"},
 		{"esc", "volver a la lista"},
 		{"q / ctrl+c", "salir"},
@@ -228,17 +269,24 @@ func (m Model) helpView(w int) string {
 	for _, row := range help {
 		fmt.Fprintf(&b, "  %-16s %s\n", styleKey.Render(row[0]), row[1])
 	}
+	if len(m.requirements) > 0 {
+		b.WriteString("\n" + styleTitle.Render("Requisitos") + "\n")
+		for _, c := range m.requirements {
+			fmt.Fprintf(&b, "  [%s] %s: %s\n", c.Status, c.Name, c.Message)
+		}
+	}
 	return b.String()
 }
 
 // keysView resume las teclas de la pantalla actual.
 func (m Model) keysView(w int) string {
 	keys := map[mode]string{
-		modeList:    "↑/↓ j/k sel · enter detalle · s/p/c/r ops · l logs · b bkps · d salud · ? · q",
+		modeList:    "↑/↓ j/k sel · enter detalle · N crear · s/p/c/r ops · l logs · b bkps · d salud · ? · q",
 		modeDetail:  "esc volver · s/p/c/r ops · e consola · l logs · b bkps · n backup · ? · q",
 		modeLogs:    "↑/↓ scroll · r recargar · esc atrás · q salir",
 		modeConsole: "enter enviar · esc cancelar",
 		modeBackups: "c crear · p podar(5) · esc atrás · q salir",
+		modeCreate:  "↑/↓ tab mover · ←/→ cambiar · enter siguiente · ctrl+s crear · esc cancelar",
 		modeHelp:    "esc volver",
 	}
 	hint, _ := keys[m.mode]

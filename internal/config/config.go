@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -19,6 +20,7 @@ const (
 	EnvImage        = "BADOMENS_IMAGE"
 	EnvMaxParallel  = "BADOMENS_MAX_PARALLEL"
 	EnvMaxInstances = "BADOMENS_MAX_INSTANCES"
+	EnvUpdateCheck  = "BADOMENS_UPDATE_CHECK"
 )
 
 // Tailscale agrupa la configuración de red privada.
@@ -45,6 +47,9 @@ type Config struct {
 	Tailscale Tailscale `yaml:"tailscale"`
 	// Repo es el slug owner/repo usado por update --check.
 	Repo string `yaml:"repo"`
+	// UpdateCheck comprueba si hay una versión nueva al abrir la TUI
+	// (interactivo) y, si la hay, pregunta si actualizar.
+	UpdateCheck bool `yaml:"update_check"`
 }
 
 // Default devuelve la configuración con valores por defecto.
@@ -56,6 +61,7 @@ func Default() *Config {
 		DefaultMemory: "4G",
 		Tailscale:     Tailscale{Enabled: true},
 		Repo:          "MrZudro/badomens",
+		UpdateCheck:   true,
 	}
 }
 
@@ -135,6 +141,14 @@ func applyEnv(c *Config) {
 	if v := os.Getenv(EnvMaxInstances); v != "" {
 		if n, err := parsePositiveInt(v); err == nil {
 			c.MaxInstances = n
+		}
+	}
+	if v := os.Getenv(EnvUpdateCheck); v != "" {
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "0", "no", "false", "off":
+			c.UpdateCheck = false
+		default:
+			c.UpdateCheck = true
 		}
 	}
 }

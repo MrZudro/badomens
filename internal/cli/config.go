@@ -40,6 +40,7 @@ func newConfigCmd(e *Env) *cobra.Command {
 				"default_memory": cfg.DefaultMemory,
 				"tailscale":      cfg.Tailscale,
 				"repo":           cfg.Repo,
+				"update_check":   cfg.UpdateCheck,
 			})
 			human := "Configuración (" + path + ")\n" +
 				"  data_dir: " + cfg.DataDir + "\n" +
@@ -48,7 +49,8 @@ func newConfigCmd(e *Env) *cobra.Command {
 				"  max_parallel: " + itoa(cfg.MaxParallel) + "\n" +
 				"  default_memory: " + cfg.DefaultMemory + "\n" +
 				"  tailscale: " + boolText(cfg.Tailscale.Enabled) + "\n" +
-				"  repo: " + cfg.Repo
+				"  repo: " + cfg.Repo + "\n" +
+				"  update_check: " + boolText(cfg.UpdateCheck)
 			return e.finish(res, human)
 		},
 	}

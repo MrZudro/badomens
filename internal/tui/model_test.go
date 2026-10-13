@@ -9,7 +9,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/MrZudro/badomens/internal/backup"
+	"github.com/MrZudro/badomens/internal/doctor"
+	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/provision"
 )
 
 // fakeBackend implementa Backend sin Docker para los tests del modelo.
@@ -30,6 +33,10 @@ type fakeBackend struct {
 	backups []backup.Info
 
 	health map[string]string
+
+	// creación
+	preflight []doctor.Check
+	createErr error
 
 	ops   map[string]error // slug -> error devuelto por cualquier operación
 	calls []string         // registro de operaciones
@@ -67,6 +74,24 @@ func (f *fakeBackend) Logs(context.Context, string, int) (string, error) { retur
 
 func (f *fakeBackend) Backups(context.Context, string) ([]backup.Info, error) {
 	return f.backups, nil
+}
+
+func (f *fakeBackend) Preflight(context.Context) ([]doctor.Check, error) {
+	f.calls = append(f.calls, "preflight")
+	return f.preflight, nil
+}
+
+func (f *fakeBackend) Engines() []engines.Engine { return engines.Order }
+
+func (f *fakeBackend) DefaultMemory() string { return "4G" }
+
+func (f *fakeBackend) Create(_ context.Context, req provision.Request) (string, error) {
+	f.calls = append(f.calls, "create:"+req.Name)
+	if f.createErr != nil {
+		return "", f.createErr
+	}
+	slug, _ := instance.NormalizeSlug(req.Name)
+	return slug, nil
 }
 
 func (f *fakeBackend) Start(_ context.Context, slug string, _ bool) error {
@@ -489,5 +514,133 @@ func TestListaConservaSeleccionTrasRefresco(t *testing.T) {
 	m, _ = upd(m, rowsMsg{rows: rows, running: 2})
 	if got := m.rows[m.cursor].Slug; got != "gamma" {
 		t.Fatalf("tras el refresco quiero seguir en gamma, tengo %s", got)
+	}
+}
+
+func containsCall(calls []string, want string) bool {
+	for _, c := range calls {
+		if c == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestPreflightMuestraBanner(t *testing.T) {
+	f := newFake()
+	f.preflight = []doctor.Check{{Name: "Docker daemon", Status: doctor.StatusError, Message: "no responde"}}
+	m := nuevoTestModel(t, f)
+	m, _ = upd(m, requirementsMsg{checks: f.preflight})
+	v := m.View()
+	if !strings.Contains(v, "Requisitos") {
+		t.Fatalf("el banner de requisitos debe aparecer:\n%s", v)
+	}
+	if !strings.Contains(v, "Docker daemon") {
+		t.Fatalf("el banner debe citar el chequeo que falla:\n%s", v)
+	}
+}
+
+func TestRequisitosReejecutaR(t *testing.T) {
+	f := newFake()
+	m := nuevoTestModel(t, f)
+	_, cmd := upd(m, tecla("R"))
+	if cmd == nil {
+		t.Fatal("'R' debe lanzar el preflight")
+	}
+	_ = ejecuta(t, cmd).(requirementsMsg)
+	if !containsCall(f.calls, "preflight") {
+		t.Fatalf("quiero preflight registrado, tengo %v", f.calls)
+	}
+}
+
+func TestCrearInstanciaDesdeLaLista(t *testing.T) {
+	f := newFake()
+	m := nuevoTestModel(t, f)
+	m, cmd := upd(m, tecla("N"))
+	if cmd == nil {
+		t.Fatal("'N' debe abrir el asistente")
+	}
+	if m.mode != modeCreate {
+		t.Fatalf("quiero modo create, tengo %d", m.mode)
+	}
+	if !strings.Contains(m.View(), "Nueva instancia") {
+		t.Fatalf("el formulario debe renderizarse:\n%s", m.View())
+	}
+
+	// nombre "alpha"
+	for _, r := range "alpha" {
+		m, _ = upd(m, tecla(string(r)))
+	}
+	m, cmd = upd(m, tea.KeyMsg{Type: tea.KeyCtrlS})
+	if cmd == nil {
+		t.Fatal("ctrl+s debe enviar el formulario")
+	}
+	msg := ejecuta(t, cmd).(createdMsg)
+	if msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	m, _ = upd(m, msg)
+	if m.mode != modeList {
+		t.Fatalf("tras crear quiero volver a la lista, tengo %d", m.mode)
+	}
+	if !strings.Contains(m.status, "alpha") {
+		t.Fatalf("quiero el slug en el estado, tengo %q", m.status)
+	}
+	if !containsCall(f.calls, "create:alpha") {
+		t.Fatalf("quiero la creación registrada, tengo %v", f.calls)
+	}
+
+	// el siguiente refresco selecciona la instancia nueva (orden alfabético)
+	rows := append(sampleRows(), Row{Slug: "alpha", Name: "alpha", Engine: "paper", Version: "1.21.6", Memory: "4G", Port: 25568})
+	m, _ = upd(m, rowsMsg{rows: rows, running: 1})
+	if got := m.rows[m.cursor].Slug; got != "alpha" {
+		t.Fatalf("selección tras crear: quiero alpha, tengo %s", got)
+	}
+}
+
+func TestCrearSinNombreFalla(t *testing.T) {
+	f := newFake()
+	m := nuevoTestModel(t, f)
+	m, _ = upd(m, tecla("N"))
+	m, cmd := upd(m, tea.KeyMsg{Type: tea.KeyCtrlS})
+	if cmd != nil {
+		t.Fatal("sin nombre no debe enviarse nada")
+	}
+	if m.mode != modeCreate {
+		t.Fatalf("debo quedarme en el asistente, tengo %d", m.mode)
+	}
+	if !strings.Contains(m.View(), "nombre es obligatorio") {
+		t.Fatalf("quiero el error visible:\n%s", m.View())
+	}
+}
+
+func TestCrearEscapeCancela(t *testing.T) {
+	m := nuevoTestModel(t, newFake())
+	m, _ = upd(m, tecla("N"))
+	m, _ = upd(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m.mode != modeList {
+		t.Fatalf("con esc quiero volver a la lista, tengo %d", m.mode)
+	}
+	if m.create != nil {
+		t.Fatal("el formulario debe descartarse")
+	}
+}
+
+func TestCrearErrorDeBackendMantieneFormulario(t *testing.T) {
+	f := newFake()
+	f.createErr = errors.New("ya existe")
+	m := nuevoTestModel(t, f)
+	m, _ = upd(m, tecla("N"))
+	for _, r := range "demo" {
+		m, _ = upd(m, tecla(string(r)))
+	}
+	m, cmd := upd(m, tea.KeyMsg{Type: tea.KeyCtrlS})
+	msg := ejecuta(t, cmd).(createdMsg)
+	m, _ = upd(m, msg)
+	if m.mode != modeCreate {
+		t.Fatalf("con error de creación debo seguir en el asistente, tengo %d", m.mode)
+	}
+	if !strings.Contains(m.View(), "ya existe") {
+		t.Fatalf("quiero el error del backend visible:\n%s", m.View())
 	}
 }

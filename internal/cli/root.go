@@ -103,6 +103,7 @@ Cada comando imprime un documento JSON estable. Detalle: 'badomens <comando> --h
 		newAccessCmd(e),
 		newMetricsCmd(e),
 		newTUICmd(e),
+		newUninstallCmd(e),
 	)
 	return root
 }

@@ -39,64 +39,12 @@ func (r Report) Healthy() bool { return r.Errors == 0 }
 // Run ejecuta el diagnóstico.
 func Run(ctx context.Context, cfg *config.Config) Report {
 	var r Report
-	add := func(name, status, message string) {
-		r.Checks = append(r.Checks, Check{Name: name, Status: status, Message: message})
-		switch status {
-		case StatusOK:
-			r.OK++
-		case StatusWarn:
-			r.Warns++
-		case StatusError:
-			r.Errors++
-		}
-	}
+	add := r.adder()
 
-	// Directorio de configuración.
-	if dir, err := config.Dir(); err != nil {
-		add("Config dir", StatusError, "no se pudo resolver el directorio de configuración: "+err.Error())
-	} else {
-		add("Config dir", StatusOK, dir)
-	}
-
-	// Directorio de datos.
-	if dir, err := cfg.EnsureDataDir(); err != nil {
-		add("Data dir", StatusError, "no se puede escribir en "+cfg.DataDir+": "+err.Error())
-	} else {
-		add("Data dir", StatusOK, dir)
-	}
-
-	// Docker CLI y daemon.
-	if !execx.LookPath("docker") {
-		add("Docker CLI", StatusError, "no se encontró 'docker' en el PATH (https://docs.docker.com/get-docker/)")
-	} else {
-		add("Docker CLI", StatusOK, "docker presente")
-		res, err := execx.Run(ctx, "docker", "info", "--format", "{{.ServerVersion}}")
-		if err != nil {
-			add("Docker daemon", StatusError, "el daemon de Docker no responde: "+strings.TrimSpace(res.Stderr))
-		} else {
-			add("Docker daemon", StatusOK, "server "+res.Stdout)
-		}
-		// Docker Compose v2.
-		res, err = execx.Run(ctx, "docker", "compose", "version", "--short")
-		if err != nil {
-			add("Docker Compose", StatusWarn, "no se pudo ejecutar 'docker compose version'")
-		} else {
-			add("Docker Compose", StatusOK, res.Stdout)
-		}
-	}
-
-	// Red privada (Tailscale).
-	if cfg.Tailscale.Enabled {
-		if !execx.LookPath("tailscale") {
-			add("Tailscale", StatusWarn, "no se encontró 'tailscale'; las instancias no podrán publicarse en el tailnet")
-		} else if ip := tailscaleIPv4(ctx); ip != "" {
-			add("Tailscale IP", StatusOK, ip)
-		} else {
-			add("Tailscale IP", StatusWarn, "no se detectó una IPv4 del tailnet; ejecuta 'tailscale up'")
-		}
-	} else {
-		add("Tailscale", StatusOK, "desactivado en la configuración")
-	}
+	checkConfigDir(add)
+	checkDataDir(cfg, add)
+	checkDocker(ctx, add)
+	checkTailscale(ctx, cfg, add)
 
 	// Capacidad del host.
 	cap := host.Detect(ctx)
@@ -119,6 +67,86 @@ func Run(ctx context.Context, cfg *config.Config) Report {
 	}
 
 	return r
+}
+
+// Preflight ejecuta las comprobaciones mínimas para operar (directorios,
+// Docker/Compose y red privada) sin medir la capacidad ni planificar recursos.
+// Es lo que la TUI usa para avisar de sus requisitos al abrirse.
+func Preflight(ctx context.Context, cfg *config.Config) Report {
+	var r Report
+	add := r.adder()
+	checkConfigDir(add)
+	checkDataDir(cfg, add)
+	checkDocker(ctx, add)
+	checkTailscale(ctx, cfg, add)
+	return r
+}
+
+// adder devuelve la función que registra un chequeo en el reporte y actualiza
+// sus contadores.
+func (r *Report) adder() func(name, status, message string) {
+	return func(name, status, message string) {
+		r.Checks = append(r.Checks, Check{Name: name, Status: status, Message: message})
+		switch status {
+		case StatusOK:
+			r.OK++
+		case StatusWarn:
+			r.Warns++
+		case StatusError:
+			r.Errors++
+		}
+	}
+}
+
+func checkConfigDir(add func(name, status, message string)) {
+	if dir, err := config.Dir(); err != nil {
+		add("Config dir", StatusError, "no se pudo resolver el directorio de configuración: "+err.Error())
+	} else {
+		add("Config dir", StatusOK, dir)
+	}
+}
+
+func checkDataDir(cfg *config.Config, add func(name, status, message string)) {
+	if dir, err := cfg.EnsureDataDir(); err != nil {
+		add("Data dir", StatusError, "no se puede escribir en "+cfg.DataDir+": "+err.Error())
+	} else {
+		add("Data dir", StatusOK, dir)
+	}
+}
+
+func checkDocker(ctx context.Context, add func(name, status, message string)) {
+	if !execx.LookPath("docker") {
+		add("Docker CLI", StatusError, "no se encontró 'docker' en el PATH (https://docs.docker.com/get-docker/)")
+		return
+	}
+	add("Docker CLI", StatusOK, "docker presente")
+	res, err := execx.Run(ctx, "docker", "info", "--format", "{{.ServerVersion}}")
+	if err != nil {
+		add("Docker daemon", StatusError, "el daemon de Docker no responde: "+strings.TrimSpace(res.Stderr))
+	} else {
+		add("Docker daemon", StatusOK, "server "+res.Stdout)
+	}
+	// Docker Compose v2.
+	res, err = execx.Run(ctx, "docker", "compose", "version", "--short")
+	if err != nil {
+		add("Docker Compose", StatusWarn, "no se pudo ejecutar 'docker compose version'")
+	} else {
+		add("Docker Compose", StatusOK, res.Stdout)
+	}
+}
+
+func checkTailscale(ctx context.Context, cfg *config.Config, add func(name, status, message string)) {
+	if !cfg.Tailscale.Enabled {
+		add("Tailscale", StatusOK, "desactivado en la configuración")
+		return
+	}
+	if !execx.LookPath("tailscale") {
+		add("Tailscale", StatusWarn, "no se encontró 'tailscale'; las instancias no podrán publicarse en el tailnet")
+	} else if ip := tailscaleIPv4(ctx); ip != "" {
+		add("Tailscale IP", StatusOK, ip)
+	} else {
+		add("Tailscale IP", StatusWarn, "no se detectó una IPv4 del tailnet; ejecuta 'tailscale up'")
+	}
 }
 
 func tailscaleIPv4(ctx context.Context) string {
