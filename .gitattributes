@@ -1,0 +1,13 @@
+# Normalización de finales de línea: el repositorio almacena LF.
+# Con `eol=lf` los binarios de gofmt/golangci son deterministas en cualquier
+# sistema (evita que gofmt -l marque archivos por CRLF en runners Windows).
+* text=auto
+*.go text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+*.ps1 text eol=lf
+Makefile text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
