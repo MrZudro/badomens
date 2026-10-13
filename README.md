@@ -22,7 +22,7 @@ Este repositorio está en construcción por fases. Lo que ya funciona:
 | Fase | Contenido | Estado |
 |---|---|---|
 | **F0** Fundación | estructura, contrato JSON, `version`, `doctor`, `capacity`, `update`, MCP, CI y releases | ✅ |
-| **F1** Multi-instancia | `instance`, `setup`, motores, mundos, backups, plugins, planificador | ⏳ |
+| **F1** Multi-instancia | `instance` (hasta 5, 3 en paralelo), `setup`, motores, mundos, backups, plugins, planificador | ✅ |
 | **F2** Doctor TPS + updates | `doctor tps`, métricas | ⏳ |
 | **F3** Integración Emiria | `jamcord mc`, herramientas `badomens_*`, bot `/mc` | ⏳ |
 | **F4** TUI | panel multi-instancia | ⏳ |
@@ -71,9 +71,18 @@ go install github.com/manuelserver/badomens/cmd/badomens@latest
 badomens doctor                 # ¿está todo listo? Docker, Tailscale, config
 badomens capacity               # cuánta CPU/RAM tienes y cuántas instancias caben
 badomens config --init          # crea la configuración global
+
+# Crea y arranca una instancia (interactivo si no pasas flags)
+badomens setup --name "Survival" --engine paper --memory 6G --no-start
+badomens -i survival start
+badomens -i survival logs
+badomens -i survival backup create
+badomens instance close survival
 ```
 
-Todos los comandos aceptan `--json` para una salida estable.
+Puedes tener hasta 5 instancias registradas y 3 corriendo en paralelo (ajustable
+en `config.yaml`). Cada una tiene su mundo, motor, versión y puerto. Todos los
+comandos aceptan `--json` para una salida estable.
 
 ---
 
@@ -106,6 +115,16 @@ Este contrato es lo que consume Emiria/Jamcord.
 
 | Comando | Función |
 |---|---|
+| `badomens setup` | asistente interactivo/desatendido de configuración |
+| `badomens instance list/inspect/create` | registro de instancias |
+| `badomens instance start/stop/close/restart/remove` | ciclo de vida (start respeta el límite de paralelos) |
+| `badomens engine list/current/use` | catálogo y selección de motor/versión |
+| `badomens world list/save/use/export/import` | biblioteca compartida de mundos |
+| `badomens backup create/list/restore/prune` | copias de seguridad por instancia |
+| `badomens access whitelist-add/…/ops-add/…` | whitelist y operadores vía consola |
+| `badomens plugin add/list/remove` | plugins/mods según motor (con aviso de TPS) |
+| `badomens logs` / `badomens console <cmd>` | logs y consola de una instancia |
+| `badomens resolve-ip` | IP de publicación del host |
 | `badomens version` | versión del binario |
 | `badomens doctor` | diagnóstico del entorno |
 | `badomens capacity` | CPU/RAM del equipo y plan de instancias |
@@ -114,8 +133,7 @@ Este contrato es lo que consume Emiria/Jamcord.
 | `badomens mcp serve [--read-only]` | servidor MCP por stdio |
 | `badomens commands` | manifiesto de comandos (JSON) |
 
-Y en camino: `setup`, `instance`, `engine`, `world`, `backup`, `access`,
-`plugin`, `doctor tps`.
+Y en camino: `doctor tps` (F2).
 
 ---
 

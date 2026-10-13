@@ -18,26 +18,33 @@ func newCommandsCmd(e *Env) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			entries := []commandEntry{
-				{Name: "setup", Summary: "Asistente de configuración de una instancia"},
-				{Name: "instance", Summary: "Crear/listar/inspeccionar/gestionar instancias"},
-				{Name: "engine", Summary: "Catálogo y selección de motor/versión"},
-				{Name: "world", Summary: "Biblioteca de mundos (listar/crear/usar/exportar/importar)"},
-				{Name: "backup", Summary: "Copias de seguridad (crear/listar/restaurar/podar)"},
-				{Name: "access", Summary: "Whitelist y operadores"},
-				{Name: "plugin", Summary: "Plugins/mods por motor"},
-				{Name: "doctor", Summary: "Diagnóstico del entorno y de rendimiento (TPS)"},
-				{Name: "update", Summary: "Comprobar si hay una versión nueva"},
+				{Name: "setup", Summary: "Asistente interactivo/desatendido de configuración"},
+				{Name: "instance list", Summary: "Lista las instancias y su estado"},
+				{Name: "instance inspect", Summary: "Configuración completa de una instancia"},
+				{Name: "instance create", Summary: "Crea una instancia desatendida"},
+				{Name: "instance start|stop|restart", Summary: "Ciclo de vida (límite de paralelos en start)"},
+				{Name: "instance close", Summary: "Apagado con cuidado via consola"},
+				{Name: "instance remove", Summary: "Elimina instancia (contenedor y carpeta)"},
+				{Name: "engine list|current|use", Summary: "Catálogo y selección de motor/versión"},
+				{Name: "world list|save|use|export|import", Summary: "Biblioteca de mundos"},
+				{Name: "backup create|list|restore|prune", Summary: "Copias de seguridad por instancia"},
+				{Name: "access whitelist-add|remove|ops-add|remove", Summary: "Whitelist y operadores via consola"},
+				{Name: "plugin add|list|remove", Summary: "Plugins/mods según motor"},
+				{Name: "logs", Summary: "Logs de una instancia"},
+				{Name: "console", Summary: "Comando de consola"},
+				{Name: "resolve-ip", Summary: "IP de publicación del host"},
+				{Name: "doctor", Summary: "Diagnóstico del entorno y TPS"},
+				{Name: "update", Summary: "¿Hay una versión nueva?"},
 				{Name: "capacity", Summary: "Capacidad del equipo"},
 				{Name: "config", Summary: "Configuración global"},
 				{Name: "mcp", Summary: "Servidor MCP por stdio"},
 				{Name: "version", Summary: "Versión del binario"},
 			}
-			data := map[string]any{"commands": entries, "count": len(entries)}
 			human := "Comandos disponibles:\n"
 			for _, en := range entries {
 				human += "  " + en.Name + " — " + en.Summary + "\n"
 			}
-			return e.finish(result.OK("commands", "manifiesto de comandos", data), human)
+			return e.finish(result.OK("commands", "manifiesto de comandos", map[string]any{"count": len(entries), "commands": entries}), human)
 		},
 	}
 }

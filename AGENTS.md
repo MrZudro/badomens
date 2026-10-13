@@ -7,9 +7,9 @@ repositorio. Léela antes de modificar código o ejecutar comandos.
 
 **badomens** es un binario único en Go que gestiona **varios servidores de
 Minecraft** en Docker Compose (`itzg/minecraft-server`) + Tailscale. Está en
-fases: F0 (fundación) está completa; F1 (multi-instancia), F2 (doctor TPS),
-F3 (integración con Emiria/Jamcord), F4 (TUI) y F5 (distribución) están
-pendientes (ver `README.md`).
+fases: F0 (fundación) y **F1 (multi-instancia)** están completas; F2 (doctor
+TPS y métricas), F3 (integración con Emiria/Jamcord), F4 (TUI) y F5
+(distribución) están pendientes (ver `README.md`).
 
 ## Comandos esenciales
 
@@ -17,7 +17,9 @@ pendientes (ver `README.md`).
 go build ./...                 # compilar
 go test ./...                  # pruebas
 go run ./cmd/badomens doctor   # diagnóstico
-go run ./cmd/badomens capacity # capacidad del equipo
+go run ./cmd/badomens setup --name demo --engine paper --no-start
+go run ./cmd/badomens instance list
+go run ./cmd/badomens -i demo start   # arranca la instancia
 ```
 
 ## Contrato (importante)
@@ -32,7 +34,8 @@ Emiria/Jamcord y la documentación dependen de él. Detalle en
 
 ```
 cmd/badomens/            entrada del binario
-internal/cli/            comandos cobra (root, doctor, update, mcp, …)
+internal/cli/            comandos cobra (root, engine, instance, setup, world,
+                         backup, plugin, access, logs/console, doctor, update…)
 internal/tools/          registro único de herramientas (MCP)
 internal/mcp/            servidor MCP por stdio
 internal/doctor/         diagnóstico del entorno
@@ -43,6 +46,14 @@ internal/execx/          ejecución de procesos sin shell
 internal/errx/           errores tipados con código estable
 internal/result/         documento de salida (contrato JSON)
 internal/output/         impresora humano/JSON
+internal/engines/        catálogos Paper/Fabric/Forge/NeoForge/Vanilla
+internal/instance/       registro y validación de instancias
+internal/runtime/        compose por instancia y ciclo de vida Docker
+internal/tailscale/      resolución de la IP del tailnet
+internal/worlds/         biblioteca de mundos (zip/manifiestos)
+internal/backup/         copias de seguridad (manifest + sha256)
+internal/plugins/        instalación de plugins/mods según motor
+internal/setup/          recomendaciones del asistente de creación
 ```
 
 ## Reglas

@@ -77,6 +77,7 @@ Cada comando imprime un documento JSON estable. Detalle: 'badomens <comando> --h
 	pf.BoolVarP(&e.verbose, "verbose", "v", false, "salida más detallada")
 	pf.BoolVar(&e.debug, "debug", false, "modo depuración")
 	pf.StringVar(&e.configFlag, "config", "", "ruta al archivo de configuración")
+	pf.StringVarP(&e.instanceFlag, "instance", "i", "", "instancia activa (slug) para comandos que la requieren")
 
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return errx.Usage(err.Error(), "ejecuta 'badomens help' para ver las opciones")
@@ -90,6 +91,16 @@ Cada comando imprime un documento JSON estable. Detalle: 'badomens <comando> --h
 		newCapacityCmd(e),
 		newCommandsCmd(e),
 		newMCPCmd(e),
+		newEngineCmd(e),
+		newInstanceCmd(e),
+		newSetupCmd(e),
+		newWorldCmd(e),
+		newBackupCmd(e),
+		newPluginCmd(e),
+		newLogsCmd(e),
+		newConsoleCmd(e),
+		newResolveIPCmd(e),
+		newAccessCmd(e),
 	)
 	return root
 }

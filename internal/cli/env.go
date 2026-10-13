@@ -21,10 +21,11 @@ type Env struct {
 	stderr io.Writer
 	stdin  io.Reader
 
-	jsonFlag   bool
-	verbose    bool
-	debug      bool
-	configFlag string
+	jsonFlag     bool
+	verbose      bool
+	debug        bool
+	configFlag   string
+	instanceFlag string
 
 	printer  *output.Printer
 	logger   *slog.Logger

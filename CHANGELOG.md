@@ -8,6 +8,27 @@ semántico.
 
 ### Añadido
 
+- **F1 — Multi-instancia**
+  - Registro local de hasta 5 instancias (`setup`, `instance create/list/inspect/remove`)
+    y ciclo de vida con Docker Compose por instancia (`start`, `stop`, `close`,
+    `restart`), con límite configurable de instancias en paralelo (3 por defecto)
+    y detección de capacidad del host.
+  - Asistente `setup` interactivo y desatendido: motor, versión, RAM, dificultad,
+    modo, máximo de jugadores (recomendado), seed, crackeado/premium, whitelist,
+    ops, MOTD, icono y plugins/mods.
+  - Catálogos en línea de Paper, Fabric, Forge, NeoForge y Vanilla
+    (`engine list/use/current`).
+  - Biblioteca compartida de mundos (`world save/use/export/import`) con zips
+    y manifiestos verificables.
+  - Backups por instancia (`backup create/list/restore/prune`) con sha256.
+  - Plugins/mods por motor (`plugin add/list/remove`) con aviso de plugins
+    exigentes (riesgo de TPS).
+  - Operaciones stop-first: `world`/`backup` detienen la instancia y la
+    relanzan si estaba corriendo.
+  - Apagado graceful (`close`) que para por consola y evita el relanzado por
+    `restart: unless-stopped`.
+  - Comandos `logs`, `console`, `access` (whitelist/ops) y `resolve-ip`.
+
 - **F0 — Fundación**
   - Binario único `badomens` en Go con contrato JSON estable
     (`ok`, `exit_code`, `action`, `message`, `data`, `error`, `timestamp`).
