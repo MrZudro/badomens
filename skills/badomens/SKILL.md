@@ -38,3 +38,10 @@ badomens --json config            # configuración resuelta
 
 > En F0 solo hay comandos de lectura. La gestión de instancias llega en F1 y la
 > integración con Emiria en F3.
+
+## TUI (humanos)
+
+`badomens tui` abre un panel interactivo (lista, detalle, logs, consola,
+backups). Es interactivo: los agentes deben seguir usando los comandos con
+`--json`. Para capturas y pruebas existe `--snapshot --view list|detail|logs|
+backups|help`.

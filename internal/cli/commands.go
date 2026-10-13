@@ -40,6 +40,7 @@ func newCommandsCmd(e *Env) *cobra.Command {
 				{Name: "capacity", Summary: "Capacidad del equipo"},
 				{Name: "config", Summary: "Configuración global"},
 				{Name: "mcp", Summary: "Servidor MCP por stdio"},
+				{Name: "tui", Summary: "Panel interactivo multi-instancia en el terminal"},
 				{Name: "version", Summary: "Versión del binario"},
 			}
 			human := "Comandos disponibles:\n"

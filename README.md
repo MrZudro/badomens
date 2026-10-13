@@ -25,8 +25,8 @@ Este repositorio está en construcción por fases. Lo que ya funciona:
 | **F1** Multi-instancia | `instance` (hasta 5, 3 en paralelo), `setup`, motores, mundos, backups, plugins, planificador | ✅ |
 | **F2** Doctor TPS + updates | `doctor tps`, `metrics`, `update --check` | ✅ |
 | **F3** Integración Emiria | `jamcord mc`, herramientas `badomens_*`, bot `/mc` | ✅ |
-| **F4** TUI | panel multi-instancia | ⏳ |
-| **F5** Distribución | instalador de un comando (`scripts/install.sh`/`.ps1`) + releases precompiladas | ✅ `installer`, TUI pendiente |
+| **F4** TUI | panel multi-instancia (`badomens tui`, bubbletea) | ✅ |
+| **F5** Distribución | instalador de un comando (`scripts/install.sh`/`.ps1`) + releases precompiladas | ✅ |
 
 > La especificación del MVP vive aparte. Este README describe lo que ya existe y
 > lo que viene.
@@ -137,6 +137,7 @@ Este contrato es lo que consume Emiria/Jamcord.
 | `badomens config [--init]` | configuración global |
 | `badomens update [--check]` | ¿hay una versión nueva? |
 | `badomens mcp serve [--read-only]` | servidor MCP por stdio |
+| `badomens tui` | panel interactivo multi-instancia (lista, detalle, logs, consola, backups, ayuda) |
 | `badomens commands` | manifiesto de comandos (JSON) |
 
 ---

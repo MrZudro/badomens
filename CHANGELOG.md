@@ -8,6 +8,20 @@ semántico.
 
 ### Añadido
 
+- **F4 — TUI (panel multi-instancia)**
+  - `badomens tui`: panel interactivo en el terminal con `bubbletea` + `lipgloss`
+    + `bubbles`. Pantallas: lista (estado en paralelo, selección por teclado),
+    detalle completo de una instancia con métricas, logs con scroll (auto-refresh),
+    consola (envío de comandos) y backups (crear/podar). Teclas en `?`.
+  - Acciones asíncronas (start/stop/close/restart/backup/console) que no
+    bloquean la UI; contadores de paralelas/max_instancias en la cabecera;
+    salud TPS bajo demanda (`d`).
+  - La TUI importa los paquetes internos directamente (no levanta subprocesos)
+    y **no toca el contrato JSON** del CLI.
+  - Modos para automatización: `--snapshot --view list|detail|logs|backups|help`
+    (con `-i <slug>`) y `--force` para salidas no terminales.
+  - Tests unitarios del modelo con backend fake (sin Docker).
+
 - **F3 — Integración con Emiria (Jamcord)**
   - Jamcord gana un cliente (`internal/minecraft`) que ejecuta el binario
     `badomens --json` y registra herramientas `badomens_*` (activado solo si el

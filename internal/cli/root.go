@@ -102,6 +102,7 @@ Cada comando imprime un documento JSON estable. Detalle: 'badomens <comando> --h
 		newResolveIPCmd(e),
 		newAccessCmd(e),
 		newMetricsCmd(e),
+		newTUICmd(e),
 	)
 	return root
 }

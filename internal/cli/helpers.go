@@ -67,6 +67,19 @@ func isTTY(r io.Reader) bool {
 	return fi.Mode()&os.ModeCharDevice != 0
 }
 
+// isTTYWriter indica si el writer es una terminal real (para stdout).
+func isTTYWriter(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
 // prompt pregunta interactivamente y devuelve el valor tecleado o el default.
 func (e *Env) prompt(label, def string) string {
 	if !isTTY(e.stdin) {
