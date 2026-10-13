@@ -1,10 +1,10 @@
 # Instalador de badomens desde la última release de GitHub (Windows).
 # Uso (PowerShell):
-#   irm https://github.com/manuelserver/badomens/releases/latest/download/install.ps1 | iex
+#   irm https://github.com/MrZudro/badomens/releases/latest/download/install.ps1 | iex
 #   (o clona el repo y ejecuta .\scripts\install.ps1)
 $ErrorActionPreference = "Stop"
 
-$Repo = if ($env:BADOMENS_REPO) { $env:BADOMENS_REPO } else { "manuelserver/badomens" }
+$Repo = if ($env:BADOMENS_REPO) { $env:BADOMENS_REPO } else { "MrZudro/badomens" }
 $DestDir = if ($env:BADOMENS_DEST) { $env:BADOMENS_DEST } else { Join-Path $env:LOCALAPPDATA "Programs\badomens" }
 $Version = if ($env:BADOMENS_VERSION) { $env:BADOMENS_VERSION } else { "" }
 

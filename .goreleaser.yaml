@@ -1,5 +1,6 @@
-# Configuración de GoReleaser para el binario único badomens.
+# Configuración de GoReleaser para el binario único badomens 🧱
 # Se activa al crear una etiqueta vX.Y.Z (ver .github/workflows/release.yml).
+# Las etiquetas de pre-lanzamiento (v0.1.0-rc.0) generan una PRERELEASE en GitHub.
 version: 2
 
 project_name: badomens
@@ -12,13 +13,15 @@ builds:
   - main: ./cmd/badomens
     env:
       - CGO_ENABLED=0
+    # 🎯 Plataformas vigentes (Go 1.27): se evitan arquitecturas deprecadas
+    # (i386/386, arm de 32 bits, etc.) que ya no reciben binarios oficiales.
     goos: [windows, darwin, linux]
     goarch: [amd64, arm64]
     ldflags:
       - -s -w
-      - -X github.com/manuelserver/badomens/internal/version.Version={{ .Version }}
-      - -X github.com/manuelserver/badomens/internal/version.Commit={{ .Commit }}
-      - -X github.com/manuelserver/badomens/internal/version.Date={{ .Date }}
+      - -X github.com/MrZudro/badomens/internal/version.Version={{ .Version }}
+      - -X github.com/MrZudro/badomens/internal/version.Commit={{ .Commit }}
+      - -X github.com/MrZudro/badomens/internal/version.Date={{ .Date }}
 
 archives:
   - formats: [tar.gz]
@@ -32,10 +35,31 @@ checksum:
 snapshot:
   version_template: '{{ .Tag }}-next'
 
+release:
+  # auto: cualquier etiqueta con pre-release semántico (v0.1.0-rc.0, -beta.1…)
+  # se publica como "Pre-release" en GitHub, sin dejarla como estable.
+  prerelease: auto
+  footer: |
+
+    ---
+
+    🧱 **badomens {{ .Version }}** — gracias por probarlo. Si encuentras algo,
+    abre un [issue](https://github.com/MrZudro/badomens/issues) 🐛.
+
 changelog:
   sort: asc
+  groups:
+    - title: "✨ Novedades"
+      regexp: "^feat"
+      order: 0
+    - title: "🔧 Correcciones"
+      regexp: "^fix"
+      order: 1
+    - title: "📖 Documentación y tareas"
+      regexp: "^(docs|test|chore|build|refactor)"
+      order: 2
+    - title: "🧩 Resto"
+      order: 999
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
+      - '^chore\(release\)'

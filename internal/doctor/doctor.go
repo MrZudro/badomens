@@ -6,9 +6,9 @@ import (
 	"context"
 	"strings"
 
-	"github.com/manuelserver/badomens/internal/config"
-	"github.com/manuelserver/badomens/internal/execx"
-	"github.com/manuelserver/badomens/internal/host"
+	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/execx"
+	"github.com/MrZudro/badomens/internal/host"
 )
 
 // Estados posibles de un chequeo.

@@ -12,11 +12,11 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/manuelserver/badomens/internal/config"
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/execx"
-	"github.com/manuelserver/badomens/internal/instance"
-	"github.com/manuelserver/badomens/internal/tailscale"
+	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/execx"
+	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/tailscale"
 )
 
 // ComposeTemplate es la plantilla del compose de una instancia. Mapea los

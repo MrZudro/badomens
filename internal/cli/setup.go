@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/host"
-	"github.com/manuelserver/badomens/internal/instance"
-	"github.com/manuelserver/badomens/internal/plugins"
-	"github.com/manuelserver/badomens/internal/result"
-	"github.com/manuelserver/badomens/internal/setup"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/host"
+	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/plugins"
+	"github.com/MrZudro/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/setup"
 	"github.com/spf13/cobra"
 )
 

@@ -7,10 +7,10 @@ para Windows/macOS/Linux en amd64 y arm64, con `checksums.txt`.
 
 ```bash
 # macOS / Linux
-curl -fsSL https://github.com/manuelserver/badomens/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/MrZudro/badomens/releases/latest/download/install.sh | sh
 
 # Windows (PowerShell)
-irm https://github.com/manuelserver/badomens/releases/latest/download/install.ps1 | iex
+irm https://github.com/MrZudro/badomens/releases/latest/download/install.ps1 | iex
 ```
 
 Los scripts (`scripts/install.sh`, `scripts/install.ps1`):
@@ -27,7 +27,7 @@ Variables opcionales: `BADOMENS_REPO`, `BADOMENS_DEST`, `BADOMENS_VERSION`.
 ## go install
 
 ```bash
-go install github.com/manuelserver/badomens/cmd/badomens@latest
+go install github.com/MrZudro/badomens/cmd/badomens@latest
 ```
 
 ## Verificar la instalación

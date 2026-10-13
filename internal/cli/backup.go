@@ -3,9 +3,9 @@ package cli
 import (
 	"fmt"
 
-	"github.com/manuelserver/badomens/internal/backup"
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/backup"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/result"
 	"github.com/spf13/cobra"
 )
 

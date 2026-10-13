@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/version"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/version"
 )
 
 // Info describe el resultado de la comprobación de actualización.

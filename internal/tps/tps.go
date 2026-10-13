@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/manuelserver/badomens/internal/execx"
-	"github.com/manuelserver/badomens/internal/runtime"
+	"github.com/MrZudro/badomens/internal/execx"
+	"github.com/MrZudro/badomens/internal/runtime"
 )
 
 // Sample es una lectura en un instante.

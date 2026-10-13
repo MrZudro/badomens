@@ -8,13 +8,13 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/manuelserver/badomens/internal/backup"
-	"github.com/manuelserver/badomens/internal/config"
-	"github.com/manuelserver/badomens/internal/engines"
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/instance"
-	"github.com/manuelserver/badomens/internal/runtime"
-	"github.com/manuelserver/badomens/internal/tps"
+	"github.com/MrZudro/badomens/internal/backup"
+	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/engines"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/runtime"
+	"github.com/MrZudro/badomens/internal/tps"
 )
 
 // Backend es la frontera entre la TUI y el mundo real. El modelo bubbletea solo

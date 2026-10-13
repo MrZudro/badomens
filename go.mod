@@ -1,4 +1,4 @@
-module github.com/manuelserver/badomens
+module github.com/MrZudro/badomens
 
 go 1.27.0
 

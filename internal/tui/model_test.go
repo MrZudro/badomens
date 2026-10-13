@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/manuelserver/badomens/internal/backup"
-	"github.com/manuelserver/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/backup"
+	"github.com/MrZudro/badomens/internal/instance"
 )
 
 // fakeBackend implementa Backend sin Docker para los tests del modelo.

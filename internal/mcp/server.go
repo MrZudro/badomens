@@ -11,9 +11,9 @@ import (
 	"io"
 	"sync"
 
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/tools"
-	"github.com/manuelserver/badomens/internal/version"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/tools"
+	"github.com/MrZudro/badomens/internal/version"
 )
 
 // ProtocolVersion es la versión de MCP anunciada.

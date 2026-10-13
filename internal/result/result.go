@@ -12,7 +12,7 @@ package result
 import (
 	"time"
 
-	"github.com/manuelserver/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/errx"
 )
 
 // Phase describe una etapa de una operación con fases (setup, start…).

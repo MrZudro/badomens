@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/manuelserver/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/errx"
 )
 
 // Result es el resultado de una ejecución.

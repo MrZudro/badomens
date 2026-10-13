@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/instance"
 )
 
 // KnownHeavy son plugins/mods conocidos por su mayor coste de CPU/servidor. No

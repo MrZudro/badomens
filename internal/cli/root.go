@@ -4,9 +4,9 @@ import (
 	"errors"
 	"os"
 
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/output"
-	"github.com/manuelserver/badomens/internal/version"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/output"
+	"github.com/MrZudro/badomens/internal/version"
 	"github.com/spf13/cobra"
 )
 

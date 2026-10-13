@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/manuelserver/badomens/internal/backup"
+	"github.com/MrZudro/badomens/internal/backup"
 )
 
 // modos de la TUI correspondientes a una pantalla.

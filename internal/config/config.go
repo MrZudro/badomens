@@ -55,7 +55,7 @@ func Default() *Config {
 		MaxParallel:   3,
 		DefaultMemory: "4G",
 		Tailscale:     Tailscale{Enabled: true},
-		Repo:          "manuelserver/badomens",
+		Repo:          "MrZudro/badomens",
 	}
 }
 

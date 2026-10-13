@@ -3,12 +3,12 @@ package cli
 import (
 	"context"
 
-	"github.com/manuelserver/badomens/internal/config"
-	"github.com/manuelserver/badomens/internal/doctor"
-	"github.com/manuelserver/badomens/internal/host"
-	"github.com/manuelserver/badomens/internal/tools"
-	"github.com/manuelserver/badomens/internal/update"
-	"github.com/manuelserver/badomens/internal/version"
+	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/doctor"
+	"github.com/MrZudro/badomens/internal/host"
+	"github.com/MrZudro/badomens/internal/tools"
+	"github.com/MrZudro/badomens/internal/update"
+	"github.com/MrZudro/badomens/internal/version"
 )
 
 // buildRegistry construye el registro único de herramientas expuesto por MCP y,

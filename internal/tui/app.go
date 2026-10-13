@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/manuelserver/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/config"
 )
 
 // Run lanza el panel interactivo en la terminal actual (pantalla alternativa)

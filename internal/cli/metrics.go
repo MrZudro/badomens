@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/manuelserver/badomens/internal/backup"
-	"github.com/manuelserver/badomens/internal/result"
-	"github.com/manuelserver/badomens/internal/tps"
+	"github.com/MrZudro/badomens/internal/backup"
+	"github.com/MrZudro/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/tps"
 	"github.com/spf13/cobra"
 )
 

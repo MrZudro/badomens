@@ -15,7 +15,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/manuelserver/badomens/internal/host"
+	"github.com/MrZudro/badomens/internal/host"
 )
 
 // Nombre del archivo de definición de la instancia.

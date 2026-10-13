@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/manuelserver/badomens/internal/cli"
+	"github.com/MrZudro/badomens/internal/cli"
 )
 
 func main() {

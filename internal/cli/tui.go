@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/result"
-	"github.com/manuelserver/badomens/internal/tui"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/tui"
 	"github.com/spf13/cobra"
 )
 

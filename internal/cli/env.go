@@ -9,10 +9,10 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/manuelserver/badomens/internal/config"
-	"github.com/manuelserver/badomens/internal/output"
-	"github.com/manuelserver/badomens/internal/result"
-	"github.com/manuelserver/badomens/internal/tools"
+	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/output"
+	"github.com/MrZudro/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/tools"
 )
 
 // Env concentra el estado compartido por todos los comandos.

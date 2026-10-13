@@ -5,8 +5,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/execx"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/execx"
 )
 
 // ResolveIPv4 devuelve la primera IP IPv4 del tailnet (rango CGNAT 100.64.0.0/10).

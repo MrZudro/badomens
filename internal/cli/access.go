@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/manuelserver/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/result"
 	"github.com/spf13/cobra"
 )
 

@@ -3,7 +3,7 @@ package result
 import (
 	"testing"
 
-	"github.com/manuelserver/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/errx"
 )
 
 func TestFromErrorNotFound(t *testing.T) {

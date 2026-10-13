@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/manuelserver/badomens/internal/doctor"
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/instance"
-	"github.com/manuelserver/badomens/internal/result"
-	"github.com/manuelserver/badomens/internal/tps"
+	"github.com/MrZudro/badomens/internal/doctor"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/tps"
 	"github.com/spf13/cobra"
 )
 

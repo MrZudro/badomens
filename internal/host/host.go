@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/manuelserver/badomens/internal/execx"
+	"github.com/MrZudro/badomens/internal/execx"
 )
 
 // Capacity describe los recursos del host.

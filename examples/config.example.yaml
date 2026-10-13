@@ -20,4 +20,4 @@ tailscale:
   host_ip: ""
 
 # Repositorio usado por `badomens update` (owner/nombre).
-repo: "manuelserver/badomens"
+repo: "MrZudro/badomens"

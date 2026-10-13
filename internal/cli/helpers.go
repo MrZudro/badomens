@@ -7,11 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/manuelserver/badomens/internal/engines"
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/instance"
-	"github.com/manuelserver/badomens/internal/result"
-	"github.com/manuelserver/badomens/internal/runtime"
+	"github.com/MrZudro/badomens/internal/engines"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/runtime"
 	"github.com/spf13/cobra"
 )
 

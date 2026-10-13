@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"github.com/manuelserver/badomens/internal/result"
-	"github.com/manuelserver/badomens/internal/tailscale"
+	"github.com/MrZudro/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/spf13/cobra"
 )
 

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/manuelserver/badomens/internal/errx"
-	"github.com/manuelserver/badomens/internal/worlds"
+	"github.com/MrZudro/badomens/internal/errx"
+	"github.com/MrZudro/badomens/internal/worlds"
 )
 
 // Backend opera sobre los backups de una instancia.

@@ -1,5 +1,9 @@
 name: Release
 
+# 🚀 Se lanza en cada etiqueta v* :
+#   - v0.1.0       → release ESTABLE
+#   - v0.1.0-rc.0  → PRE-RELEASE (marcada por GoReleaser con prerelease: auto)
+# Ver .goreleaser.yaml para la lista de binarios y el changelog.
 on:
   push:
     tags: ['v*']
@@ -18,7 +22,10 @@ jobs:
         with:
           go-version: 'stable'
           cache: true
-      - name: Ejecutar GoReleaser
+      - name: 🏷️ Etiqueta detectada
+        id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+      - name: 📦 Ejecutar GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser

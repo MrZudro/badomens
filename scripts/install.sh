@@ -1,10 +1,10 @@
 #!/bin/sh
 # Instalador de badomens desde la última release de GitHub.
-# Uso:  curl -fsSL https://github.com/manuelserver/badomens/releases/latest/download/install.sh | sh
+# Uso:  curl -fsSL https://github.com/MrZudro/badomens/releases/latest/download/install.sh | sh
 #       (o clona el repo y ejecuta ./scripts/install.sh)
 set -eu
 
-REPO="${BADOMENS_REPO:-manuelserver/badomens}"
+REPO="${BADOMENS_REPO:-MrZudro/badomens}"
 DEST="${BADOMENS_DEST:-/usr/local/bin}"
 VERSION="${BADOMENS_VERSION:-}" # vacío = última release
 

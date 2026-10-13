@@ -5,8 +5,8 @@
 package tui
 
 import (
-	"github.com/manuelserver/badomens/internal/backup"
-	"github.com/manuelserver/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/backup"
+	"github.com/MrZudro/badomens/internal/instance"
 )
 
 // Row resume una instancia para el panel de lista.

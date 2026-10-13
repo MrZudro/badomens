@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/manuelserver/badomens/internal/result"
+	"github.com/MrZudro/badomens/internal/result"
 )
 
 // Format es el modo de salida.

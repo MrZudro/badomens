@@ -8,7 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/manuelserver/badomens/internal/version"
+	"github.com/MrZudro/badomens/internal/version"
 )
 
 // View renderiza la pantalla completa según el modo actual.
