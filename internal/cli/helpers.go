@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/result"
 	"github.com/MrZudro/badomens/internal/runtime"
 	"github.com/spf13/cobra"
@@ -116,6 +118,42 @@ func (e *Env) confirm(action, target string, yes bool) (bool, error) {
 // reg construye el registro de motores con su cliente por defecto.
 func reg() *engines.Registry {
 	return engines.NewRegistry(engines.DefaultClient())
+}
+
+// portsAllocator construye el asignador de puertos (RF-3) con el prober real:
+// registro, docker, bind y peers según la configuración.
+func (e *Env) portsAllocator(ctx context.Context) (*ports.Allocator, error) {
+	cfg, err := e.requireConfig()
+	if err != nil {
+		return nil, err
+	}
+	rng, err := ports.ParseRange(cfg.Ports.Range)
+	if err != nil {
+		return nil, err
+	}
+	mode, err := ports.ParseScanMode(cfg.Ports.TailnetScan)
+	if err != nil {
+		return nil, err
+	}
+	checker := &ports.DefaultChecker{
+		Prober: ports.NewRealProber(func(ctx context.Context) ([]ports.RegistryPort, error) {
+			m, merr := e.manager()
+			if merr != nil {
+				return nil, merr
+			}
+			specs, lerr := m.List()
+			if lerr != nil {
+				return nil, lerr
+			}
+			out := make([]ports.RegistryPort, 0, len(specs))
+			for _, s := range specs {
+				out = append(out, ports.RegistryPort{Instance: s.Slug, Port: s.Port})
+			}
+			return out, nil
+		}),
+		TailnetScan: mode,
+	}
+	return ports.NewAllocator(cfg.DataDir, checker, rng), nil
 }
 
 // activeSpec devuelve la instancia indicada con --instance.

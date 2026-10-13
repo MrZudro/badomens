@@ -72,11 +72,10 @@ func (e *Env) Registry() (*tools.Registry, error) {
 	if e.registry != nil {
 		return e.registry, nil
 	}
-	cfg, err := e.requireConfig()
-	if err != nil {
+	if _, err := e.requireConfig(); err != nil {
 		return nil, err
 	}
-	reg, err := buildRegistry(cfg)
+	reg, err := buildRegistry(e)
 	if err != nil {
 		return nil, err
 	}

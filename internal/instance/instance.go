@@ -15,7 +15,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/MrZudro/badomens/internal/connection"
 	"github.com/MrZudro/badomens/internal/host"
+	"github.com/MrZudro/badomens/internal/idle"
 )
 
 // Nombre del archivo de definición de la instancia.
@@ -49,6 +51,17 @@ type Spec struct {
 	Seed             string            `yaml:"seed" json:"seed"`
 	Plugins          []string          `yaml:"plugins" json:"plugins"`
 	CreatedAt        string            `yaml:"created_at" json:"created_at"`
+	// Connection es la información de conexión calculada (RF-2). Se recalcula en
+	// cada arranque; ausente hasta el primer cálculo.
+	Connection *connection.Info `yaml:"connection,omitempty" json:"connection,omitempty"`
+	// Idle es la configuración de auto-apagado (RF-8). Ausente = deshabilitado.
+	Idle idle.Config `yaml:"idle,omitempty" json:"idle"`
+	// PortReservation es el puerto reservado durante la creación (RF-3).
+	PortReservation int `yaml:"port_reservation,omitempty" json:"port_reservation,omitempty"`
+	// StoppedBy es quién detuvo el último apagado ("user", "idle", "crash").
+	StoppedBy string `yaml:"stopped_by,omitempty" json:"stopped_by,omitempty"`
+	// StoppedAt es el instante del último apagado (RFC3339 UTC).
+	StoppedAt string `yaml:"stopped_at,omitempty" json:"stopped_at,omitempty"`
 }
 
 // NormalizeSlug convierte un nombre en un slug válido y lo valida.

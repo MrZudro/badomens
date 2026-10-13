@@ -14,6 +14,7 @@ import (
 	"github.com/MrZudro/badomens/internal/host"
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/plugins"
+	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/runtime"
 	"github.com/MrZudro/badomens/internal/setup"
 )
@@ -52,6 +53,9 @@ type Deps struct {
 	Manager  *instance.Manager
 	Resolver Resolver
 	Runtime  *runtime.Runtime // necesario solo si Start=true
+	// Ports asigna y reserva puertos libremente (RF-3); si es nil se usa la
+	// heurística antigua del registro.
+	Ports *ports.Allocator
 }
 
 // Result resume lo creado.
@@ -129,10 +133,24 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 		gamemode = "survival"
 	}
 
-	// 7) Puerto libre.
-	port, err := d.Manager.NextPort(25565)
-	if err != nil {
-		return nil, err
+	// 7) Puerto libre (RF-3): se reserva de forma atómica y la reserva se libera
+	// al terminar (la instancia registrada ya protege su puerto ante el checker).
+	port := 0
+	var releaseReservation func()
+	if d.Ports != nil {
+		res, perr := d.Ports.Reserve(ctx, slug, 25565)
+		if perr != nil {
+			return nil, perr
+		}
+		port = res.Port
+		releaseReservation = func() { _ = d.Ports.Release(ctx, slug) }
+		defer releaseReservation()
+	} else {
+		var nerr error
+		port, nerr = d.Manager.NextPort(25565)
+		if nerr != nil {
+			return nil, nerr
+		}
 	}
 
 	spec := &instance.Spec{
@@ -144,6 +162,7 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 		Memory:           memory,
 		CPU:              req.CPU,
 		Port:             port,
+		PortReservation:  port,
 		Difficulty:       difficulty,
 		Gamemode:         gamemode,
 		MaxPlayers:       maxPlayers,

@@ -24,9 +24,10 @@ type Phase struct {
 
 // ErrorInfo es la representación JSON de un error tipado.
 type ErrorInfo struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Hint    string `json:"hint,omitempty"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Hint    string         `json:"hint,omitempty"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
 // Result es el documento de salida de un comando.
@@ -71,7 +72,7 @@ func FromError(action string, err error) *Result {
 		ExitCode:  errx.ExitCode(err),
 		Action:    action,
 		Message:   message,
-		Error:     &ErrorInfo{Code: code, Message: message, Hint: hint},
+		Error:     &ErrorInfo{Code: code, Message: message, Hint: hint, Details: errx.Details(err)},
 		Timestamp: Now(),
 	}
 }

@@ -24,6 +24,12 @@ badomens --json update            # ¿hay versión nueva? (--apply la descarga y
 badomens --json commands          # manifiesto de comandos
 badomens --json config            # configuración resuelta
 badomens --json uninstall         # desinstalación (--dry-run para previsualizar)
+badomens --json connect --instance <slug>    # información de conexión (dirección, MagicDNS)
+badomens --json ports check 25565 # puerto libre (registro, docker, host, tailnet)
+badomens --json engine versions paper        # versiones del motor (RF-5)
+badomens --json docker status     # estado de Docker (daemon, compose, contexto)
+badomens --json tailscale status  # estado de la red privada
+badomens --json --instance <slug> idle status  # auto-apagado por inactividad
 ```
 
 ## Reglas al ayudar al usuario

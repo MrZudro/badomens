@@ -4,6 +4,51 @@ Todas las novedades relevantes de **badomens** se documentan aquí ✨.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [semántico](https://semver.org/lang/es/).
 
+## [Unreleased] — TUI v2 (dominio, paridad CLI/MCP y cimientos)
+
+> 🧱 Primera entrega de la `SPEC-tui-v2.md` (Fases 0–4 parciales): paquetes de
+> dominio nuevos (puertos, conexión, Docker, auto-apagado, eventos), paridad
+> CLI/MCP para todo lo nuevo y el catálogo de ayudas del asistente.
+
+### ➕ Añadido
+
+- **`internal/ports` (RF-3)**: detección de puertos ocupados en 4 fuentes
+  (registro, Docker, bind local, peers de la tailnet), rango configurable
+  (`ports.range`), `tailnet_scan: off|warn|block`, reserva atómica con bloqueo
+  de archivo, revalidación y sugerencia del siguiente libre. Comandos
+  `badomens ports check|list` y tool MCP `badomens_ports_check`.
+- **`internal/connection` (RF-2)**: cálculo de la dirección de conexión,
+  MagicDNS, loader y pasos para el jugador; se **persiste** en el registro y se
+  **recalcula en cada arranque**. Comando `badomens -i <n> connect [--copy]`,
+  campo `data.connection` en `instance inspect|start|create` y tool MCP
+  `badomens_connection`.
+- **`internal/dockerx` (RF-6)**: diagnóstico tipado (8 estados) y plan de
+  reparación por plataforma con espera activa; `badomens docker status|ensure
+  [--wait] [--print-script]`, scripts de respaldo `scripts/ensure-docker.{sh,ps1}`
+  y tool MCP `badomens_docker_status`.
+- **`internal/idle` (RF-8)**: máquina de estados con reloj inyectable, detección
+  por Server List Ping (y RCON como respaldo), parada limpia y vigilante con
+  pidfile (`badomens -i <n> idle set|status|disable`, `badomens idle daemon` y
+  tool MCP `badomens_idle_status`).
+- **`internal/events`**: bus de eventos de dominio ligero (estado, jugadores,
+  auto-apagado, Docker/Tailscale, backups).
+- **`internal/engines` (RF-5)**: `Version` enriquecida (canal, fecha, Java,
+  recomendada, build), caché en disco con `stale-while-revalidate` y respaldo
+  embebido; snapshots de Vanilla vía `engine versions --all`.
+- **`internal/tui/help` (RF-4)**: registro único de descripciones de opciones
+  (corta ≤ 90 y larga) que alimenta el asistente, los ajustes y
+  `badomens setup --explain <campo>`.
+- **Contrato JSON**: `error.details` (aditivo) con `details.reason` estable; el
+  resto de cambios nuevos son campos aditivos en `data` (ver
+  `docs/contrato-json.md`).
+- **Documentación**: `docs/tui-auditoria.md`, `docs/tui-paridad.md` y el test de
+  regla que exige paridad CLI↔TUI para cada subcomando.
+
+### 🧹 Pendiente
+
+- Rediseño de la TUI (`theme`, `layout`, `anim`, `components`, `screens`,
+  `i18n`) y las fases 1–6 de la spec: la TUI actual queda intacta y funcional.
+
 ## [v0.1.0-rc.2] — 2026-10-13
 
 > 🔧 Segunda pre-release con **correcciones de distribución**: el instalador de

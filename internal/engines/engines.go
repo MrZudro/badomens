@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Engine describe un motor.
@@ -50,9 +51,44 @@ func (e Engine) SupportsPlugins() bool { return e.PluginDir != "" }
 
 // Version es una versión candidata del catálogo.
 type Version struct {
+	// Version es el identificador de la versión ("1.21.4").
 	Version string `json:"version"`
-	Stable  bool   `json:"stable"`
-	Detail  string `json:"detail,omitempty"`
+	// Stable indica que es una versión estable (release).
+	Stable bool `json:"stable"`
+	// Detail es una nota legible adicional (build, loader).
+	Detail string `json:"detail,omitempty"`
+	// Channel es el canal de publicación (release, snapshot, beta, alpha).
+	Channel Channel `json:"channel,omitempty"`
+	// ReleasedAt es la fecha de publicación (para ordenar).
+	ReleasedAt time.Time `json:"released_at,omitempty"`
+	// Recommended marca la última estable que el motor soporta.
+	Recommended bool `json:"recommended,omitempty"`
+	// JavaMajor es el Java requerido (8/16/17/21…).
+	JavaMajor int `json:"java_major,omitempty"`
+	// Build es el build/loader concreto (Paper build, Forge versión…).
+	Build string `json:"build,omitempty"`
+	// Compatible indica si se puede seleccionar.
+	Compatible bool `json:"compatible,omitempty"`
+	// IncompatibleWhy explica por qué no se puede seleccionar.
+	IncompatibleWhy string `json:"incompatible_why,omitempty"`
+}
+
+// ID devuelve el identificador estable de la versión.
+func (v Version) ID() string { return v.Version }
+
+// JavaMajorFor calcula (de forma aproximada) el Java que necesita una versión
+// de Minecraft. Es orientativo para la etiqueta de imagen de itzg.
+func JavaMajorFor(mc string) int {
+	mc = strings.ToLower(mc)
+	switch {
+	case strings.HasPrefix(mc, "1.20.5") || strings.HasPrefix(mc, "1.21") || strings.HasPrefix(mc, "1.22"):
+		return 21
+	case strings.HasPrefix(mc, "1.17"):
+		return 16
+	case strings.HasPrefix(mc, "1.18") || strings.HasPrefix(mc, "1.19") || strings.HasPrefix(mc, "1.20"):
+		return 17
+	}
+	return 8
 }
 
 // Resolved es el resultado de resolver un motor+versión a pines finales.

@@ -39,8 +39,20 @@ type Error struct {
 	Message string `json:"message"`
 	// Hint es la pista de qué hacer a continuación. Puede estar vacía.
 	Hint string `json:"hint,omitempty"`
+	// Details lleva detalles estructurados y aditivos (por ejemplo, el motivo
+	// estable en la clave "reason"). Nunca sustituye a `code`.
+	Details map[string]any `json:"details,omitempty"`
 	// Cause es la causa subyacente, si la hay. No se serializa.
 	Cause error `json:"-"`
+}
+
+// WithDetail añade un detalle estructurado al error y lo devuelve para encadenar.
+func (e *Error) WithDetail(key string, value any) *Error {
+	if e.Details == nil {
+		e.Details = map[string]any{}
+	}
+	e.Details[key] = value
+	return e
 }
 
 // Error implementa la interfaz error.
@@ -63,13 +75,20 @@ func New(code Code, message, hint string) *Error {
 // código salvo que code sea explícitamente distinto de CodeGeneral.
 func Wrap(code Code, cause error, message, hint string) *Error {
 	var typed *Error
+	e := &Error{Code: code, Message: message, Hint: hint, Cause: cause}
 	if errors.As(cause, &typed) && code == CodeGeneral {
-		code = typed.Code
+		e.Code = typed.Code
 		if hint == "" {
-			hint = typed.Hint
+			e.Hint = typed.Hint
+		}
+		if typed.Details != nil {
+			e.Details = map[string]any{}
+			for k, v := range typed.Details {
+				e.Details[k] = v
+			}
 		}
 	}
-	return &Error{Code: code, Message: message, Hint: hint, Cause: cause}
+	return e
 }
 
 // Is informa si el error (o su cadena de causas) tiene el código dado.
@@ -89,6 +108,16 @@ func From(err error) (code Code, message, hint string) {
 		return e.Code, e.Message, e.Hint
 	}
 	return CodeGeneral, err.Error(), ""
+}
+
+// Details extrae los detalles estructurados de un error tipado (nil si no los
+// hay o el error no es de badomens).
+func Details(err error) map[string]any {
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Details
+	}
+	return nil
 }
 
 // ExitCode devuelve el código de salida del proceso: 0 éxito, 1 aviso, 2 error.

@@ -3,18 +3,106 @@ package cli
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/result"
 	"github.com/spf13/cobra"
 )
+
+func newEngineVersionsCmd(e *Env) *cobra.Command {
+	var all bool
+	cmd := &cobra.Command{
+		Use:   "versions <motor>",
+		Short: "Versiones disponibles y compatibles del motor (RF-5)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, cerr := e.requireConfig()
+			if cerr != nil {
+				return e.finish(result.FromError("engine versions", cerr), "")
+			}
+			cache := engines.NewCache(cfg.DataDir, reg())
+			if d, derr := time.ParseDuration(cfg.Versions.CacheTTL); derr == nil && d > 0 {
+				cache.TTL = d
+			}
+			versions, stale, verr := cache.Versions(cmd.Context(), args[0], engines.VersionOpts{IncludeUnstable: all})
+			if verr != nil {
+				return e.finish(result.FromError("engine versions", verr), "")
+			}
+			engine, _ := engines.ByName(args[0])
+			label := engine.Label
+			if label == "" {
+				label = args[0]
+			}
+			out := make([]map[string]any, 0, len(versions))
+			human := fmt.Sprintf("Versiones de %s (%d):", label, len(versions))
+			for _, v := range versions {
+				out = append(out, map[string]any{
+					"id":               v.ID(),
+					"channel":          string(v.Channel),
+					"released_at":      v.ReleasedAt,
+					"recommended":      v.Recommended,
+					"java_major":       v.JavaMajor,
+					"build":            v.Build,
+					"detail":           v.Detail,
+					"compatible":       v.Compatible,
+					"incompatible_why": v.IncompatibleWhy,
+				})
+				marker := "  "
+				if v.Recommended {
+					marker = " ★"
+				}
+				extra := ""
+				if v.JavaMajor > 0 {
+					extra += fmt.Sprintf("  Java %d", v.JavaMajor)
+				}
+				if v.Build != "" {
+					extra += "  build " + v.Build
+				}
+				if !v.ReleasedAt.IsZero() {
+					extra += "  " + timeSince(v.ReleasedAt)
+				}
+				if v.IncompatibleWhy != "" {
+					human += fmt.Sprintf("\n%s %s ✖ (%s)", marker, v.ID(), v.IncompatibleWhy)
+				} else {
+					human += fmt.Sprintf("\n%s %s%s", marker, v.ID(), extra)
+				}
+			}
+			if stale {
+				human += "\n(lista usada de caché; sin conexión con el catálogo)"
+			}
+			data := map[string]any{"engine": args[0], "stale": stale, "versions": out}
+			return e.finish(result.OK("engine versions", fmt.Sprintf("%d versiones de %s", len(versions), label), data), human)
+		},
+	}
+	cmd.Flags().BoolVar(&all, "all", false, "incluir snapshots/betas")
+	return cmd
+}
+
+// timeSince redacta el tiempo transcurrido desde una fecha.
+func timeSince(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < 0:
+		return ""
+	case d < 24*time.Hour:
+		return "hoy"
+	case d < 48*time.Hour:
+		return "ayer"
+	case d < 30*24*time.Hour:
+		return fmt.Sprintf("hace %d días", int(d/(24*time.Hour)))
+	default:
+		return fmt.Sprintf("hace %d meses", int(d/(30*24*time.Hour)))
+	}
+}
 
 func newEngineCmd(e *Env) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "engine",
 		Short: "Catálogo y selección de motor/versión",
 	}
-	cmd.AddCommand(newEngineListCmd(e), newEngineCurrentCmd(e), newEngineUseCmd(e))
+	cmd.AddCommand(newEngineListCmd(e), newEngineCurrentCmd(e), newEngineUseCmd(e), newEngineVersionsCmd(e))
 	return cmd
 }
 

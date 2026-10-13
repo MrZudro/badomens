@@ -61,3 +61,66 @@ apoyará en ellos; cualquier cambio incompatible se versiona y se documenta en
 > El preflight de la TUI y el check de actualización al abrirla son interactivos
 > y **no** forman parte del contrato: los agentes siguen usando `doctor --json`
 > y `update --json`.
+
+## Adiciones de la TUI v2 (espec)
+
+> Cambios **solo aditivos**: el conjunto de claves previo del documento no cambia.
+
+### `error.details` (nuevo, aditivo)
+
+El objeto `error` admite ahora `details` estructurados que **jamás sustituyen** a
+`code`. La clave estable más usada es `reason` (string):
+
+```json
+{
+  "error": {
+    "code": "error_capacity_exceeded",
+    "message": "no hay puertos libres en el rango 25565-25664",
+    "hint": "amplía ports.range en la configuración o libera un puerto",
+    "details": { "reason": "port_range_exhausted" }
+  }
+}
+```
+
+Valores estables de `details.reason`:
+
+| Momento | `reason` |
+|---|---|
+| Asignación de puertos: rango agotado | `port_range_exhausted` |
+| Docker no instalado | `docker_not_installed` |
+| Daemon de Docker apagado | `docker_daemon_down` |
+| Docker arrancando | `docker_starting` |
+| Permiso denegado sobre el socket | `docker_permission_denied` |
+| Falta Compose | `compose_missing` |
+| Contexto de Docker inalcanzable | `docker_wrong_context` |
+| Virtualización/WSL2 no disponible | `virtualization_off` |
+
+### Comandos y acciones nuevas
+
+| Comando | Acción (`action`) | Campos nuevos en `data` |
+|---|---|---|
+| `-i <n> connect [--copy]` | `connect` | `connection` (objeto RF-2), `player_steps`, `invitation` |
+| `ports check <puerto>` | `ports check` | `ports`, `free`, `suggested`, `conflicts[]` (RF-3) |
+| `ports list` | `ports list` | `instances[]`, `reservations[]` |
+| `engine versions <motor> [--all]` | `engine versions` | `engine`, `stale`, `versions[]` (RF-5) |
+| `docker status` | `docker status` | `state`, `reason`, `message`, `detail`, `platform`, `server_version`, `compose_version`, `context` (RF-6) |
+| `docker ensure [--wait N] [--print-script]` | `docker ensure` | `ready`, `state`, `reason`, `attempts[]`, `pending[]`; con `--print-script` → `script` |
+| `tailscale status` | `tailscale status` | `self`, `peers[]`, `peers_online` (RF-6) |
+| `tailscale ensure` | `tailscale ensure` | `ip` |
+| `-i <n> idle set --timeout 30m [...]` | `idle set` | `idle` (RF-8) |
+| `-i <n> idle status` | `idle status` | `idle`, `running` |
+| `-i <n> idle disable` | `idle disable` | `idle` |
+| `idle daemon` | `idle daemon` | — |
+| `setup --explain <campo>` | `setup explain` | `field` (RF-4) |
+
+### `instance inspect`, `instance start` y `setup`
+
+- `instance inspect` y `setup` añaden `connection` (RF-2), `idle` (RF-8),
+  `stopped_by` y `stopped_at` a `data`.
+- `instance start` añade `connection` a `data` (la IP de la tailnet se recalcula
+  en cada arranque).
+
+### Herramientas MCP nuevas
+
+`badomens_connection`, `badomens_ports_check`, `badomens_engine_versions`,
+`badomens_docker_status`, `badomens_tailscale_status`, `badomens_idle_status`.

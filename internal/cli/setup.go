@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/MrZudro/badomens/internal/provision"
 	"github.com/MrZudro/badomens/internal/result"
 	"github.com/MrZudro/badomens/internal/setup"
+	"github.com/MrZudro/badomens/internal/tui/help"
 	"github.com/spf13/cobra"
 )
 
@@ -37,15 +39,20 @@ type createOpts struct {
 
 func newSetupCmd(e *Env) *cobra.Command {
 	opts := &createOpts{}
+	var explain string
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Asistente de configuración de una instancia (pregunta lo que falte)",
 		Long: `Crea una instancia de servidor preguntando todo lo que no venga por
 flags: nombre, motor, versión, recursos, dificultad, modo, máximo de jugadores
 (recomendado según capacidad), seed, crackeado/premium, whitelist, ops, MOTD,
-icono y plugins. Con flags en su sitio funciona desatendido (CI/agentes).`,
+icono y plugins. Con flags en su sitio funciona desatendido (CI/agentes).
+Usa --explain <campo> para ver la ayuda larga de una opción.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if explain != "" {
+				return e.explain(cmd.Context(), explain)
+			}
 			res, err := runSetup(cmd, e, opts, true)
 			if err != nil {
 				return e.finish(res, "")
@@ -54,7 +61,47 @@ icono y plugins. Con flags en su sitio funciona desatendido (CI/agentes).`,
 		},
 	}
 	addCreateFlags(cmd, opts)
+	cmd.Flags().StringVar(&explain, "explain", "", "imprime la ayuda larga de un campo (RF-4)")
 	return cmd
+}
+
+// explain imprime la ayuda larga de un campo del asistente.
+func (e *Env) explain(_ context.Context, field string) error {
+	h, ok := help.Get(field)
+	if !ok {
+		return e.finish(result.FromError("setup explain", errx.NotFound(
+			"campo desconocido "+field,
+			"campos: "+help.FieldsList(),
+		)), "")
+	}
+	data := map[string]any{"field": map[string]any{
+		"title":   h.Title,
+		"short":   h.Short,
+		"long":    h.Long,
+		"example": h.Example,
+		"impact":  h.Impact,
+		"default": h.Default,
+	}}
+	human := h.Title + "\n" + h.Short
+	if h.Example != "" {
+		human += "\n\nEjemplo: " + h.Example
+	}
+	human += "\n\n" + h.Long
+	if h.Default != "" {
+		human += "\n\nPor defecto: " + h.Default
+	}
+	if len(h.Impact) > 0 {
+		human += "\n\nImpacto: " + strings.Join(tagsToStrings(h.Impact), ", ")
+	}
+	return e.finish(result.OK("setup explain", h.Title, data), human)
+}
+
+func tagsToStrings(tags []help.Tag) []string {
+	out := make([]string, 0, len(tags))
+	for _, tg := range tags {
+		out = append(out, string(tg))
+	}
+	return out
 }
 
 func newInstanceCreateCmd(e *Env) *cobra.Command {
@@ -114,6 +161,11 @@ func runSetup(cmd *cobra.Command, e *Env, o *createOpts, interactive bool) (*res
 		return result.FromError("setup", err), err
 	}
 
+	alloc, err := e.portsAllocator(cmd.Context())
+	if err != nil {
+		return result.FromError("setup", err), err
+	}
+
 	req := provision.Request{
 		Name:             o.name,
 		Engine:           o.engine,
@@ -139,6 +191,7 @@ func runSetup(cmd *cobra.Command, e *Env, o *createOpts, interactive bool) (*res
 		Manager:  m,
 		Resolver: reg(),
 		Runtime:  rt,
+		Ports:    alloc,
 	}, req)
 	if err != nil {
 		res := result.FromError("setup", err)
@@ -152,6 +205,12 @@ func runSetup(cmd *cobra.Command, e *Env, o *createOpts, interactive bool) (*res
 	if len(pr.Warnings) > 0 {
 		data["warnings"] = pr.Warnings
 	}
+	// RF-2: la conexión se calcula y guarda al crear, para mostrarla de inmediato.
+	if conn, cerr := rememberConnection(cmd.Context(), e, pr.Spec); cerr == nil {
+		data["connection"] = connectionData(conn)
+	}
+	// RF-8: estado de auto-apagado por instancia.
+	data["idle"] = idleData(pr.Spec.Idle)
 	if o.noStart {
 		res := result.OK("setup", "instancia "+pr.Spec.Slug+" configurada (sin arrancar)", data)
 		res.WithPhases(resultPhase("created"))

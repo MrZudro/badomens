@@ -3,7 +3,9 @@ package engines
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 )
 
 // Caso base común: APIs de formato {versions:[...]}.
@@ -85,9 +87,15 @@ func (p *vanillaProvider) Base() string {
 
 type manifest struct {
 	Versions []struct {
-		ID   string `json:"id"`
-		Type string `json:"type"`
+		ID          string `json:"id"`
+		Type        string `json:"type"`
+		ReleaseTime string `json:"releaseTime"`
 	} `json:"versions"`
+}
+
+func parseReleaseTime(s string) time.Time {
+	t, _ := time.Parse(time.RFC3339, s)
+	return t
 }
 
 func (p *vanillaProvider) ListVersions(ctx context.Context) ([]Version, error) {
@@ -103,7 +111,7 @@ func (p *vanillaProvider) ListVersions(ctx context.Context) ([]Version, error) {
 		if v.Type != "release" {
 			continue
 		}
-		newest = append(newest, Version{Version: v.ID, Stable: true})
+		newest = append(newest, Version{Version: v.ID, Stable: true, Channel: ChannelRelease, ReleasedAt: parseReleaseTime(v.ReleaseTime)})
 	}
 	versions := make([]Version, 0, len(newest))
 	for i := len(newest) - 1; i >= 0; i-- {
@@ -129,6 +137,36 @@ func (p *vanillaProvider) Resolve(ctx context.Context, version string) (Resolved
 		return Resolved{}, err
 	}
 	return Resolved{Version: v.Version, Pins: map[string]string{}}, nil
+}
+
+// ListAllVersions devuelve releases y snapshots con su canal y fecha, ordenados
+// de antiguo a nuevo por fecha de publicación. Es la entrada del catálogo con
+// canales (RF-5); ListVersions se mantiene intacta para no romper el contrato.
+func (p *vanillaProvider) ListAllVersions(ctx context.Context) ([]Version, error) {
+	var m manifest
+	if err := p.client.GetJSON(ctx, p.Base(), &m); err != nil {
+		return nil, err
+	}
+	versions := make([]Version, 0, len(m.Versions))
+	for _, v := range m.Versions {
+		ch := ChannelRelease
+		stable := true
+		if v.Type != "release" {
+			ch = ChannelSnapshot
+			stable = false
+		}
+		versions = append(versions, Version{
+			Version: v.ID, Stable: stable, Channel: ch,
+			ReleasedAt: parseReleaseTime(v.ReleaseTime),
+		})
+	}
+	sort.Slice(versions, func(i, j int) bool {
+		if versions[i].ReleasedAt.IsZero() || versions[j].ReleasedAt.IsZero() {
+			return versions[i].Version < versions[j].Version
+		}
+		return versions[i].ReleasedAt.Before(versions[j].ReleasedAt)
+	})
+	return versions, nil
 }
 
 // pickVersion elige la versión pedida o la última estable. Devuelve error si la

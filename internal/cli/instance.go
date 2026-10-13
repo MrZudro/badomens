@@ -79,7 +79,17 @@ func newInstanceInspectCmd(e *Env) *cobra.Command {
 				"online_mode": spec.OnlineMode, "motd": spec.Motd, "seed": spec.Seed,
 				"whitelist_enabled": spec.WhitelistEnabled, "whitelist": spec.Whitelist,
 				"ops": spec.Ops, "plugins": spec.Plugins, "created_at": spec.CreatedAt,
+				"stopped_by": spec.StoppedBy, "stopped_at": spec.StoppedAt,
 			}
+			// Conexión (RF-2): la guardada o, si falta, la calculada al vuelo.
+			if spec.Connection != nil {
+				data["connection"] = connectionData(*spec.Connection)
+			} else {
+				conn := buildConnection(cmd.Context(), e, spec)
+				data["connection"] = connectionData(conn)
+			}
+			// Auto-apagado (RF-8).
+			data["idle"] = idleData(spec.Idle)
 			human := fmt.Sprintf("Instancia %s (%s)\n", spec.Slug, spec.Name)
 			human += fmt.Sprintf("  motor %s %s pines=%v\n", spec.Engine, spec.Version, spec.Pins)
 			human += fmt.Sprintf("  recursos %s (cpu %d) · puerto %d\n", spec.Memory, spec.CPU, spec.Port)
@@ -144,7 +154,12 @@ func startInstance(cmd *cobra.Command, e *Env, spec *instance.Spec, maxParallel 
 	if err := rt.Start(cmd.Context(), spec); err != nil {
 		return result.FromError("instance start", err), err
 	}
-	return result.OK("instance start", "la instancia "+spec.Slug+" está arrancando", map[string]any{"instance": spec.Slug}), nil
+	// RF-2: se recalcula y guarda la información de conexión en cada arranque.
+	data := map[string]any{"instance": spec.Slug}
+	if conn, cerr := rememberConnection(cmd.Context(), e, spec); cerr == nil {
+		data["connection"] = connectionData(conn)
+	}
+	return result.OK("instance start", "la instancia "+spec.Slug+" está arrancando", data), nil
 }
 
 func newInstanceStopCmd(e *Env) *cobra.Command {

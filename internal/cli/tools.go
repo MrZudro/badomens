@@ -2,20 +2,25 @@ package cli
 
 import (
 	"context"
+	"net/netip"
+	"strconv"
+	"time"
 
-	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/doctor"
+	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/host"
+	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tools"
 	"github.com/MrZudro/badomens/internal/update"
 	"github.com/MrZudro/badomens/internal/version"
 )
 
 // buildRegistry construye el registro único de herramientas expuesto por MCP y,
-// a través de él, al agente de Emiria/Jamcord. En F0 son de solo lectura; las de
-// gestión de instancias llegan en F1.
-func buildRegistry(cfg *config.Config) (*tools.Registry, error) {
-	reg := tools.New()
+// a través de él, al agente de Emiria/Jamcord.
+func buildRegistry(e *Env) (*tools.Registry, error) {
+	cfg := e.cfg
+	registry := tools.New()
 
 	readOnly := []*tools.Tool{
 		{
@@ -81,12 +86,158 @@ func buildRegistry(cfg *config.Config) (*tools.Registry, error) {
 				}}, nil
 			},
 		},
+		{
+			Name:        "badomens_connection",
+			Description: "Información de conexión de una instancia: dirección, MagicDNS, versión, loader y pasos para el jugador (RF-2).",
+			ReadOnly:    true,
+			Params:      []tools.Param{{Name: "instance", Type: tools.TypeString, Description: "slug de la instancia", Required: true}},
+			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
+				slug, err := args.String("instance")
+				if err != nil {
+					return nil, err
+				}
+				spec, serr := e.specFor(slug)
+				if serr != nil {
+					return nil, serr
+				}
+				info := buildConnection(ctx, e, spec)
+				data := map[string]any{"connection": connectionData(info), "player_steps": info.PlayerSteps, "invitation": info.Invitation()}
+				return &tools.Result{Text: "conexión de " + slug + ": " + info.Preferred(), Data: data}, nil
+			},
+		},
+		{
+			Name:        "badomens_ports_check",
+			Description: "Comprueba si un puerto está libre (registro, docker, host y tailnet) y sugiere uno alternativo (RF-3).",
+			ReadOnly:    true,
+			Params:      []tools.Param{{Name: "port", Type: tools.TypeInt, Description: "puerto a comprobar", Required: true}},
+			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
+				port, verr := args.Int("port")
+				if verr != nil {
+					return nil, verr
+				}
+				alloc, aerr := e.portsAllocator(ctx)
+				if aerr != nil {
+					return nil, aerr
+				}
+				res, cerr := alloc.Check(ctx, netip.Addr{}, port)
+				if cerr != nil {
+					return nil, cerr
+				}
+				data := map[string]any{
+					"port":      res.Port,
+					"free":      res.Free,
+					"suggested": res.Suggested,
+					"conflicts": conflictsData(res.Conflicts),
+				}
+				text := "puerto " + strconv.Itoa(port) + ": " + boolFree(res.Free)
+				if res.Suggested != 0 {
+					text += " (sugerido " + strconv.Itoa(res.Suggested) + ")"
+				}
+				return &tools.Result{Text: text, Data: data}, nil
+			},
+		},
+		{
+			Name:        "badomens_engine_versions",
+			Description: "Versiones disponibles y compatibles de un motor (RF-5). Lista solo versiones que el motor publica.",
+			ReadOnly:    true,
+			Params: []tools.Param{
+				{Name: "engine", Type: tools.TypeString, Description: "paper|fabric|forge|neoforge|vanilla", Required: true, Enum: []string{"paper", "fabric", "forge", "neoforge", "vanilla"}},
+				{Name: "all", Type: tools.TypeBool, Description: "incluir snapshots/betas"},
+			},
+			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
+				engine, err := args.String("engine")
+				if err != nil {
+					return nil, err
+				}
+				all, _ := args.Bool("all")
+				cache := engines.NewCache(cfg.DataDir, reg())
+				if d, derr := time.ParseDuration(cfg.Versions.CacheTTL); derr == nil && d > 0 {
+					cache.TTL = d
+				}
+				versions, stale, verr := cache.Versions(ctx, engine, engines.VersionOpts{IncludeUnstable: all})
+				if verr != nil {
+					return nil, verr
+				}
+				engineLabel := engine
+				if en, ok := engines.ByName(engine); ok {
+					engineLabel = en.Label
+				}
+				out := make([]map[string]any, 0, len(versions))
+				for _, v := range versions {
+					out = append(out, map[string]any{
+						"id": v.ID(), "channel": string(v.Channel), "recommended": v.Recommended,
+						"java_major": v.JavaMajor, "build": v.Build, "released_at": v.ReleasedAt,
+						"compatible": v.Compatible, "incompatible_why": v.IncompatibleWhy,
+					})
+				}
+				return &tools.Result{
+					Text: itoa(len(versions)) + " versiones de " + engineLabel,
+					Data: map[string]any{"engine": engine, "stale": stale, "versions": out},
+				}, nil
+			},
+		},
+		{
+			Name:        "badomens_docker_status",
+			Description: "Estado de Docker: instalado, daemon, compose y contexto; con el motivo estable en reason (RF-6).",
+			ReadOnly:    true,
+			Handler: func(ctx context.Context, _ tools.Args) (*tools.Result, error) {
+				diag := dockerx.Diagnose(ctx, dockerx.DefaultEnv())
+				data := diagnosisData(diag)
+				return &tools.Result{Text: string(diag.State) + ": " + diag.Message, Data: data}, nil
+			},
+		},
+		{
+			Name:        "badomens_tailscale_status",
+			Description: "Estado de la red privada Tailscale: IP, MagicDNS y peers (RF-6).",
+			ReadOnly:    true,
+			Handler: func(ctx context.Context, _ tools.Args) (*tools.Result, error) {
+				st, err := tailscale.Snapshot(ctx)
+				if err != nil {
+					return nil, err
+				}
+				ip, _ := tailscale.ResolveIPv4(ctx)
+				magic, _ := tailscale.MagicDNS(ctx)
+				data := tailscaleData(st, ip, magic)
+				return &tools.Result{Text: "tailscale ip=" + orDash(ip), Data: data}, nil
+			},
+		},
+		{
+			Name:        "badomens_idle_status",
+			Description: "Estado de auto-apagado por inactividad de una instancia (RF-8).",
+			ReadOnly:    true,
+			Params:      []tools.Param{{Name: "instance", Type: tools.TypeString, Description: "slug de la instancia", Required: true}},
+			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
+				slug, err := args.String("instance")
+				if err != nil {
+					return nil, err
+				}
+				m, merr := e.manager()
+				if merr != nil {
+					return nil, merr
+				}
+				spec, lerr := m.Load(slug)
+				if lerr != nil {
+					return nil, lerr
+				}
+				rt, rerr := e.runtime()
+				if rerr != nil {
+					return nil, rerr
+				}
+				running := false
+				if st, serr := rt.State(ctx, slug); serr == nil {
+					running = st == "running"
+				}
+				data := idleData(spec.Idle)
+				data["running"] = running
+				return &tools.Result{Text: "idle de " + slug + ": " + enabledText(spec.Idle), Data: data}, nil
+			},
+		},
 	}
 
 	for _, t := range readOnly {
-		if err := reg.Register(t); err != nil {
+		if err := registry.Register(t); err != nil {
 			return nil, err
 		}
 	}
-	return reg, nil
+	return registry, nil
 }
