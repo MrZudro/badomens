@@ -1,0 +1,38 @@
+# Compilación y binarios
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Configuración local y secretos
+.env
+.env.local
+*.env
+config.yaml
+!examples/config.example.yaml
+*.pem
+*.key
+
+# Datos locales de badomens (instancias, mundos, backups)
+instances/
+worlds/
+backups/
+data/
+
+# Entornos y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Cobertura y reportes
+coverage/
+coverage.out
+*.prof
+
+# Go
+vendor/
+.gotmp/

@@ -1,0 +1,33 @@
+# Configuración de golangci-lint v2 (formato del archivo: .golangci.yaml).
+version: "2"
+
+run:
+  timeout: 5m
+  go: "1.27"
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosec
+    - errorlint
+  # Nota: el proyecto se documenta en español; misspell produce falsos
+  # positivos con palabras españolas y no se incluye.
+  settings:
+    gosec:
+      excludes:
+        # G115: conversión de enteros en mensajes y conteos; revisado a mano.
+        - G115
+  exclusions:
+    rules:
+      - linters: [errcheck]
+        path: _test\.go

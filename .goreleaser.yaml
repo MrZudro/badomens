@@ -1,0 +1,41 @@
+# Configuración de GoReleaser para el binario único badomens.
+# Se activa al crear una etiqueta vX.Y.Z (ver .github/workflows/release.yml).
+version: 2
+
+project_name: badomens
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/badomens
+    env:
+      - CGO_ENABLED=0
+    goos: [windows, darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X github.com/manuelserver/badomens/internal/version.Version={{ .Version }}
+      - -X github.com/manuelserver/badomens/internal/version.Commit={{ .Commit }}
+      - -X github.com/manuelserver/badomens/internal/version.Date={{ .Date }}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: '{{ .Tag }}-next'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'

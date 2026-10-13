@@ -1,0 +1,23 @@
+# badomens — ejemplo de configuración global.
+# Copia a ~/.config/badomens/config.yaml (o usa `badomens config --init`).
+
+# Raíz de datos (instancias, mundos, backups). Vacío = <config>/data.
+data_dir: ""
+
+# Imagen del servidor Minecraft.
+image: "itzg/minecraft-server:java25"
+
+# Número máximo de instancias registradas y de instancias en paralelo.
+max_instances: 5
+max_parallel: 3
+
+# RAM JVM por defecto al crear una instancia.
+default_memory: "4G"
+
+# Red privada: las instancias se publican solo en la IP del tailnet.
+tailscale:
+  enabled: true
+  host_ip: ""
+
+# Repositorio usado por `badomens update` (owner/nombre).
+repo: "manuelserver/badomens"

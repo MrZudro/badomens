@@ -1,0 +1,145 @@
+# 🧱 badomens
+
+**Gestor de varios servidores de Minecraft en un solo binario.** Eliges motor
+(Paper, Fabric, Forge, NeoForge o Vanilla), versión, recursos, mundo y seed, y
+badomens levanta cada servidor en Docker Compose, aislado y publicado solo en tu
+red privada (Tailscale).
+
+> 🔒 **Solo para ti y tu gente:** los puertos se publican únicamente en la IP del
+> tailnet, nunca en todas las interfaces.
+
+Esta es la reescritura en **Go** del proyecto Bad Omens (antes en Python). El
+objetivo es un binario precompilado, sin interfaz web, **CLI primero** y TUI
+después, y **operable desde Emiria** (el asistente Jamcord) por CLI, bot de
+Discord, agente de IA y MCP.
+
+---
+
+## Estado
+
+Este repositorio está en construcción por fases. Lo que ya funciona:
+
+| Fase | Contenido | Estado |
+|---|---|---|
+| **F0** Fundación | estructura, contrato JSON, `version`, `doctor`, `capacity`, `update`, MCP, CI y releases | ✅ |
+| **F1** Multi-instancia | `instance`, `setup`, motores, mundos, backups, plugins, planificador | ⏳ |
+| **F2** Doctor TPS + updates | `doctor tps`, métricas | ⏳ |
+| **F3** Integración Emiria | `jamcord mc`, herramientas `badomens_*`, bot `/mc` | ⏳ |
+| **F4** TUI | panel multi-instancia | ⏳ |
+| **F5** Distribución | instalador de un comando | ⏳ |
+
+> La especificación del MVP vive aparte. Este README describe lo que ya existe y
+> lo que viene.
+
+---
+
+## Requisitos
+
+| Herramienta | Para qué | Cómo instalarla |
+|---|---|---|
+| **Docker + Compose** | corre cada servidor en un contenedor | [docker.com](https://www.docker.com/) |
+| **Tailscale** | red privada entre tú y tus amigos | [tailscale.com](https://tailscale.com/) |
+
+badomens es un único binario: no necesitas Go ni Python para usarlo.
+
+---
+
+## Instalación
+
+Descarga el binario de la [última release](https://github.com/manuelserver/badomens/releases)
+para tu sistema (Windows/macOS/Linux · amd64/arm64) y verifica el checksum.
+
+```bash
+# Windows: descarga badomens-windows-amd64.zip y descomprime badomens.exe
+# macOS/Linux:
+tar -xzf badomens_linux_amd64.tar.gz
+chmod +x badomens
+sudo mv badomens /usr/local/bin/
+```
+
+O compílalo desde el código (necesitas Go 1.27+):
+
+```bash
+go install github.com/manuelserver/badomens/cmd/badomens@latest
+```
+
+---
+
+## Inicio rápido
+
+```bash
+badomens doctor                 # ¿está todo listo? Docker, Tailscale, config
+badomens capacity               # cuánta CPU/RAM tienes y cuántas instancias caben
+badomens config --init          # crea la configuración global
+```
+
+Todos los comandos aceptan `--json` para una salida estable.
+
+---
+
+## Contrato de salida
+
+Cada comando imprime **un único documento JSON** en stdout:
+
+```json
+{
+  "ok": true,
+  "exit_code": 0,
+  "action": "doctor",
+  "message": "doctor terminó sin problemas",
+  "data": { "checks": [ ... ] },
+  "timestamp": "2026-01-01T00:00:00Z"
+}
+```
+
+- En caso de error: `ok: false` y `error: {code, message, hint}`.
+- Códigos de salida: **0** éxito · **1** aviso · **2** error.
+- Los códigos de error (`error.code`) son estables: `error_usage`,
+  `error_not_found`, `error_dependency_missing`, `error_capacity_exceeded`,
+  `error_unavailable`, `error_general`.
+
+Este contrato es lo que consume Emiria/Jamcord.
+
+---
+
+## Comandos
+
+| Comando | Función |
+|---|---|
+| `badomens version` | versión del binario |
+| `badomens doctor` | diagnóstico del entorno |
+| `badomens capacity` | CPU/RAM del equipo y plan de instancias |
+| `badomens config [--init]` | configuración global |
+| `badomens update [--check]` | ¿hay una versión nueva? |
+| `badomens mcp serve [--read-only]` | servidor MCP por stdio |
+| `badomens commands` | manifiesto de comandos (JSON) |
+
+Y en camino: `setup`, `instance`, `engine`, `world`, `backup`, `access`,
+`plugin`, `doctor tps`.
+
+---
+
+## Integración con Emiria (Jamcord)
+
+badomens es autónomo. Jamcord lo consume ejecutando el binario y leyendo su JSON
+estable, igual que hace con SeedMap. Así Emiria puede gestionar los servidores
+por lenguaje natural (Discord/agente), por `/mc` y por MCP. Detalle en
+`docs/integracion-jamcord.md`.
+
+---
+
+## Desarrollo
+
+```bash
+make build     # compila bin/badomens
+make test      # pruebas unitarias
+make lint      # golangci-lint
+make run       # ejecuta en desarrollo
+```
+
+---
+
+## Licencia
+
+MIT. Ver `LICENSE`, `CONTRIBUTING.md` y `SECURITY.md`. Proyecto no afiliado a
+Mojang, Microsoft, PaperMC ni a los demás proyectos de servidores mencionados.
