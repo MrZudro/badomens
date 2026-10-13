@@ -14,11 +14,13 @@ config.yaml
 *.pem
 *.key
 
-# Datos locales de badomens (instancias, mundos, backups)
-instances/
-worlds/
-backups/
-data/
+# Datos locales de badomens (instancias, mundos, backups) — solo en la raíz del
+# repositorio, nunca dentro de internal/ (los patrones anclados /…/ no tocan
+# paquetes fuente como internal/worlds).
+/instances/
+/worlds/
+/backups/
+/data/
 
 # Entornos y editores
 .idea/
