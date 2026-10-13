@@ -1,7 +1,9 @@
 # F4 — TUI: panel multi-instancia
 
 > Estado del plan: **implementado** (F4). La TUI ya está en `internal/tui` y se
-> lanza con `badomens tui`.
+> lanza con `badomens tui`. Además del panel original, la TUI **crea instancias**
+> (asistente `N`), **avisa de los requisitos** del entorno (preflight, tecla
+> `R`) y la apertura **comprueba actualizaciones** solo si se configura.
 
 ## Objetivo
 
@@ -19,6 +21,8 @@ TUI es un cliente adicional: **no sustituye ni rompe el contrato JSON** del CLI
 | **Logs** | tail de logs con scroll (viewport) y recarga manual/auto |
 | **Consola** | enviar comandos a la consola del servidor (`mc-send-to-console`) |
 | **Backups** | listar, crear y podar copias de seguridad |
+| **Nueva instancia** | asistente de creación con paridad total con `badomens setup` (tecla `N`): nombre, motor, versión, RAM, CPU, dificultad, modo, jugadores, premium, whitelist+usuarios, ops, semilla, MOTD, plugins/mods y arrancar |
+| **Requisitos** | banner con las comprobaciones que fallan (Docker, Compose, Tailscale…) y pantalla detallada en la ayuda (tecla `R`) |
 | **Ayuda** | resumen de teclas |
 
 ## Diseño
@@ -48,11 +52,17 @@ TUI es un cliente adicional: **no sustituye ni rompe el contrato JSON** del CLI
 | T3 | tests unitarios del modelo con backend fake (sin Docker) | ✅ |
 | T4 | verificación E2E/visual con Docker real | ✅ (e2e PASS, visual QA PASS 6/6) |
 | T5 | docs: README, AGENTS.md, CHANGELOG, skill | ✅ |
+| T6 | creación de instancias (`N`), banner de requisitos (`R`) y arranque con check de actualización | ✅ |
 
 ## Contrato y reglas respetadas
 
 - La TUI solo se puede lanzar en una terminal (`isTTY`); en otro caso devuelve
   el error tipado `error_usage` respetando el contrato del binario.
+- La creación de instancias reutiliza el **mismo núcleo que `badomens setup`**
+  (`internal/provision`): la TUI no duplica lógica ni rompe la validación.
+- El preflight de requisitos y el check de actualización son **solo referencias
+  interactivas**: no forman parte del contrato JSON (los agentes usan
+  `badomens update --json` y `doctor`).
 - Las operaciones críticas (start sobre el límite de paralelos) reutilizan la
   misma lógica del CLI: `runtime.RunningCount` contra `cfg.MaxParallel`.
 - El flag `--json` no aplica al modo interactivo; el resto de comandos

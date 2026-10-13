@@ -20,9 +20,10 @@ Cada comando imprime **un único documento JSON** en stdout y sale con 0 (OK),
 ```bash
 badomens --json doctor            # diagnóstico: Docker, Tailscale, config
 badomens --json capacity          # CPU/RAM del equipo y plan de instancias
-badomens --json update            # ¿hay versión nueva?
+badomens --json update            # ¿hay versión nueva? (--apply la descarga y reemplaza)
 badomens --json commands          # manifiesto de comandos
 badomens --json config            # configuración resuelta
+badomens --json uninstall         # desinstalación (--dry-run para previsualizar)
 ```
 
 ## Reglas al ayudar al usuario
@@ -42,6 +43,8 @@ badomens --json config            # configuración resuelta
 ## TUI (humanos)
 
 `badomens tui` abre un panel interactivo (lista, detalle, logs, consola,
-backups). Es interactivo: los agentes deben seguir usando los comandos con
-`--json`. Para capturas y pruebas existe `--snapshot --view list|detail|logs|
-backups|help`.
+backups, **creación** con `N` y aviso de **requisitos** con `R`). Es
+interactivo: los agentes deben seguir usando los comandos con `--json`. Para
+capturas y pruebas existe `--snapshot --view list|detail|logs|backups|help`.
+La apertura comprueba actualizaciones (una vez cada 12 h) y pregunta antes de
+cambiar nada.

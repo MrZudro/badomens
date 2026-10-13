@@ -21,3 +21,7 @@ tailscale:
 
 # Repositorio usado por `badomens update` (owner/nombre).
 repo: "MrZudro/badomens"
+
+# Comprueba si hay una versión nueva al abrir la TUI y, de haberla, pregunta si
+# quieres actualizar (0 para desactivar).
+update_check: true

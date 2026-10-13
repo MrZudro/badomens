@@ -4,6 +4,38 @@ Todas las novedades relevantes de **badomens** se documentan aquí ✨.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [semántico](https://semver.org/lang/es/).
 
+## [v0.1.0-rc.1] — 2026-10-13
+
+> 🚀 Segunda **pre-release** de badomens: la TUI crea instancias y avisa de sus
+> requisitos, y el binario puede **actualizarse y desinstalarse** desde el CLI.
+> Mira [la release](https://github.com/MrZudro/badomens/releases) para descargar
+> binarios verificados.
+
+### ➕ Añadido
+
+- **🖥️ TUI**: asistente de creación de instancias con **paridad total** con
+  `badomens setup` (tecla `N`): nombre, motor, versión, RAM, CPU, dificultad,
+  modo, jugadores, premium, whitelist+usuarios, ops, semilla, MOTD y plugins.
+- **⚠️ Requisitos en la TUI**: preflight al abrir (directorios, Docker/Compose,
+  Tailscale), banner con lo que falla y pantalla detallada en la ayuda (tecla
+  `R`; `--no-preflight` para saltarlo).
+- **🔄 `update --apply`**: descarga la última release, **verifica el sha256** y
+  reemplaza el binario (con confirmación). Renombre a `.old` en Windows.
+- **🔔 Check de actualización al abrir la TUI**: pregunta si actualizar, con
+  throttle por caché (12 h) y recordatorio de versión descartada
+  (`update_check`, `BADOMENS_UPDATE_CHECK`, `--no-preflight`).
+- **🧹 `badomens uninstall`**: binario + configuración (conserva los datos);
+  `--purge` borra también instancias/mundos/backups; `--dry-run` previsualiza.
+  Scripts `scripts/uninstall.sh` y `scripts/uninstall.ps1`.
+- **🧩 `internal/provision`**: núcleo compartido de creación entre `setup` y la
+  TUI (una sola validación, sin duplicar lógica).
+
+### 🔧 Otros
+
+- `doctor` expone `Preflight` (subconjunto de comprobaciones para la TUI).
+- Documentación actualizada: README, `docs/setup-install.md`, `docs/tui-plan.md`
+  y `AGENTS.md`.
+
 ## [v0.1.0-rc.0] — 2026-10-13
 
 > 🧱 Primera **pre-release** de badomens: el binario ya cubre todo el plan
@@ -67,4 +99,5 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ---
 
+[v0.1.0-rc.1]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.1
 [v0.1.0-rc.0]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.0

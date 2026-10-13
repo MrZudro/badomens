@@ -54,3 +54,10 @@ código de salida del proceso resume el estado.
 Estos nombres y códigos no cambian entre releases menores. Emiria/Jamcord se
 apoyará en ellos; cualquier cambio incompatible se versiona y se documenta en
 `CHANGELOG.md`.
+
+> **Nota de versionado (v0.1.0-rc.1+):** se añadieron acciones nuevas sin tocar
+> las existentes: `uninstall` (con `removed`/`kept`/`warnings` en `data`) y
+> `update` con `--apply` (añade `from`, `to` y `restart_required` al documento).
+> El preflight de la TUI y el check de actualización al abrirla son interactivos
+> y **no** forman parte del contrato: los agentes siguen usando `doctor --json`
+> y `update --json`.

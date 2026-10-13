@@ -31,7 +31,7 @@ antes hacías a mano:
 - 🐳 Levanta cada servidor en **Docker Compose**, aislado del resto.
 - 🔒 Publica los puertos **solo en tu red Tailscale** (nunca en todas las interfaces).
 - 📊 Supervisa **TPS, CPU y RAM** y crea **backups** con checksum.
-- 🖥️ O péntalo desde una **TUI** interactiva o desde el CLI.
+- 🖥️ Óperalo y créalo desde una **TUI** interactiva o desde el CLI.
 
 > [!NOTE]
 > 👉 Esta es la **reescritura en Go** del antiguo proyecto Bad Omens (Python).
@@ -151,6 +151,19 @@ Necesitas **Go 1.27+**:
 go install github.com/MrZudro/badomens/cmd/badomens@latest
 ```
 
+### 🔄 Actualizar y 🧹 desinstalar
+
+- **Actualizar**: `badomens update` te dice si hay una versión nueva;
+  `badomens update --apply` la descarga (verificando el **checksum**) y
+  reemplaza el binario. Al abrir la TUI, badomens comprueba (una vez cada 12 h)
+  si hay novedades y te pregunta si actualizar; se desactiva con
+  `BADOMENS_UPDATE_CHECK=0`, `update_check: false` en `config.yaml` o
+  `--no-preflight`.
+- **Desinstalar**: `badomens uninstall` elimina el binario y la configuración y
+  **conserva tus datos** (instancias, mundos, backups). Usa
+  `badomens uninstall --purge` para borrarlos también, y `--dry-run` para ver
+  qué haría. También hay scripts en `scripts/uninstall.{sh,ps1}`.
+
 ## 🏁 Inicio rápido
 
 ```bash
@@ -196,9 +209,10 @@ badomens instance close survival
 | `badomens logs` · `badomens console <cmd>` | 📜 logs y consola de una instancia |
 | `badomens doctor tps` | 🩺 diagnóstico de TPS/MSPT |
 | `badomens metrics` | 📈 CPU/RAM/mundo/backups de una instancia |
-| `badomens tui` | 🖥️ panel interactivo multi-instancia |
+| `badomens tui` | 🖥️ panel interactivo multi-instancia (crea, opera, supervisa y avisa de requisitos) |
 | `badomens mcp serve` | 🔌 servidor MCP por stdio |
-| `badomens doctor` · `capacity` · `update` · `resolve-ip` | 🧪 herramientas del entorno |
+| `badomens doctor` · `capacity` · `update` · `resolve-ip` | 🧪 herramientas del entorno (el `update --apply` descarga y reemplaza) |
+| `badomens uninstall` | 🧹 desinstala el binario y la configuración (`--purge` borra también los datos) |
 | `badomens version` · `config` · `commands` | ℹ️ utilidades |
 
 > [!TIP]

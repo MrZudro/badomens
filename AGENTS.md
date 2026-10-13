@@ -20,6 +20,8 @@ go run ./cmd/badomens setup --name demo --engine paper --no-start
 go run ./cmd/badomens instance list
 go run ./cmd/badomens -i demo start   # arranca la instancia
 go run ./cmd/badomens tui             # panel interactivo (TUI) — no usar en CI
+go run ./cmd/badomens update --apply  # descarga+verifica+reemplaza el binario
+go run ./cmd/badomens uninstall       # desinstala (conserva datos sin --purge)
 ```
 
 ## Contrato (importante)
@@ -54,8 +56,11 @@ internal/worlds/         biblioteca de mundos (zip/manifiestos)
 internal/backup/         copias de seguridad (manifest + sha256)
 internal/plugins/        instalación de plugins/mods según motor
 internal/setup/          recomendaciones del asistente de creación
+internal/provision/      núcleo de creación de instancias (CLI + TUI)
 internal/tps/            diagnóstico de TPS/MSPT y métricas del contenedor
 internal/tui/            panel interactivo multi-instancia (bubbletea)
+internal/update/         chequeo de releases + descarga verificada (Apply) + caché
+internal/uninstall/      desinstalación del binario y la configuración
 ```
 
 ## Reglas

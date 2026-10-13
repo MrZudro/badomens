@@ -37,3 +37,34 @@ badomens version
 badomens doctor      # Docker, Tailscale y configuración
 badomens update      # confirma que estás en la última versión
 ```
+
+## Actualizar
+
+`badomens update` solo comprueba. Para **aplicar** la actualización (descargar,
+verificar el sha256 y reemplazar el binario):
+
+```bash
+badomens update                # comprueba
+badomens update --apply        # descarga, verifica y reemplaza (pide confirmación)
+```
+
+Al abrir la **TUI**, badomens comprueba si hay una versión nueva (una vez cada
+12 h) y pregunta si quieres actualizar. Se desactiva con `update_check: false`
+en `config.yaml`, `BADOMENS_UPDATE_CHECK=0` o `--no-preflight`.
+
+> En Windows el binario en uso no se puede pisotear: se renombra a `.old` y el
+> nuevo queda instalado; cierra y vuelve a abrir `badomens` para usarlo (y borra
+> el `.old`).
+
+## Desinstalar
+
+```bash
+badomens uninstall --dry-run      # qué haría (no borra nada)
+badomens uninstall                # binario + configuración, conserva los datos
+badomens uninstall --purge        # borra también TODOS los datos
+```
+
+Sin `--purge` se **conservan** las instancias, mundos y backups (viven en
+`<config>/data`). También hay scripts: `scripts/uninstall.sh` (macOS/Linux) y
+`scripts/uninstall.ps1` (Windows), que respetan las mismas variables
+(`BADOMENS_DEST`…).
