@@ -23,7 +23,7 @@ Este repositorio está en construcción por fases. Lo que ya funciona:
 |---|---|---|
 | **F0** Fundación | estructura, contrato JSON, `version`, `doctor`, `capacity`, `update`, MCP, CI y releases | ✅ |
 | **F1** Multi-instancia | `instance` (hasta 5, 3 en paralelo), `setup`, motores, mundos, backups, plugins, planificador | ✅ |
-| **F2** Doctor TPS + updates | `doctor tps`, métricas | ⏳ |
+| **F2** Doctor TPS + updates | `doctor tps`, `metrics`, `update --check` | ✅ |
 | **F3** Integración Emiria | `jamcord mc`, herramientas `badomens_*`, bot `/mc` | ⏳ |
 | **F4** TUI | panel multi-instancia | ⏳ |
 | **F5** Distribución | instalador de un comando | ⏳ |
@@ -125,6 +125,8 @@ Este contrato es lo que consume Emiria/Jamcord.
 | `badomens plugin add/list/remove` | plugins/mods según motor (con aviso de TPS) |
 | `badomens logs` / `badomens console <cmd>` | logs y consola de una instancia |
 | `badomens resolve-ip` | IP de publicación del host |
+| `badomens doctor tps` | diagnóstico de TPS/MSPT de las instancias |
+| `badomens metrics` | métricas de una instancia (CPU/RAM/mundo/backups) |
 | `badomens version` | versión del binario |
 | `badomens doctor` | diagnóstico del entorno |
 | `badomens capacity` | CPU/RAM del equipo y plan de instancias |
@@ -132,8 +134,6 @@ Este contrato es lo que consume Emiria/Jamcord.
 | `badomens update [--check]` | ¿hay una versión nueva? |
 | `badomens mcp serve [--read-only]` | servidor MCP por stdio |
 | `badomens commands` | manifiesto de comandos (JSON) |
-
-Y en camino: `doctor tps` (F2).
 
 ---
 

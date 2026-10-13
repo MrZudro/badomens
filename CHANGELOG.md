@@ -8,6 +8,15 @@ semántico.
 
 ### Añadido
 
+- **F2 — Doctor TPS y métricas**
+  - `badomens doctor tps [--instance]`: mide TPS y MSPT por consola
+    (Paper/Spigot), CPU y RAM con `docker stats`, y cuenta eventos de retraso
+    ("Can't keep up!") de los logs. Clasifica cada instancia (good/degraded/
+    critical), devuelve sugerencias y pone el código de salida agregado
+    (0/1/2).
+  - `badomens metrics`: CPU/RAM del contenedor, tamaño del mundo y estado de
+    backups de una instancia.
+
 - **F1 — Multi-instancia**
   - Registro local de hasta 5 instancias (`setup`, `instance create/list/inspect/remove`)
     y ciclo de vida con Docker Compose por instancia (`start`, `stop`, `close`,

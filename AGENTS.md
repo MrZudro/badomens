@@ -7,8 +7,8 @@ repositorio. Léela antes de modificar código o ejecutar comandos.
 
 **badomens** es un binario único en Go que gestiona **varios servidores de
 Minecraft** en Docker Compose (`itzg/minecraft-server`) + Tailscale. Está en
-fases: F0 (fundación) y **F1 (multi-instancia)** están completas; F2 (doctor
-TPS y métricas), F3 (integración con Emiria/Jamcord), F4 (TUI) y F5
+fases: F0 (fundación), **F1 (multi-instancia)** y **F2 (doctor TPS y métricas)**
+están completas; F3 (integración con Emiria/Jamcord), F4 (TUI) y F5
 (distribución) están pendientes (ver `README.md`).
 
 ## Comandos esenciales
@@ -54,6 +54,7 @@ internal/worlds/         biblioteca de mundos (zip/manifiestos)
 internal/backup/         copias de seguridad (manifest + sha256)
 internal/plugins/        instalación de plugins/mods según motor
 internal/setup/          recomendaciones del asistente de creación
+internal/tps/            diagnóstico de TPS/MSPT y métricas del contenedor
 ```
 
 ## Reglas
