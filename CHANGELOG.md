@@ -15,7 +15,8 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 - **Instalador de un comando**: usa `raw.githubusercontent.com` (las URLs
   `releases/latest` web y API ignoran las pre-releases) y resuelve la versión
-  vía `releases?per_page=1`.
+  vía `releases?per_page=1`. En Windows añade el directorio al **PATH de
+  usuario** automáticamente (y `uninstall.ps1` lo quita al desinstalar).
 - **Assets de release**: GoReleaser nombra los assets con la versión
   (`badomens_<v>_<os>_<arch>.<ext>`); los instaladores y `update --apply` ahora
   lo respetan (antes descargaban 404).

@@ -56,5 +56,22 @@ finally {
 
 $bin = Join-Path $DestDir "badomens.exe"
 Write-Host "Instalado en $bin"
+
+# --- Añade el directorio al PATH del usuario (HKCU\Environment) ---
+$destFull = [System.IO.Path]::GetFullPath($DestDir)
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$parts = @($userPath -split ';' | Where-Object { $_ })
+$normalized = @($parts | ForEach-Object { $_.TrimEnd('\') })
+if ($normalized -contains $destFull.TrimEnd('\')) {
+  Write-Host "Ya estaba en tu PATH de usuario: $DestDir"
+} else {
+  try {
+    [Environment]::SetEnvironmentVariable("Path", (($parts + $destFull) -join ';'), "User")
+    Write-Host "Añadido a tu PATH de usuario (reabre la terminal para usarlo): $DestDir"
+  } catch {
+    Write-Warning "No se pudo añadir el PATH automáticamente: $($_.Exception.Message)"
+    Write-Warning "Añádelo a mano: [Environment]::SetEnvironmentVariable('Path', ((($env:Path -split ';') + '$DestDir') -join ';'), 'User')"
+  }
+}
+
 & $bin version
-Write-Host "Añade a tu PATH: $DestDir"

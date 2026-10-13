@@ -26,7 +26,9 @@ Los scripts (`scripts/install.sh`, `scripts/install.ps1`):
 3. Descargan el paquete y su `checksums.txt`.
 4. **Verifican el sha256** antes de instalar (abortan si no coincide).
 5. Instalan en `/usr/local/bin` (o `%LOCALAPPDATA%\Programs\badomens`) y
-   muestran `badomens version`.
+   muestran `badomens version`. En Windows añaden el directorio al **PATH de
+   usuario** automáticamente (reabre la terminal); `scripts/uninstall.ps1` lo
+   quita al desinstalar.
 
 Variables opcionales: `BADOMENS_REPO`, `BADOMENS_DEST`, `BADOMENS_VERSION`.
 

@@ -135,7 +135,9 @@ irm https://raw.githubusercontent.com/MrZudro/badomens/main/scripts/install.ps1 
 Los instaladores descargan el binario correcto para tu sistema, **verifican el
 checksum** contra `checksums.txt` y lo dejan listo en
 `/usr/local/bin/badomens` (macOS/Linux) o `%LOCALAPPDATA%\Programs\badomens`
-(Windows).
+(Windows). En Windows el instalador **añade el directorio a tu PATH de
+usuario automáticamente** (reabre la terminal para usarlo); en macOS/Linux
+`/usr/local/bin` ya suele estar en el PATH.
 
 ### 🧭 Opción B — Desde las releases
 

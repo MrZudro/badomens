@@ -35,4 +35,15 @@ if ($Purge) {
   Write-Host "Datos conservados en: $(Join-Path $ConfigDir 'data')  (usa -Purge para borrarlos)"
 }
 
+# --- Quita el directorio del PATH de usuario (HKCU\Environment) ---
+$destFull = [System.IO.Path]::GetFullPath($DestDir)
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$parts = @($userPath -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ne $destFull.TrimEnd('\') })
+try {
+  [Environment]::SetEnvironmentVariable("Path", ($parts -join ';'), "User")
+  Write-Host "Quitado del PATH de usuario: $DestDir"
+} catch {
+  Write-Warning "No se pudo quitar del PATH automáticamente: $($_.Exception.Message)"
+}
+
 Write-Host "Desinstalación completada."
