@@ -4,6 +4,28 @@ Todas las novedades relevantes de **badomens** se documentan aquí ✨.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [semántico](https://semver.org/lang/es/).
 
+## [v0.1.0-rc.2] — 2026-10-13
+
+> 🔧 Segunda pre-release con **correcciones de distribución**: el instalador de
+> un comando y `update --apply` vuelven a funcionar (ya no dependen de
+> `/releases/latest` ni de nombres de asset sin versión), y los instaladores se
+> publican como assets de la release.
+
+### 🔧 Correcciones
+
+- **Instalador de un comando**: usa `raw.githubusercontent.com` (las URLs
+  `releases/latest` web y API ignoran las pre-releases) y resuelve la versión
+  vía `releases?per_page=1`.
+- **Assets de release**: GoReleaser nombra los assets con la versión
+  (`badomens_<v>_<os>_<arch>.<ext>`); los instaladores y `update --apply` ahora
+  lo respetan (antes descargaban 404).
+- **`update` / `update --apply` / check de la TUI**: consultan el listado de
+  releases en vez de `/releases/latest` (que devolvía 404 al haber solo
+  pre-releases) y descargan con el nombre de asset correcto.
+- **GoReleaser**: `install.sh` e `install.ps1` se publican como assets
+  (`extra_files`) para que la URL `…/releases/latest/download/…` funcione
+  cuando exista una release **estable**.
+
 ## [v0.1.0-rc.1] — 2026-10-13
 
 > 🚀 Segunda **pre-release** de badomens: la TUI crea instancias y avisa de sus
@@ -99,5 +121,6 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ---
 
+[v0.1.0-rc.2]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.2
 [v0.1.0-rc.1]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.1
 [v0.1.0-rc.0]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.0
