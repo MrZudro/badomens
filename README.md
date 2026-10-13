@@ -26,7 +26,7 @@ Este repositorio está en construcción por fases. Lo que ya funciona:
 | **F2** Doctor TPS + updates | `doctor tps`, `metrics`, `update --check` | ✅ |
 | **F3** Integración Emiria | `jamcord mc`, herramientas `badomens_*`, bot `/mc` | ✅ |
 | **F4** TUI | panel multi-instancia | ⏳ |
-| **F5** Distribución | instalador de un comando | ⏳ |
+| **F5** Distribución | instalador de un comando (`scripts/install.sh`/`.ps1`) + releases precompiladas | ✅ `installer`, TUI pendiente |
 
 > La especificación del MVP vive aparte. Este README describe lo que ya existe y
 > lo que viene.
@@ -47,15 +47,19 @@ badomens es un único binario: no necesitas Go ni Python para usarlo.
 ## Instalación
 
 Descarga el binario de la [última release](https://github.com/manuelserver/badomens/releases)
-para tu sistema (Windows/macOS/Linux · amd64/arm64) y verifica el checksum.
+para tu sistema, o usa el instalador de un comando:
 
 ```bash
-# Windows: descarga badomens-windows-amd64.zip y descomprime badomens.exe
-# macOS/Linux:
-tar -xzf badomens_linux_amd64.tar.gz
-chmod +x badomens
-sudo mv badomens /usr/local/bin/
+# macOS / Linux
+curl -fsSL https://github.com/manuelserver/badomens/releases/latest/download/install.sh | sh
+
+# Windows (PowerShell)
+irm https://github.com/manuelserver/badomens/releases/latest/download/install.ps1 | iex
 ```
+
+Los instaladores descargan el binario, **verifican el checksum** contra
+`checksums.txt` y lo dejan listo (`/usr/local/bin/badomens` o
+`%LOCALAPPDATA%\Programs\badomens`).
 
 O compílalo desde el código (necesitas Go 1.27+):
 
