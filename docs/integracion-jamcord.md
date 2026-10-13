@@ -3,7 +3,7 @@
 badomens y Jamcord son proyectos independientes. La integración es por
 **subproceso**: Jamcord ejecuta el binario `badomens` y lee su contrato JSON
 estable. Así cada proyecto tiene su release, su CI y su instalación, y ninguno
-depende del otro para funcionar.
+depende del otro para funcionar. **Estado: implementada** (F3).
 
 ```
 Emiria (Jamcord)                        badomens

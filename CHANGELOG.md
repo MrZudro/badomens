@@ -8,6 +8,17 @@ semántico.
 
 ### Añadido
 
+- **F3 — Integración con Emiria (Jamcord)**
+  - Jamcord gana un cliente (`internal/minecraft`) que ejecuta el binario
+    `badomens --json` y registra herramientas `badomens_*` (activado solo si el
+    binario está disponible, patrón SeedMap).
+  - Comando `jamcord mc <subcomando>` (passthrough con el contrato JSON),
+    bot de Discord `/mc` (solo lista de permitidos) y MCP con modo
+    `--read-only`.
+  - La documentación de la integración vive en
+    `docs/integracion-jamcord.md` (badomens) y `docs/minecraft-badomens.md`
+    (Jamcord).
+
 - **F2 — Doctor TPS y métricas**
   - `badomens doctor tps [--instance]`: mide TPS y MSPT por consola
     (Paper/Spigot), CPU y RAM con `docker stats`, y cuenta eventos de retraso

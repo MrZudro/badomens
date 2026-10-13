@@ -24,7 +24,7 @@ Este repositorio está en construcción por fases. Lo que ya funciona:
 | **F0** Fundación | estructura, contrato JSON, `version`, `doctor`, `capacity`, `update`, MCP, CI y releases | ✅ |
 | **F1** Multi-instancia | `instance` (hasta 5, 3 en paralelo), `setup`, motores, mundos, backups, plugins, planificador | ✅ |
 | **F2** Doctor TPS + updates | `doctor tps`, `metrics`, `update --check` | ✅ |
-| **F3** Integración Emiria | `jamcord mc`, herramientas `badomens_*`, bot `/mc` | ⏳ |
+| **F3** Integración Emiria | `jamcord mc`, herramientas `badomens_*`, bot `/mc` | ✅ |
 | **F4** TUI | panel multi-instancia | ⏳ |
 | **F5** Distribución | instalador de un comando | ⏳ |
 
