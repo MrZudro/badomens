@@ -29,15 +29,15 @@ func srvRelease(t *testing.T, pkg []byte, asset, checksumOverride string) (*http
 	}
 	mux := http.NewServeMux()
 	srv := httptest.NewServer(mux)
-	mux.HandleFunc("/releases/latest", func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(release{
+	mux.HandleFunc("/releases", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]release{{
 			TagName: "v1.2.3",
 			Assets: []releaseAsset{
 				{Name: asset, URL: srv.URL + "/" + asset},
 				{Name: "checksums.txt", URL: srv.URL + "/checksums.txt"},
 			},
 			HTMLURL: srv.URL + "/releases",
-		})
+		}})
 	})
 	mux.HandleFunc("/checksums.txt", func(w http.ResponseWriter, _ *http.Request) {
 		fmt.Fprintf(w, "%s  %s\n", sum, asset)
@@ -47,7 +47,9 @@ func srvRelease(t *testing.T, pkg []byte, asset, checksumOverride string) (*http
 		releaseURL = func(repo, version, a string) string {
 			return fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s", repo, version, a)
 		}
-		releaseAPI = func(repo string) string { return fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo) }
+		releaseAPI = func(repo string) string {
+			return fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=1", repo)
+		}
 		currentExecutable = os.Executable
 		srv.Close()
 	}
@@ -57,14 +59,14 @@ func srvRelease(t *testing.T, pkg []byte, asset, checksumOverride string) (*http
 func testApplyServer(t *testing.T, pkg []byte, asset, checksumOverride string, exe string) cleanupFunc {
 	srv, cleanup := srvRelease(t, pkg, asset, checksumOverride)
 	releaseURL = func(_, _, a string) string { return srv.URL + "/" + a }
-	releaseAPI = func(_ string) string { return srv.URL + "/releases/latest" }
+	releaseAPI = func(_ string) string { return srv.URL + "/releases" }
 	currentExecutable = func() (string, error) { return exe, nil }
 	return cleanup
 }
 
 func packageForThisOS(t *testing.T) (asset string, pkg []byte) {
 	t.Helper()
-	asset = fmt.Sprintf("badomens_%s_%s", runtime.GOOS, runtime.GOARCH)
+	asset = fmt.Sprintf("badomens_1.2.3_%s_%s", runtime.GOOS, runtime.GOARCH)
 	if runtime.GOOS == "windows" {
 		asset += ".zip"
 		pkg = zipPkg(t, "badomens.exe", "NEWBIN")

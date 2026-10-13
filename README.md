@@ -113,7 +113,7 @@ flowchart LR
 <summary><b>🐧 macOS / Linux</b></summary>
 
 ```bash
-curl -fsSL https://github.com/MrZudro/badomens/releases/latest/download/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/MrZudro/badomens/main/scripts/install.sh | sh
 ```
 
 </details>
@@ -122,10 +122,15 @@ curl -fsSL https://github.com/MrZudro/badomens/releases/latest/download/install.
 <summary><b>🪟 Windows (PowerShell)</b></summary>
 
 ```powershell
-irm https://github.com/MrZudro/badomens/releases/latest/download/install.ps1 | iex
+irm https://raw.githubusercontent.com/MrZudro/badomens/main/scripts/install.ps1 | iex
 ```
 
 </details>
+
+> [!NOTE]
+> Se usa la ruta `raw.githubusercontent.com` porque el repositorio publica
+> **pre-releases** y la URL corta `…/releases/latest/download/install.ps1` solo
+> estará disponible cuando exista una release **estable**.
 
 Los instaladores descargan el binario correcto para tu sistema, **verifican el
 checksum** contra `checksums.txt` y lo dejan listo en

@@ -39,6 +39,11 @@ release:
   # auto: cualquier etiqueta con pre-release semántico (v0.1.0-rc.0, -beta.1…)
   # se publica como "Pre-release" en GitHub, sin dejarla como estable.
   prerelease: auto
+  # Publica los instaladores como assets para que la URL
+  # …/releases/latest/download/install.{sh,ps1} funcione en releases estables.
+  extra_files:
+    - glob: scripts/install.sh
+    - glob: scripts/install.ps1
   footer: |
 
     ---

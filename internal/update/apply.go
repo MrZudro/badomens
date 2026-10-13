@@ -35,8 +35,10 @@ var releaseURL = func(repo, version, asset string) string {
 	return fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s", repo, version, asset)
 }
 
+// releaseAPI apunta al listado de releases (no a /releases/latest): GitHub
+// ignora las pre-releases en /latest, y badomens publica pre-releases.
 var releaseAPI = func(repo string) string {
-	return fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
+	return fmt.Sprintf("https://api.github.com/repos/%s/releases?per_page=1", repo)
 }
 
 type releaseAsset struct {
@@ -45,9 +47,10 @@ type releaseAsset struct {
 }
 
 type release struct {
-	TagName string         `json:"tag_name"`
-	Assets  []releaseAsset `json:"assets"`
-	HTMLURL string         `json:"html_url"`
+	TagName     string         `json:"tag_name"`
+	Assets      []releaseAsset `json:"assets"`
+	HTMLURL     string         `json:"html_url"`
+	PublishedAt string         `json:"published_at"`
 }
 
 // ApplyResult describe una actualización aplicada.
@@ -94,11 +97,14 @@ func latestRelease(ctx context.Context, repo string) (release, error) {
 		return release{}, errx.Unavailable(fmt.Sprintf("GitHub respondió %d", resp.StatusCode), "reintenta más tarde")
 	}
 
-	var rel release
-	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+	var rels []release
+	if err := json.NewDecoder(resp.Body).Decode(&rels); err != nil {
 		return release{}, errx.Wrap(errx.CodeGeneral, err, "respuesta de GitHub ilegible", "")
 	}
-	return rel, nil
+	if len(rels) == 0 {
+		return release{}, errx.NotFound("el repositorio "+repo+" no tiene releases publicadas", "")
+	}
+	return rels[0], nil
 }
 
 // assetExistente devuelve la URL del asset pedido si ya está publicado; si el
@@ -124,9 +130,10 @@ func Apply(ctx context.Context, repo string) (ApplyResult, error) {
 	tag := strings.TrimPrefix(rel.TagName, "v")
 	applyRes := ApplyResult{From: version.Version, To: tag}
 
-	assetName := fmt.Sprintf("badomens_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)
+	// El asset de GoReleaser incluye la versión: badomens_<version>_<os>_<arch>.
+	assetName := fmt.Sprintf("badomens_%s_%s_%s.tar.gz", tag, runtime.GOOS, runtime.GOARCH)
 	if runtime.GOOS == "windows" {
-		assetName = fmt.Sprintf("badomens_%s_%s.zip", runtime.GOOS, runtime.GOARCH)
+		assetName = fmt.Sprintf("badomens_%s_%s_%s.zip", tag, runtime.GOOS, runtime.GOARCH)
 	}
 	repoClean := strings.TrimSpace(repo)
 	assetURL := rel.asset(assetName)

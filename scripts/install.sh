@@ -18,16 +18,24 @@ case "$ARCH" in
 esac
 
 case "$OS" in
-  linux) ASSET="badomens_${OS}_${ARCH}.tar.gz"; EXE="badomens" ;;
-  darwin) ASSET="badomens_${OS}_${ARCH}.tar.gz"; EXE="badomens" ;;
+  linux|darwin) EXE="badomens" ;;
   *) echo "Sistema no soportado por install.sh; usa install.ps1 en Windows" >&2; exit 1 ;;
 esac
 
 # --- Resuelve la versión/URL de descarga ---
+# Usa el listado de releases (no /releases/latest): GitHub ignora las
+# pre-releases en /latest, y badomens publica pre-releases.
 if [ -z "$VERSION" ]; then
-  VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')"
+  VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases?per_page=1" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)"
   VERSION="${VERSION#v}"
 fi
+if [ -z "$VERSION" ]; then
+  echo "No se pudo resolver la última versión de badomens (¿hay releases publicadas?)" >&2
+  exit 1
+fi
+
+# El asset de GoReleaser incluye la versión: badomens_<version>_<os>_<arch>.tar.gz
+ASSET="badomens_${VERSION}_${OS}_${ARCH}.tar.gz"
 BASE="https://github.com/$REPO/releases/download/v$VERSION"
 echo "badomens $VERSION ($OS/$ARCH)"
 

@@ -15,16 +15,18 @@ function Get-Arch {
     default { throw "Arquitectura no soportada: $env:PROCESSOR_ARCHITECTURE" }
   }
 }
-function Get-Asset {
-  if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") { "badomens_windows_amd64.zip" } else { "badomens_windows_arm64.zip" }
-}
 
 $Arch = Get-Arch
 if (-not $Version) {
-  $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ "User-Agent" = "badomens-installer" }
-  $Version = $rel.tag_name.TrimStart("v")
+  # Listado de releases (no /releases/latest): GitHub ignora las pre-releases
+  # en /latest, y badomens publica pre-releases.
+  $rels = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=1" -Headers @{ "User-Agent" = "badomens-installer" }
+  $rels = @($rels)
+  if ($rels.Count -gt 0) { $Version = $rels[0].tag_name.TrimStart("v") }
 }
-$Asset = "badomens_windows_$Arch.zip"
+if (-not $Version) { throw "No se pudo resolver la última versión de badomens (¿hay releases publicadas?)" }
+# El asset de GoReleaser incluye la versión: badomens_<version>_<os>_<arch>.zip
+$Asset = "badomens_${Version}_windows_$Arch.zip"
 $Base = "https://github.com/$Repo/releases/download/v$Version"
 
 Write-Host "badomens $Version (Windows/$Arch)"

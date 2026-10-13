@@ -1,14 +1,13 @@
-// Package update comprueba si hay una versión nueva publicada en GitHub.
+// Package update comprueba si hay una versión nueva publicada en GitHub y, con
+// Apply, la descarga verificando el checksum. No depende de `/releases/latest`
+// (que ignora las pre-releases): consulta `releases?per_page=1` para ver la
+// última release publicada sea cual sea su estado.
 package update
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/version"
@@ -23,11 +22,10 @@ type Info struct {
 	PublishedAt     string `json:"published_at,omitempty"`
 }
 
-// httpClient permite inyectar un cliente en pruebas.
-var httpClient = &http.Client{Timeout: 10 * time.Second}
-
-// Check consulta la última release del repositorio (slug owner/repo) y la
-// compara con la versión actual del binario.
+// Check consulta la última release publicada del repositorio (slug owner/repo)
+// y la compara con la versión actual del binario. Usa el endpoint de listado de
+// releases (no `/releases/latest`), porque este proyecto publica pre-releases y
+// GitHub ignoraría la más reciente.
 func Check(ctx context.Context, repo string) (Info, error) {
 	repo = strings.TrimSpace(repo)
 	if repo == "" || !strings.Contains(repo, "/") {
@@ -36,42 +34,16 @@ func Check(ctx context.Context, repo string) (Info, error) {
 			"configura 'repo: owner/nombre' en config.yaml",
 		)
 	}
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	rel, err := latestRelease(ctx, repo)
 	if err != nil {
-		return Info{}, errx.Wrap(errx.CodeGeneral, err, "no se pudo preparar la consulta de actualización", "")
+		return Info{}, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "badomens/"+version.Version)
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return Info{}, errx.Wrap(errx.CodeUnavailable, err, "no se pudo consultar GitHub", "comprueba tu conexión")
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return Info{}, errx.NotFound("el repositorio "+repo+" no tiene releases publicadas", "")
-	}
-	if resp.StatusCode != http.StatusOK {
-		return Info{}, errx.Unavailable(fmt.Sprintf("GitHub respondió %d", resp.StatusCode), "reintenta más tarde")
-	}
-
-	var payload struct {
-		TagName     string `json:"tag_name"`
-		HTMLURL     string `json:"html_url"`
-		PublishedAt string `json:"published_at"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		return Info{}, errx.Wrap(errx.CodeGeneral, err, "respuesta de GitHub ilegible", "")
-	}
-
-	latest := strings.TrimPrefix(payload.TagName, "v")
+	latest := strings.TrimPrefix(rel.TagName, "v")
 	info := Info{
 		Current:     version.Version,
 		Latest:      latest,
-		URL:         payload.HTMLURL,
-		PublishedAt: payload.PublishedAt,
+		URL:         rel.HTMLURL,
+		PublishedAt: rel.PublishedAt,
 	}
 	info.UpdateAvailable = newer(latest, version.Version)
 	return info, nil

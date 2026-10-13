@@ -7,11 +7,17 @@ para Windows/macOS/Linux en amd64 y arm64, con `checksums.txt`.
 
 ```bash
 # macOS / Linux
-curl -fsSL https://github.com/MrZudro/badomens/releases/latest/download/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/MrZudro/badomens/main/scripts/install.sh | sh
 
 # Windows (PowerShell)
-irm https://github.com/MrZudro/badomens/releases/latest/download/install.ps1 | iex
+irm https://raw.githubusercontent.com/MrZudro/badomens/main/scripts/install.ps1 | iex
 ```
+
+> Se usa la ruta `raw.githubusercontent.com` porque el repositorio publica
+> **pre-releases** y la URL corta
+> `…/releases/latest/download/install.{sh,ps1}` solo estará disponible cuando
+> exista una release **estable** (los instaladores se publican también como
+> assets de cada release).
 
 Los scripts (`scripts/install.sh`, `scripts/install.ps1`):
 
