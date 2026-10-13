@@ -38,6 +38,12 @@ versionado es [semántico](https://semver.org/lang/es/).
 - **`internal/tui/help` (RF-4)**: registro único de descripciones de opciones
   (corta ≤ 90 y larga) que alimenta el asistente, los ajustes y
   `badomens setup --explain <campo>`.
+- **Cimientos de la TUI v2 (Fase 0.2)**: `internal/tui/theme` (4 temas + test de
+  contraste WCAG AA), `internal/tui/layout` (breakpoints y truncado por ancho
+  real), `internal/tui/i18n` (catálogo es), `internal/tui/components`
+  (`Action` + lint de botones, RF-7), `internal/tui/anim` (tick global sin
+  ticks en reposo, §4.3), `internal/tui/svc` (fachada de servicios + fakes) y
+  `internal/tui/router.go` (interfaz `Screen` + pila/overlay).
 - **Contrato JSON**: `error.details` (aditivo) con `details.reason` estable; el
   resto de cambios nuevos son campos aditivos en `data` (ver
   `docs/contrato-json.md`).
