@@ -38,9 +38,8 @@ jobs:
           govulncheck ./...
       - name: Lint
         if: matrix.os == 'ubuntu-latest'
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          # v2 con soporte de Go 1.27 (el 'latest' del action resuelve v1 y no
-          # puede analizar el go.mod con go 1.27).
+          # v2 con soporte de Go 1.27 (la acción v6 no soporta golangci-lint v2).
           version: v2.14.0
           args: --timeout 5m
