@@ -105,7 +105,8 @@ func Derive(in Input) Info {
 
 // FromData calcula la conexión de una instancia a partir de sus datos.
 func FromData(instance, name, engine, version string, port int, pins map[string]string,
-	onlineMode, whitelistEnabled bool, hostIP, magicDNS string, now time.Time) Info {
+	onlineMode, whitelistEnabled bool, hostIP, magicDNS string, now time.Time,
+) Info {
 	return Derive(Input{
 		Instance:   instance,
 		Name:       name,

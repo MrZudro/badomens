@@ -466,6 +466,7 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 	}
 	return w, nil
 } // commitTextField vuelca el valor escrito al campo activo.
+
 func (w *wizardScreen) commitTextField() {
 	f, ok := w.currentField()
 	if !ok || f.kind != "text" {
@@ -1332,6 +1333,7 @@ func (w *wizardScreen) helpView(width, height int) string {
 	}
 	return components.Panel(title, "Esc/F1", strings.Join(body, "\n"), width, height, true, w.pal, w.ascii)
 } // offlineRisk indica que se creará en modo offline sin lista blanca (P-05).
+
 func (w *wizardScreen) offlineRisk() bool {
 	var online, whitelist bool
 	seen := false

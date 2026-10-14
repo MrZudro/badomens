@@ -76,8 +76,11 @@ type fakeLifecycle struct {
 }
 
 func (f *fakeLifecycle) Start(_ context.Context, slug string) error { return f.record("start", slug) }
-func (f *fakeLifecycle) Stop(_ context.Context, slug string) error  { return f.record("stop", slug) }
+
+func (f *fakeLifecycle) Stop(_ context.Context, slug string) error { return f.record("stop", slug) }
+
 func (f *fakeLifecycle) Close(_ context.Context, slug string) error { return f.record("close", slug) }
+
 func (f *fakeLifecycle) Restart(_ context.Context, slug string) error {
 	return f.record("restart", slug)
 }

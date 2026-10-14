@@ -2,7 +2,6 @@ package tui
 
 import (
 	"context"
-	"sort"
 	"strings"
 	"time"
 
@@ -796,14 +795,6 @@ func stateKey(state string) string {
 	return state
 }
 
-func stripBadge(s string) string {
-	// Quita el posible prefijo de insignia para recalcular con color de selección.
-	if i := strings.IndexByte(s, ' '); i > 0 {
-		return s[i+1:]
-	}
-	return s
-}
-
 func connectionFromSpec(spec *instance.Spec) connection.Info {
 	return connectionFromSpecWithHost(spec, "")
 }
@@ -849,14 +840,4 @@ func two(n int) string {
 // busyCmd avisa a la app de que hay una operación en curso.
 func busyCmd(on bool) tea.Cmd {
 	return func() tea.Msg { return busyMsg{on: on} }
-}
-
-// sortedSlugs ordena slugs para salidas estables (usado en tests).
-func sortedSlugs(rows []svc.Row) []string {
-	out := make([]string, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, r.Slug)
-	}
-	sort.Strings(out)
-	return out
 }

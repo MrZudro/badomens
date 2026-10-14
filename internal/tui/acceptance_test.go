@@ -378,7 +378,7 @@ func TestACL10ValidacionLocal(t *testing.T) {
 type accessAltaFalla struct{ svc.Access }
 
 func (f accessAltaFalla) AddWhitelist(ctx context.Context, slug, player string) (svc.AccessState, error) {
-	st, _ := f.Access.Read(ctx, slug)
+	st, _ := f.Read(ctx, slug)
 	return st, errors.New("el servidor rechazó el comando")
 }
 

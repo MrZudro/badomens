@@ -1,6 +1,7 @@
 package idle
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,7 +19,7 @@ func TestLockExclusivoYRecuperacion(t *testing.T) {
 	if err := l1.Touch(); err != nil {
 		t.Fatalf("Touch: %v", err)
 	}
-	if _, err := Acquire(path); err != ErrStandby {
+	if _, err := Acquire(path); !errors.Is(err, ErrStandby) {
 		t.Fatalf("segundo vigilante: quiero ErrStandby, tengo %v", err)
 	}
 	if err := l1.Release(); err != nil {

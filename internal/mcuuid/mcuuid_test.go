@@ -44,7 +44,8 @@ func TestOfflinePropiedadesUUIDv3(t *testing.T) {
 // TestOfflineDeterministaYVacio comprueba que el cálculo es estable, que
 // distingue mayúsculas de minúsculas y que un nombre vacío no produce UUID.
 func TestOfflineDeterministaYVacio(t *testing.T) {
-	if Offline("Notch") != Offline("Notch") {
+	a, b := Offline("Notch"), Offline("Notch")
+	if a != b {
 		t.Error("Offline no es determinista")
 	}
 	if Offline("notch") == Offline("Notch") {

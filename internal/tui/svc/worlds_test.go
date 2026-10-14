@@ -142,7 +142,7 @@ func TestRealWorldsImportZipDespliegaMundoActivo(t *testing.T) {
 	if len(list) != 1 || list[0] != "isla-perdida" {
 		t.Fatalf("biblioteca = %v, quiero [isla-perdida]", list)
 	}
-	raw, err := os.ReadFile(filepath.Join(dir, "instances", "demo", "server", "world", "level.dat"))
+	raw, err := os.ReadFile(filepath.Join(dir, "instances", "demo", "server", "world", "level.dat")) // #nosec G304 -- fichero de un t.TempDir() de la prueba
 	if err != nil || string(raw) != "datos nuevos" {
 		t.Fatalf("mundo activo = %q err=%v", raw, err)
 	}

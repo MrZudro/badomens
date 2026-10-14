@@ -3289,9 +3289,7 @@ func (s *instanceScreen) pluginsView(w, h int) string {
 		"badomens -i " + spec.Slug + " plugin add <archivo-o-url>",
 		"badomens -i " + spec.Slug + " plugin remove <nombre>",
 	} {
-		for _, ln := range wrapWords("  "+cmd, inner) {
-			body = append(body, ln)
-		}
+		body = append(body, wrapWords("  "+cmd, inner)...)
 	}
 	return components.Panel("PLUGINS/MODS", tag, strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
 }
@@ -3401,9 +3399,7 @@ func (s *instanceScreen) portBody(inner int) []string {
 			out = append(out, lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).
 				Render(components.Cross(s.ascii)+" Puerto "+itoa(r.Port)+" · ocupado"))
 			for _, cf := range r.Conflicts {
-				for _, ln := range wrapWords("  "+conflictText(cf), inner) {
-					out = append(out, ln)
-				}
+				out = append(out, wrapWords("  "+conflictText(cf), inner)...)
 			}
 			if r.Suggested > 0 {
 				out = append(out, lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).
@@ -3800,23 +3796,9 @@ func onOff(b bool) string {
 	return "no"
 }
 
-func yesNo(b bool) string {
-	if b {
-		return "activado"
-	}
-	return "desactivado"
-}
-
 func orDash(s string) string {
 	if strings.TrimSpace(s) == "" {
 		return "—"
 	}
 	return s
-}
-
-// sortedStrings ordena una lista (helper determinista).
-func sortedStrings(in []string) []string {
-	out := append([]string{}, in...)
-	sort.Strings(out)
-	return out
 }

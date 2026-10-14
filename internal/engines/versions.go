@@ -123,7 +123,7 @@ func (c *Cache) path(engine string) string {
 }
 
 func (c *Cache) readCache(path string) (*cachedDoc, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- ruta del catálogo dentro del data dir
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil

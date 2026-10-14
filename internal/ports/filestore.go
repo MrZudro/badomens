@@ -177,7 +177,7 @@ func (s *FileStore) lock(ctx context.Context) (func(), error) {
 	deadline := time.Now().Add(s.lockTimeout())
 	var lastErr error
 	for {
-		f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- ruta del lock dentro del data dir
 		if err == nil {
 			_, _ = fmt.Fprintf(f, "%d\n", os.Getpid())
 			_ = f.Close()

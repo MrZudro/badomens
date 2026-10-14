@@ -214,7 +214,7 @@ func (r *realAccess) mutate(ctx context.Context, slug, command string, apply fun
 // readPlayerFile lee un fichero de jugadores tipo [{"uuid":…,"name":…}].
 // Devuelve exists=false cuando el fichero no está; un JSON inválido es error.
 func readPlayerFile(path string) ([]string, bool, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- ruta de whitelist/ops dentro del data dir
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, false, nil
@@ -236,7 +236,7 @@ func readPlayerFile(path string) ([]string, bool, error) {
 
 // readWhitelistEnabled busca white-list=true en server.properties.
 func readWhitelistEnabled(path string) (bool, bool) {
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- ruta de server.properties dentro del data dir
 	if err != nil {
 		return false, false
 	}

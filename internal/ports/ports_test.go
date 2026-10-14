@@ -56,14 +56,6 @@ func checker(p *fakeProber, mode ScanMode) *DefaultChecker {
 	return &DefaultChecker{Prober: p, TailnetScan: mode, PeerTimeout: time.Second}
 }
 
-func kinds(cs []Conflict) []OwnerKind {
-	out := make([]OwnerKind, 0, len(cs))
-	for _, c := range cs {
-		out = append(out, c.Owner.Kind)
-	}
-	return out
-}
-
 func hasBlock(res Result) bool {
 	for _, c := range res.Conflicts {
 		if c.Severity == SeverityBlock {

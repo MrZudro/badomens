@@ -84,7 +84,7 @@ func TestClavesI18nUsadasExisten(t *testing.T) {
 	}
 	used := 0
 	for _, f := range files {
-		raw, rerr := os.ReadFile(f)
+		raw, rerr := os.ReadFile(f) // #nosec G304 -- fichero fuente del propio repositorio, listado por el test
 		if rerr != nil {
 			t.Fatal(rerr)
 		}

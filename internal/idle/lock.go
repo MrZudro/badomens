@@ -28,7 +28,7 @@ func Acquire(path string) (*Lock, error) {
 		return nil, err
 	}
 	for i := 0; i < 2; i++ {
-		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) // #nosec G304 -- ruta del lock dentro del data dir
 		if err == nil {
 			_, _ = fmt.Fprintf(f, "%d\n", os.Getpid())
 			_ = f.Close()

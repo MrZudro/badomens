@@ -77,7 +77,7 @@ func TestGoldenHome(t *testing.T) {
 					}
 					return
 				}
-				want, err := os.ReadFile(path)
+				want, err := os.ReadFile(path) // #nosec G304 -- fichero golden dentro de testdata
 				if err != nil {
 					t.Skipf("golden %s ausente; genera con `go test ./internal/tui/ -update`: %v", path, err)
 				}

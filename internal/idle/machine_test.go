@@ -180,7 +180,9 @@ type fakeController struct {
 
 func (f *fakeController) Running(context.Context, string) (bool, error) { return true, nil }
 func (f *fakeController) Flush(_ context.Context, i string) error       { f.calls["flush:"+i]++; return nil }
-func (f *fakeController) Stop(_ context.Context, i string) error        { f.calls["stop:"+i]++; return nil }
+
+func (f *fakeController) Stop(_ context.Context, i string) error { f.calls["stop:"+i]++; return nil }
+
 func (f *fakeController) Backup(_ context.Context, i string) error {
 	f.calls["backup:"+i]++
 	return nil

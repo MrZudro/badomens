@@ -142,6 +142,7 @@ type countingCatalog struct {
 func catKey(engine string, snaps bool) string {
 	return engine + "|" + strconv.FormatBool(snaps)
 }
+
 func newCountingCatalog() *countingCatalog {
 	ver := func() []engines.Version {
 		return []engines.Version{{

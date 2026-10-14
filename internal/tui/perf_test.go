@@ -103,6 +103,7 @@ func (s *slowInstances) Detail(_ context.Context, slug string) (*svc.Detail, err
 	s.touch()
 	return &svc.Detail{Spec: &instance.Spec{Slug: slug}}, nil
 }
+
 func (s *slowInstances) Logs(context.Context, string, int) (string, error) { s.touch(); return "", nil }
 func (s *slowInstances) Console(context.Context, string, string) error     { s.touch(); return nil }
 func (s *slowInstances) Save(context.Context, *instance.Spec) error        { s.touch(); return nil }

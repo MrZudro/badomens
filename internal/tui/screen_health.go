@@ -13,7 +13,6 @@ import (
 	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/execx"
 	"github.com/MrZudro/badomens/internal/host"
-	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tui/components"
 	"github.com/MrZudro/badomens/internal/tui/layout"
@@ -22,12 +21,15 @@ import (
 	updx "github.com/MrZudro/badomens/internal/update"
 )
 
-type capacityMsg struct{ cap host.Capacity }
-type tailscaleMsg struct {
-	ip    string
-	magic string
-	err   error
-}
+type (
+	capacityMsg  struct{ cap host.Capacity }
+	tailscaleMsg struct {
+		ip    string
+		magic string
+		err   error
+	}
+)
+
 type healthDiskMsg struct {
 	freeGB  float64
 	totalGB float64
@@ -39,9 +41,8 @@ type healthPortsMsg struct {
 type healthUpdateMsg struct {
 	latest string
 	has    bool
-	err    error
 }
-type healthReexpMsg struct{ err error }
+type healthReexpMsg struct{}
 
 // healthRAMMsg trae la RAM asignada a las instancias, medida en un tea.Cmd (la
 // vista nunca vuelve a medir, §7).
@@ -142,7 +143,7 @@ func (h *healthScreen) refreshCmd() tea.Cmd {
 			defer cancel()
 			info, err := updx.Check(ctx, ref.Repo)
 			if err != nil {
-				return healthUpdateMsg{err: err}
+				return healthUpdateMsg{}
 			}
 			return healthUpdateMsg{latest: info.Latest, has: info.UpdateAvailable}
 		},
@@ -532,14 +533,6 @@ func (h *healthScreen) NavSection() string { return "health" }
 
 // Status aporta el mensaje de operaciones en curso (p. ej. reparar Docker).
 func (h *healthScreen) Status() string { return h.busy }
-
-// healthPortsRow compone el detalle de un resultado de puerto (para tests).
-func healthPortsRow(res ports.Result) string {
-	if res.Free {
-		return "libre"
-	}
-	return "ocupado"
-}
 
 // trimFloat redacta un float con un decimal sin ceros de más.
 func trimFloat(f float64) string {

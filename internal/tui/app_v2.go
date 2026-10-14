@@ -902,10 +902,8 @@ func (a *App) headerView(w int) string {
 	}
 	// Se sacrifican contadores, Tailscale y, por último, la versión, antes de
 	// truncar; la cabecera nunca desborda el ancho.
-	for {
-		if w-8-lw-layout.Width(strings.Join(parts, "  ")) >= 1 {
-			break
-		}
+	for w-8-lw-layout.Width(strings.Join(parts, "  ")) < 1 {
+
 		if len(parts) > 1 {
 			parts = parts[:len(parts)-1]
 			continue

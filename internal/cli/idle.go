@@ -185,7 +185,7 @@ func newIdleDaemonCmd(e *Env) *cobra.Command {
 				}
 				return e.finish(result.FromError("idle daemon", lerr), "")
 			}
-			defer lock.Release()
+			defer func() { _ = lock.Release() }()
 
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()

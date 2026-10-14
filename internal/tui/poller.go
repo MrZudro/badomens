@@ -59,13 +59,6 @@ func (p *Poller) Base() time.Duration {
 	return time.Second
 }
 
-func (p *Poller) now() time.Time {
-	if p.Now != nil {
-		return p.Now()
-	}
-	return time.Now()
-}
-
 // Schedule agenda el siguiente latido.
 func (p *Poller) Schedule() tea.Cmd {
 	return tea.Tick(p.Base(), func(t time.Time) tea.Msg { return pollTickMsg{At: t} })
