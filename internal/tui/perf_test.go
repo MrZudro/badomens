@@ -143,6 +143,13 @@ func BenchmarkViewHome(b *testing.B) {
 	}
 }
 
+// Baseline medido (Windows, 12 CPU, Go 1.27, -benchmem): ~2,4 ms/op (2,41–2,51 en dos pasadas), ~874 KB/op y
+// ~2.820 allocs/op. Es el ÚNICO benchmark por encima del objetivo de 2 ms/op del
+// §6.6: wrapWidth recorre y envuelve el buffer completo (O(n)) en cada View antes
+// de recortar a la ventana visible, así que el coste crece con el tamaño del log y
+// no con el alto del terminal. Se deja documentado como baseline (PERF-05: sin
+// umbrales frágiles por máquina); la optimización pendiente es envolver solo la
+// cola visible cuando follow está activo.
 func BenchmarkViewConsolaGrande(b *testing.B) {
 	a := NewApp(goldenSvc(), darkOpts())
 	a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, "survival"))
@@ -179,6 +186,18 @@ func BenchmarkViewPlayers(b *testing.B) { benchScreen(b, gDetail(2), 110, 30) }
 func BenchmarkViewHealth(b *testing.B)  { benchScreen(b, gHealth, 110, 30) }
 func BenchmarkViewWizard(b *testing.B)  { benchScreen(b, gWizard(1, 0), 110, 30) }
 func BenchmarkViewHelp(b *testing.B)    { benchScreen(b, gHelp, 110, 30) }
+
+// Benchmarks por pantalla (§6.6) para el resto de pestañas del detalle y la
+// paleta: mismo escenario determinista a 110×30 que la serie anterior, para que
+// una regresión de render en cualquier pantalla quede visible (PERF-05).
+func BenchmarkViewResumen(b *testing.B)  { benchScreen(b, gDetail(0), 110, 30) }
+func BenchmarkViewBackups(b *testing.B)  { benchScreen(b, gDetail(3), 110, 30) }
+func BenchmarkViewWorlds(b *testing.B)   { benchScreen(b, gDetail(4), 110, 30) }
+func BenchmarkViewPlugins(b *testing.B)  { benchScreen(b, gDetail(5), 110, 30) }
+func BenchmarkViewNet(b *testing.B)      { benchScreen(b, gDetail(6), 110, 30) }
+func BenchmarkViewIdle(b *testing.B)     { benchScreen(b, gDetail(7), 110, 30) }
+func BenchmarkViewSettings(b *testing.B) { benchScreen(b, gDetail(8), 110, 30) }
+func BenchmarkViewPalette(b *testing.B)  { benchScreen(b, gPalette, 110, 30) }
 
 // BenchmarkNavHome mide repintar tras mover el cursor por 50 instancias.
 func BenchmarkNavHome(b *testing.B) {

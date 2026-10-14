@@ -371,6 +371,61 @@ func TestACL10ValidacionLocal(t *testing.T) {
 	}
 }
 
+// accessAltaFalla envuelve el servicio de acceso para forzar el fallo del alta
+// (ACL-04) sin tocar el fake: la lectura sigue siendo en vivo y el alta devuelve
+// el estado previo junto con el error, sin aplicar nada.
+type accessAltaFalla struct{ svc.Access }
+
+func (f accessAltaFalla) AddWhitelist(ctx context.Context, slug, player string) (svc.AccessState, error) {
+	st, _ := f.Access.Read(ctx, slug)
+	return st, errors.New("el servidor rechazó el comando")
+}
+
+// ACL-04: si el alta falla, se conserva el estado previo, el jugador no se añade
+// de forma optimista y el error queda visible sin afirmar ningún éxito.
+func TestACL04AltaFallidaConservaEstado(t *testing.T) {
+	s := svc.NewFake([]*instance.Spec{goldenSpec()})
+	s.Access = accessAltaFalla{s.Access}
+	a := NewApp(s, darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 2
+	a.Update(ejecutaDirecto(inst.accessCmd()))
+	antes := append([]string(nil), inst.access.Whitelist...)
+	if len(antes) == 0 {
+		t.Fatal("el escenario necesita un estado previo con jugadores")
+	}
+
+	a.Update(press("a"))
+	for _, r := range "maria" {
+		a.Update(press(string(r)))
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	msg := ejecutaCmd(cmd)
+	am, ok := msg.(accessMsg)
+	if !ok {
+		t.Fatalf("se esperaba accessMsg, tengo %T", msg)
+	}
+	if am.err == nil {
+		t.Fatal("el escenario exige que el alta falle")
+	}
+	a.Update(am)
+
+	if containsStr(inst.access.Whitelist, "maria") {
+		t.Fatalf("un alta fallida no debe aplicarse de forma optimista: %v", inst.access.Whitelist)
+	}
+	if strings.Join(inst.access.Whitelist, ",") != strings.Join(antes, ",") {
+		t.Fatalf("el estado previo debe conservarse: %v → %v", antes, inst.access.Whitelist)
+	}
+	out := stripANSI(inst.playersView(110, 30))
+	if !strings.Contains(out, "Error") || !strings.Contains(out, "rechazó") {
+		t.Fatalf("el error del alta debe verse en el panel de acceso:\n%s", out)
+	}
+	if strings.Contains(out, "añadido a la lista blanca") {
+		t.Fatalf("un alta fallida no debe mostrar el mensaje de éxito:\n%s", out)
+	}
+}
+
 // --- UI: layout y medición por celdas ---
 
 // UI-04: una línea de log de 500+ caracteres no desborda ni desplaza el footer.
@@ -554,6 +609,120 @@ func TestUI01VacioCTAConBannerMinimo(t *testing.T) {
 		t.Fatalf("el banner corto debe conservar la acción de reparar:\n%s", out)
 	}
 	assertWithinSize(t, out, 40, 12)
+}
+
+// --- Fase H: UI-08 (ANSI, emojis, ZWJ, acentos y CJK) ---
+
+// ui08Logs es un buffer de consola con lo que suele romper la medición por celdas:
+// color ANSI (SGR), emoji, familia con ZWJ, acentos y CJK de ancho doble, más una
+// línea muy larga que debe envolverse sin desbordar.
+//
+// Nota de medición (UI-08): runewidth y ansi.StringWidth discrepan en los clusters
+// ZWJ —«👨‍👩‍👧» mide 6 celdas con runewidth (2+2+2) y 2 con ansi.StringWidth—.
+// Como wrapWidth envuelve con runewidth y el panel recorta y rellena con
+// ansi.StringWidth, el resultado es conservador: la línea se envuelve antes y el
+// panel rellena el hueco con espacios. Nunca desborda, pero un cluster ZWJ ocupa 2
+// celdas en pantalla y 6 en el cálculo de envoltura; alinearlo al ancho real del
+// terminal exigiría unificar el medidor, no cambiar la dependencia.
+func ui08Logs() string {
+	return strings.Join([]string{
+		"\x1b[31m[ERROR]\x1b[0m fallo pintado en rojo",
+		"🚀 el cohete despega sin desalinear la columna",
+		"👨‍👩‍👧 familia con ZWJ en una sola línea",
+		"acentos: áéíóú ÁÉÍÓÚ ñÑüÜ ¿qué tal?",
+		"你好世界 · CJK de ancho doble",
+		"\x1b[1;32m[OK]\x1b[0m verde \x1b[33mamarillo\x1b[0m y \x1b[0mreset",
+		strings.Repeat("🚀á", 120),
+	}, "\n")
+}
+
+// TestUI08ConsolaAnsiEmojiAcentos (UI-08): con ANSI, emoji, ZWJ, acentos y CJK en
+// los logs, la consola mide por celdas visuales: ninguna línea desborda el ancho,
+// el pie sigue siendo la última línea y no queda ninguna secuencia de escape a la
+// vista. Se prueba en 80×24 y 110×30.
+func TestUI08ConsolaAnsiEmojiAcentos(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {110, 30}} {
+		w, h := sz[0], sz[1]
+		a := testApp()
+		resize(a, w, h)
+		inst := openInstance(t, a, "survival")
+		inst.tab = 1
+		inst.logs = ui08Logs()
+		out := stripANSI(a.View())
+		if strings.Contains(out, "\x1b") {
+			t.Fatalf("%dx%d: quedaron secuencias ANSI sin eliminar", w, h)
+		}
+		lines := strings.Split(out, "\n")
+		if len(lines) > h {
+			t.Fatalf("%dx%d: la vista excede el alto (%d líneas)", w, h, len(lines))
+		}
+		if last := lines[len(lines)-1]; !strings.Contains(last, "Ayuda") {
+			t.Fatalf("%dx%d: el pie debe ser la última línea: %q", w, h, last)
+		}
+		for i, ln := range lines {
+			if got := layout.Width(ln); got > w {
+				t.Fatalf("%dx%d: la línea %d mide %d celdas (máx %d): %q", w, h, i+1, got, w, ln)
+			}
+		}
+		// Medición directa del componente: components.Panel mide el cuerpo por
+		// celdas (padCells usa layout.Width), así que con ANSI/emoji/CJK el panel
+		// mide exactamente el ancho pedido en todas sus líneas.
+		panel := components.Panel("CONSOLA", "", stripANSI(ui08Logs()), 40, 6, false, a.pal, a.ascii)
+		panelLines := strings.Split(panel, "\n")
+		if len(panelLines) != 6 {
+			t.Fatalf("%dx%d: el panel debe ocupar 6 líneas, tengo %d", w, h, len(panelLines))
+		}
+		for i, ln := range panelLines {
+			if got := layout.Width(ln); got != 40 {
+				t.Fatalf("%dx%d: la línea %d del panel mide %d celdas, quiero 40: %q", w, h, i+1, got, ln)
+			}
+		}
+		// El color no debe borrar el contenido ni el ancho doble hacer desaparecer
+		// la línea: el texto legible sigue ahí.
+		for _, want := range []string{"fallo pintado en rojo", "🚀", "你好世界", "áéíóú"} {
+			if !strings.Contains(out, want) {
+				t.Fatalf("%dx%d: la consola debe mostrar %q:\n%s", w, h, want, out)
+			}
+		}
+	}
+}
+
+// TestUI08StripANSIEliminaSecuencias (UI-08): stripANSI quita CSI/SGR, OSC y
+// escapes simples, y conserva intacto el texto legible (emoji, ZWJ, acentos y CJK).
+func TestUI08StripANSIEliminaSecuencias(t *testing.T) {
+	in := "\x1b[31mrojo\x1b[0m 🚀 👨‍👩‍👧 áéíóú 你好\x1b]0;título\x07 y \x1b(0\x1b(B fin"
+	out := stripANSI(in)
+	if strings.Contains(out, "\x1b") {
+		t.Fatalf("stripANSI dejó un escape: %q", out)
+	}
+	if strings.Contains(out, "31m") || strings.Contains(out, "0;título") {
+		t.Fatalf("stripANSI dejó restos de las secuencias: %q", out)
+	}
+	for _, want := range []string{"rojo", "🚀", "👨‍👩‍👧", "áéíóú", "你好", "fin"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("stripANSI no debe borrar %q: %q", want, out)
+		}
+	}
+}
+
+// TestUI08NombreConEmojiNoDesborda (UI-08): el nombre de una instancia con emoji,
+// ZWJ, acentos y CJK no desborda el Inicio ni en 80×24 ni en 110×30.
+func TestUI08NombreConEmojiNoDesborda(t *testing.T) {
+	for _, sz := range [][2]int{{80, 24}, {110, 30}} {
+		w, h := sz[0], sz[1]
+		a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+		resize(a, w, h)
+		a.Update(pollRowsMsg{rows: []svc.Row{
+			{Slug: "survival", Name: "🚀 áéíóú 你好 世界", Engine: "paper", Version: "1.21.4", Memory: "4G", Port: 25565, State: "running", MaxPlayers: 20, Host: "100.64.0.1"},
+			{Slug: "otra", Name: "👨‍👩‍👧 familia ñÑ", Engine: "vanilla", Version: "1.21", State: "exited"},
+		}})
+		a.Update(homeDetailMsg{d: &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}, slug: "survival"})
+		out := stripANSI(a.View())
+		if !strings.Contains(out, "🚀") {
+			t.Fatalf("%dx%d: el nombre con emoji debe verse en Inicio:\n%s", w, h, out)
+		}
+		assertWithinSize(t, out, w, h)
+	}
 }
 
 // --- Fase D: Jugadores y acceso en paneles (§5.5) ---

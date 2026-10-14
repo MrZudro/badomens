@@ -83,6 +83,12 @@ versionado es [semántico](https://semver.org/lang/es/).
   búsqueda difusa (subsecuencia). El borrado y el cambio de versión pasan a
   `components.Modal` (el borrado exige el nombre exacto, con el foco en «No, volver»);
   la salida con operación en curso sigue siendo modal.
+- **Cierre de la matriz de aceptación (§7)**: `UI-08` explícito (ANSI, emoji, ZWJ,
+  acentos y CJK se miden por celdas y no desbordan; `stripANSI` no deja restos),
+  `ACL-04` (alta fallida conserva el estado sin éxito optimista) y **benchmarks por
+  pantalla** para todas las pestañas (Resumen, Backups, Mundos, Plugins, Red,
+  Auto-apagado, Ajustes, Paleta) además de los ya existentes. Toda la matriz
+  UI-01..10, KEY-01..10, ACL-01..10 y PERF-01..05 queda cubierta.
 
 ### 🔧 Cambiado
 
