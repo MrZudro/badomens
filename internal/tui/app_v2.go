@@ -305,7 +305,7 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.router.ClearOverlay()
 			return a, nil
 		}
-		a.router.SetOverlay(newHelpScreen(a.keys, a.pal, a.ascii))
+		a.router.SetOverlay(newHelpScreen(a.keys, a.actions(), a.pal, a.ascii))
 		return a, nil
 	case "f2":
 		if a.router.Overlay() == nil {
@@ -457,7 +457,7 @@ func (a *App) invoke(id string) tea.Cmd {
 		a.router.Push(newWizardScreen(a.svc, a.pal, a.ascii))
 		return nil
 	case "global.help":
-		a.router.SetOverlay(newHelpScreen(a.keys, a.pal, a.ascii))
+		a.router.SetOverlay(newHelpScreen(a.keys, a.actions(), a.pal, a.ascii))
 		return nil
 	case "global.copy":
 		return a.copyAction()

@@ -114,6 +114,49 @@ func TestPickerFiltraYSelecciona(t *testing.T) {
 	}
 }
 
+// TestPickerBusquedaDifusa: la subcadena manda y, si no la hay, se acepta una
+// subsecuencia (búsqueda difusa) sin perder el orden de los elementos.
+func TestPickerBusquedaDifusa(t *testing.T) {
+	p := NewPicker("Comandos", []PickerItem{
+		{Label: "Iniciar «survival»", Value: "start", Detail: "s"},
+		{Label: "Eliminar «survival» para siempre", Value: "delete", Detail: "D"},
+		{Label: "Abrir Salud del sistema", Value: "health", Detail: "F2"},
+	})
+	for _, r := range "elim" {
+		p.Type(r)
+	}
+	got := p.Filtered()
+	if len(got) == 0 || got[0].Value != "delete" {
+		t.Fatalf("la subcadena debe ir primero: %+v", got)
+	}
+
+	// «lmnr» no es subcadena de nada, pero sí subsecuencia de «Eliminar …».
+	for i := 0; i < 4; i++ {
+		p.Backspace()
+	}
+	for _, r := range "lmnr" {
+		p.Type(r)
+	}
+	got = p.Filtered()
+	if len(got) != 1 || got[0].Value != "delete" {
+		t.Fatalf("la difusa debe encontrar solo Eliminar: %+v", got)
+	}
+	if sel, ok := p.Selected(); !ok || sel.Value != "delete" {
+		t.Fatalf("selección difusa: %+v ok=%v", sel, ok)
+	}
+
+	// Un texto que no es subsecuencia de nada no devuelve resultados.
+	for i := 0; i < 4; i++ {
+		p.Backspace()
+	}
+	for _, r := range "zzz" {
+		p.Type(r)
+	}
+	if got := p.Filtered(); len(got) != 0 {
+		t.Fatalf("sin coincidencia no debe haber resultados: %+v", got)
+	}
+}
+
 func TestFormMuestraDescripcionCorta(t *testing.T) {
 	f := NewForm("Básico", []Field{
 		{Key: "name", Label: "Nombre", Short: "Identifica tu servidor.", Value: "demo"},

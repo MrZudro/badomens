@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	gdisk "github.com/shirou/gopsutil/v4/disk"
 
 	"github.com/MrZudro/badomens/internal/dockerx"
@@ -15,6 +16,7 @@ import (
 	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tui/components"
+	"github.com/MrZudro/badomens/internal/tui/layout"
 	"github.com/MrZudro/badomens/internal/tui/svc"
 	"github.com/MrZudro/badomens/internal/tui/theme"
 	updx "github.com/MrZudro/badomens/internal/update"
@@ -41,6 +43,36 @@ type healthUpdateMsg struct {
 }
 type healthReexpMsg struct{ err error }
 
+// healthRAMMsg trae la RAM asignada a las instancias, medida en un tea.Cmd (la
+// vista nunca vuelve a medir, §7).
+type healthRAMMsg struct {
+	assignedGB float64
+	err        error
+}
+
+// healthLevel clasifica el estado de una comprobación (§8): el estado nunca se
+// comunica solo con color; cada nivel lleva su icono y su texto.
+type healthLevel int
+
+const (
+	// healthUnknown: todavía sin comprobar.
+	healthUnknown healthLevel = iota
+	// healthOK: comprobado y correcto.
+	healthOK
+	// healthWarn: comprobado con aviso (degradado, no bloqueante).
+	healthWarn
+	// healthBad: comprobado y crítico.
+	healthBad
+)
+
+// healthItem es una fila de estado dentro de un panel de Salud.
+type healthItem struct {
+	name   string
+	status string
+	detail string
+	level  healthLevel
+}
+
 // healthScreen es "Salud del sistema" (H): Docker, Compose, Tailscale, puertos,
 // disco, RAM y actualización (P-01/RF-6).
 type healthScreen struct {
@@ -62,6 +94,10 @@ type healthScreen struct {
 	hasUpdate bool
 	checkedUp bool
 	busy      string
+
+	// RAM asignada a las instancias: la mide el comando de refresco, no View.
+	assignedGB    float64
+	assignedKnown bool
 }
 
 func newHealthScreen(sv *svc.Services, pal theme.Palette, ascii bool) *healthScreen {
@@ -110,7 +146,25 @@ func (h *healthScreen) refreshCmd() tea.Cmd {
 			}
 			return healthUpdateMsg{latest: info.Latest, has: info.UpdateAvailable}
 		},
+		func() tea.Msg { return healthAssignedRAM(ref) },
 	)
+}
+
+// healthAssignedRAM suma la memoria reservada por las instancias registradas.
+func healthAssignedRAM(ref *svc.Services) tea.Msg {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	rows, err := ref.Instances.Rows(ctx)
+	if err != nil {
+		return healthRAMMsg{err: err}
+	}
+	var total float64
+	for _, r := range rows {
+		if mem := host.ParseMemory(r.Memory); mem > 0 {
+			total += float64(mem) / (1 << 30)
+		}
+	}
+	return healthRAMMsg{assignedGB: total}
 }
 
 func (h *healthScreen) scanPorts(ctx context.Context) []string {
@@ -146,6 +200,8 @@ func (h *healthScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	case healthUpdateMsg:
 		h.checkedUp = true
 		h.latest, h.hasUpdate = msg.latest, msg.has
+	case healthRAMMsg:
+		h.assignedGB, h.assignedKnown = msg.assignedGB, msg.err == nil
 	case healthReexpMsg:
 		h.busy = ""
 		return h, h.refreshCmd()
@@ -172,114 +228,267 @@ func (h *healthScreen) handleKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
+// View compone la pantalla en dos paneles con borde (§5.13): ENTORNO (Docker,
+// Compose, Tailscale, puertos) y RECURSOS (disco, RAM, actualización, plan). En
+// terminal compacto se apilan en una sola columna. Solo representa el estado ya
+// medido: aquí no se vuelve a sondear nada.
 func (h *healthScreen) View(w, hgt int) string {
-	var b strings.Builder
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(h.pal.Accent)).Render("Salud del sistema"))
+	if w < 1 {
+		w = 1
+	}
+	env := h.envItems()
+	res := h.resItems()
+
+	var head strings.Builder
+	head.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(h.pal.Accent)).Render("Salud del sistema"))
 	if h.busy != "" {
-		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(h.pal.Muted)).Render("⟳ "+h.busy))
+		head.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(h.pal.Muted)).Render("⟳ "+h.busy))
 	}
-	b.WriteString("\n\n")
-	row := func(name, status, detail string, ok, known bool) {
-		color := h.pal.Good
-		icon := components.Check(h.ascii)
-		switch {
-		case !known:
-			color = h.pal.Muted
-			icon = "·"
-			if h.ascii {
-				icon = "."
-			}
-		case !ok:
-			color = h.pal.Bad
-			icon = components.Cross(h.ascii)
+
+	// Alto de los paneles: lo que queda tras el título y la pista de atajos.
+	panelH := hgt - 2
+	if panelH < 3 {
+		panelH = 3
+	}
+
+	var panels string
+	if layout.ClassifyWidth(w) == layout.Compact {
+		panels = h.stackedPanels(env, res, w, panelH)
+	} else {
+		leftW := (w - 1) / 2
+		rightW := w - 1 - leftW
+		panels = lipgloss.JoinHorizontal(lipgloss.Top,
+			components.Panel("ENTORNO", h.tag(env), h.rows(env), leftW, panelH, false, h.pal, h.ascii),
+			" ",
+			components.Panel("RECURSOS", h.tag(res), h.rows(res), rightW, panelH, false, h.pal, h.ascii))
+	}
+
+	hint := ansi.Truncate("[D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nuevo", w, "…")
+
+	out := ansi.Truncate(head.String(), w, "…") + "\n" + panels + "\n" +
+		lipgloss.NewStyle().Foreground(lipgloss.Color(h.pal.Muted)).Render(hint)
+	return clampHeight(out, hgt)
+}
+
+// stackedPanels apila ENTORNO y RECURSOS en una sola columna (terminal compacto).
+// Reparte el alto según las filas de cada panel; si no cabe ni lo mínimo, deja
+// solo ENTORNO para que el estado crítico (Docker) nunca desaparezca.
+func (h *healthScreen) stackedPanels(env, res []healthItem, w, panelH int) string {
+	if panelH < 9 {
+		return components.Panel("ENTORNO", h.tag(env), h.rows(env), w, panelH, false, h.pal, h.ascii)
+	}
+	topH := len(env) + 2
+	botH := len(res) + 2
+	if topH+botH+1 > panelH {
+		body := panelH - 5 // dos bordes por panel y un hueco entre ellos
+		if body < 2 {
+			body = 2
 		}
-		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(icon) + " " +
-			lipgloss.NewStyle().Bold(true).Render(name) + "  " + detail + "  " +
-			lipgloss.NewStyle().Foreground(lipgloss.Color(h.pal.Muted)).Render(status) + "\n")
+		topH = 2 + body*len(env)/(len(env)+len(res))
+		botH = panelH - 1 - topH
+		if topH < 3 {
+			topH = 3
+		}
+		if botH < 3 {
+			botH = 3
+		}
 	}
+	return components.Panel("ENTORNO", h.tag(env), h.rows(env), w, topH, false, h.pal, h.ascii) + "\n" +
+		components.Panel("RECURSOS", h.tag(res), h.rows(res), w, botH, false, h.pal, h.ascii)
+}
+
+// envItems compone las filas del panel ENTORNO.
+func (h *healthScreen) envItems() []healthItem {
+	sep := " · "
+	if h.ascii {
+		sep = " | "
+	}
+	items := make([]healthItem, 0, 4)
 
 	dockerDetail := h.docker.Message
 	if h.docker.Detail != "" {
 		dockerDetail += " — " + h.docker.Detail
 	}
-	dockerKnown := h.docker.State != ""
-	dockerState := string(h.docker.State)
-	if !dockerKnown {
-		dockerState = "sin comprobar"
-		dockerDetail = "pulsa [R] para comprobar"
+	switch {
+	case h.docker.State == "":
+		items = append(items, healthItem{name: "Docker", status: "sin comprobar", detail: "pulsa [R] para comprobar", level: healthUnknown})
+	case h.docker.State.Ready():
+		items = append(items, healthItem{name: "Docker", status: "OK", detail: dockerDetail, level: healthOK})
+	default:
+		items = append(items, healthItem{name: "Docker", status: string(h.docker.State), detail: dockerDetail, level: healthBad})
 	}
-	row("Docker", dockerState, dockerDetail, h.docker.State.Ready(), dockerKnown)
 
-	compose := "no comprobado"
-	if h.docker.ComposeVersion != "" {
-		compose = h.docker.ComposeVersion
+	switch {
+	case h.docker.State == "":
+		items = append(items, healthItem{name: "Docker Compose", status: "sin comprobar", level: healthUnknown})
+	case h.docker.ComposeVersion == "":
+		items = append(items, healthItem{name: "Docker Compose", status: "no disponible", detail: "instala el plugin compose", level: healthBad})
+	default:
+		items = append(items, healthItem{name: "Docker Compose", status: "ok", detail: h.docker.ComposeVersion, level: healthOK})
 	}
-	row("Docker Compose", compose, "", h.docker.ComposeVersion != "", dockerKnown)
 
-	sep := " · "
-	if h.ascii {
-		sep = " | "
-	}
-	tsOK := h.ip != ""
 	tsDetail := h.ip
 	if h.magic != "" {
 		tsDetail += sep + h.magic
 	}
-	if !tsOK {
-		tsDetail = "sin IPv4 del tailnet"
-	}
-	row("Tailscale", "IP/MagicDNS", tsDetail, tsOK, true)
-
-	portsDetail := "sin conflictos"
-	if !h.portsOK {
-		portsDetail = h.portsNote
-	}
-	row("Puertos", "rango libre", portsDetail, h.portsOK, true)
-
-	if h.diskOK {
-		diskStatus := "ok"
-		diskHealthy := true
-		if h.freeGB < 2 {
-			diskStatus, diskHealthy = "crítico (<2 GB)", false
-		} else if h.freeGB < 10 {
-			diskStatus = "aviso (<10 GB)"
-		}
-		row("Disco", diskStatus, trimFloat(h.freeGB)+" GB libres de "+trimFloat(h.totalGB)+" GB", diskHealthy, true)
+	if h.ip == "" {
+		items = append(items, healthItem{name: "Tailscale", status: "sin IPv4 del tailnet", detail: "pulsa [T] para recuperar la red", level: healthWarn})
 	} else {
-		row("Disco", "no medido", "", true, false)
+		items = append(items, healthItem{name: "Tailscale", status: "IP/MagicDNS", detail: tsDetail, level: healthOK})
 	}
 
-	assigned := h.assignedRAM()
-	capDetail := itoa(h.capacity.NCPU) + " CPU" + sep + trimFloat(h.capacity.MemTotalGiB()) + " GiB RAM" + sep + trimFloat(assigned) + " GiB asignados"
-	row("RAM", h.capacity.Source, capDetail, true, h.capacity.NCPU > 0)
+	if h.portsOK {
+		items = append(items, healthItem{name: "Puertos", status: "rango libre", detail: "sin conflictos", level: healthOK})
+	} else {
+		items = append(items, healthItem{name: "Puertos", status: "conflictos", detail: h.portsNote, level: healthWarn})
+	}
+	return items
+}
 
-	upStatus, upOK := "no comprobado", true
-	if h.checkedUp {
-		upStatus = "al día"
-		if h.hasUpdate {
-			upStatus, upOK = "disponible "+h.latest, false
+// resItems compone las filas del panel RECURSOS.
+func (h *healthScreen) resItems() []healthItem {
+	sep := " · "
+	if h.ascii {
+		sep = " | "
+	}
+	items := make([]healthItem, 0, 4)
+
+	disk := h.diskDetail()
+	switch {
+	case !h.diskOK:
+		items = append(items, healthItem{name: "Disco", status: "sin medir", level: healthUnknown})
+	case h.freeGB < 2:
+		items = append(items, healthItem{name: "Disco", status: "crítico (<2 GB)", detail: disk, level: healthBad})
+	case h.freeGB < 10:
+		items = append(items, healthItem{name: "Disco", status: "aviso (<10 GB)", detail: disk, level: healthWarn})
+	default:
+		items = append(items, healthItem{name: "Disco", status: "ok", detail: disk, level: healthOK})
+	}
+
+	if h.capacity.NCPU <= 0 {
+		items = append(items, healthItem{name: "RAM", status: "sin comprobar", level: healthUnknown})
+	} else {
+		detail := itoa(h.capacity.NCPU) + " CPU" + sep + trimFloat(h.capacity.MemTotalGiB()) + " GiB RAM" + sep + h.assignedText() + " asignados"
+		items = append(items, healthItem{name: "RAM", status: h.capacity.Source, detail: detail, level: healthOK})
+	}
+
+	upDetail := "repositorio " + h.svc.Repo
+	switch {
+	case !h.checkedUp:
+		items = append(items, healthItem{name: "Actualización", status: "no comprobado", detail: upDetail, level: healthUnknown})
+	case h.hasUpdate:
+		items = append(items, healthItem{name: "Actualización", status: "disponible " + h.latest, detail: upDetail, level: healthWarn})
+	default:
+		items = append(items, healthItem{name: "Actualización", status: "al día", detail: upDetail, level: healthOK})
+	}
+
+	items = append(items, healthItem{
+		name:   "Plan",
+		status: "límites",
+		detail: itoa(h.svc.MaxParallel) + " en paralelo" + sep + itoa(h.svc.MaxInstances) + " registradas",
+		level:  healthOK,
+	})
+	return items
+}
+
+// rows pinta las filas de un panel, una por línea.
+func (h *healthScreen) rows(items []healthItem) string {
+	var b strings.Builder
+	for i, it := range items {
+		if i > 0 {
+			b.WriteString("\n")
 		}
+		b.WriteString(h.itemLine(it))
 	}
-	row("Actualización", upStatus, "repositorio "+h.svc.Repo, upOK, h.checkedUp)
-
-	row("Plan", "límites", itoa(h.svc.MaxParallel)+" en paralelo · "+itoa(h.svc.MaxInstances)+" registradas", true, true)
-
-	b.WriteString("\n  " + lipgloss.NewStyle().Foreground(lipgloss.Color(h.pal.Muted)).Render("[D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nuevo"))
 	return b.String()
 }
 
-func (h *healthScreen) assignedRAM() float64 {
-	rows, err := h.svc.Instances.Rows(context.Background())
-	if err != nil {
-		return 0
+// itemLine dibuja una fila: icono del nivel + nombre + detalle + estado.
+func (h *healthScreen) itemLine(it healthItem) string {
+	icon, color := h.levelIcon(it.level)
+	line := " " + lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(icon) + " " +
+		lipgloss.NewStyle().Bold(true).Render(it.name)
+	if it.detail != "" {
+		line += "  " + it.detail
 	}
-	var total float64
-	for _, r := range rows {
-		if mem := host.ParseMemory(r.Memory); mem > 0 {
-			total += float64(mem) / (1 << 30)
+	if it.status != "" {
+		line += "  " + lipgloss.NewStyle().Foreground(lipgloss.Color(h.pal.Muted)).Render(it.status)
+	}
+	return line
+}
+
+// levelIcon devuelve el icono y el color del nivel: desconocido (·), correcto
+// (✓), aviso (⚠) y crítico (✖). En ASCII todos tienen su equivalente plano.
+func (h *healthScreen) levelIcon(level healthLevel) (string, string) {
+	switch level {
+	case healthOK:
+		return components.Check(h.ascii), h.pal.Good
+	case healthWarn:
+		return components.Warn(h.ascii), h.pal.Warn
+	case healthBad:
+		return components.Cross(h.ascii), h.pal.Bad
+	}
+	icon := "·"
+	if h.ascii {
+		icon = "."
+	}
+	return icon, h.pal.Muted
+}
+
+// tag resume el estado de un panel: «ok», «N aviso(s)», «crítico», «sin
+// comprobar» o «reparando…» mientras hay una operación en curso.
+func (h *healthScreen) tag(items []healthItem) string {
+	if h.busy != "" {
+		return "reparando…"
+	}
+	bad, warn, unknown := 0, 0, 0
+	for _, it := range items {
+		switch it.level {
+		case healthBad:
+			bad++
+		case healthWarn:
+			warn++
+		case healthUnknown:
+			unknown++
 		}
 	}
-	return total
+	switch {
+	case bad > 0:
+		return "crítico"
+	case warn == 1:
+		return "1 aviso"
+	case warn > 1:
+		return itoa(warn) + " avisos"
+	case unknown > 0:
+		return "sin comprobar"
+	}
+	return "ok"
+}
+
+func (h *healthScreen) diskDetail() string {
+	if h.totalGB <= 0 {
+		return trimFloat(h.freeGB) + " GB libres"
+	}
+	return trimFloat(h.freeGB) + " GB libres de " + trimFloat(h.totalGB) + " GB"
+}
+
+func (h *healthScreen) assignedText() string {
+	if !h.assignedKnown {
+		return "—"
+	}
+	return trimFloat(h.assignedGB) + " GiB"
+}
+
+// clampHeight recorta la vista al alto disponible sin dejar líneas de más.
+func clampHeight(s string, hgt int) string {
+	if hgt <= 0 {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	if len(lines) > hgt {
+		lines = lines[:hgt]
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (h *healthScreen) Actions() []components.Action {

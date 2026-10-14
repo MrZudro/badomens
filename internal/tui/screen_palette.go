@@ -2,13 +2,15 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/MrZudro/badomens/internal/tui/components"
 	"github.com/MrZudro/badomens/internal/tui/theme"
 )
 
 // paletteScreen es la paleta de comandos (Ctrl+P): búsqueda difusa sobre todas
-// las acciones de la pantalla actual y las globales (P-02).
+// las acciones de la pantalla actual y las globales (P-02). Captura todas las
+// teclas mientras está abierta: las letras filtran y no disparan atajos.
 type paletteScreen struct {
 	picker *components.Picker
 	pal    theme.Palette
@@ -54,7 +56,10 @@ func (p *paletteScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 }
 
 func (p *paletteScreen) View(w, h int) string {
-	return components.Modal{Title: "Paleta de comandos", Body: p.picker.Render(w-6, h-4, p.pal, p.ascii)}.Render(w, p.pal, p.ascii)
+	body := p.picker.Render(w-6, h-4, p.pal, p.ascii)
+	body += "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(p.pal.Muted)).
+		Render("Escribe para filtrar…  Enter ejecutar · Esc cerrar")
+	return components.Modal{Title: "Paleta de comandos", Body: body}.Render(w, p.pal, p.ascii)
 }
 
 func (p *paletteScreen) Actions() []components.Action { return nil }

@@ -14,10 +14,10 @@
 │ │   Crear una instancia nueva  ctrl+n                        │                                                                                                                                       │
 │ │   Ver la ayuda de esta pantalla  F1                        │                                                                                                                                       │
 │ │                                                            │                                                                                                                                       │
+│ │ Escribe para filtrar…  Enter ejecutar · Esc cerrar         │                                                                                                                                       │
 │ │                                                            │                                                                                                                                       │
 │ │                                                            │                                                                                                                                       │
 │ ╰────────────────────────────────────────────────────────────╯                                                                                                                                       │
-│                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │

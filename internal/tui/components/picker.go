@@ -16,7 +16,7 @@ type PickerItem struct {
 	Detail string
 }
 
-// Picker es un selector filtrable (motores, versiones…).
+// Picker es un selector filtrable (motores, versiones, comandos…).
 type Picker struct {
 	Title  string
 	Items  []PickerItem
@@ -29,19 +29,51 @@ func NewPicker(title string, items []PickerItem) *Picker {
 	return &Picker{Title: title, Items: items}
 }
 
-// Filtered devuelve los elementos que cumplen el filtro actual.
+// Filtered devuelve los elementos que cumplen el filtro actual: primero los que
+// contienen el texto (subcadena, coincidencia fuerte) y después los que lo tienen
+// como subsecuencia (búsqueda difusa). El orden estable mantiene el texto exacto
+// por delante y nunca deja fuera una coincidencia difusa válida.
 func (p *Picker) Filtered() []PickerItem {
 	f := strings.ToLower(strings.TrimSpace(p.Filter))
 	if f == "" {
 		return p.Items
 	}
-	out := make([]PickerItem, 0, len(p.Items))
+	var sub, fuzzy []PickerItem
 	for _, it := range p.Items {
-		if strings.Contains(strings.ToLower(it.Label), f) || strings.Contains(strings.ToLower(it.Detail), f) {
-			out = append(out, it)
+		hay := strings.ToLower(it.Label + " " + it.Detail)
+		switch {
+		case strings.Contains(hay, f):
+			sub = append(sub, it)
+		case fuzzyMatch(f, hay):
+			fuzzy = append(fuzzy, it)
 		}
 	}
-	return out
+	if len(sub) == 0 {
+		return fuzzy
+	}
+	return append(sub, fuzzy...)
+}
+
+// fuzzyMatch indica si todas las runas de pattern aparecen en text en el mismo
+// orden (subsecuencia), sin exigir que sean contiguas.
+func fuzzyMatch(pattern, text string) bool {
+	tr := []rune(text)
+	i := 0
+	for _, r := range pattern {
+		found := false
+		for i < len(tr) {
+			cur := tr[i]
+			i++
+			if cur == r {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 // Move desplaza el cursor dentro de los elementos filtrados.
@@ -69,7 +101,7 @@ func (p *Picker) Selected() (PickerItem, bool) {
 	return f[p.cursor], true
 }
 
-// Type añade un carácter al filtro.
+// Type añade un carácter al filtro y vuelve el cursor al primer resultado.
 func (p *Picker) Type(r rune) {
 	p.Filter += string(r)
 	p.cursor = 0
@@ -82,6 +114,7 @@ func (p *Picker) Backspace() {
 	}
 	r := []rune(p.Filter)
 	p.Filter = string(r[:len(r)-1])
+	p.cursor = 0
 }
 
 // Render pinta el selector con scroll.

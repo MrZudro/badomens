@@ -14,7 +14,7 @@
 │ │   Crear una instancia nueva  ctrl+n                        │     │
 │ │   Ver la ayuda de esta pantalla  F1                        │     │
 │ │                                                            │     │
-│ │                                                            │     │
+│ │ Escribe para filtrar…  Enter ejecutar · Esc cerrar         │     │
 │ │                                                            │     │
 │ Comandos                                                           │
 └─ F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ──────────────────────┘

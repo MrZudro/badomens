@@ -75,6 +75,14 @@ versionado es [semántico](https://semver.org/lang/es/).
   validación de puerto en vivo (debounce 300 ms), versión incompatible, riesgo
   offline (también repetido en «Revisar») y error de creación visibles. Todo cabe
   de 40×12 a 200×50 (alto exacto).
+- **Salud, Ayuda, Paleta y Modales (§5.13–§5.15)**: Salud agrupa las comprobaciones
+  en paneles `ENTORNO` | `RECURSOS` con tag de estado (`ok`/`aviso`/`crítico`) e
+  icono+texto; la RAM asignada se mide en `tea.Cmd` (nada de I/O en `View`). La
+  Ayuda muestra atajos de **Pantalla** + **Globales** (priorizando los esenciales y
+  cerrando el marco en alturas pequeñas). La Paleta añade pista de filtrado y
+  búsqueda difusa (subsecuencia). El borrado y el cambio de versión pasan a
+  `components.Modal` (el borrado exige el nombre exacto, con el foco en «No, volver»);
+  la salida con operación en curso sigue siendo modal.
 
 ### 🔧 Cambiado
 

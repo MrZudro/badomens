@@ -6,7 +6,7 @@
 │ │ Comandos                       │   │
 │ │ ▶ Iniciar «survival»  s        │   │
 │ │ ▼ 8 más                        │   │
-│ │                                │   │
-│ │                                │   │
+│ │ Escribe para filtrar…  Enter   │   │
+│ │ ejecutar · Esc cerrar          │   │
 │ Comandos                             │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

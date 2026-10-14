@@ -1,30 +1,30 @@
-┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+┌─ badomens 0.0.0-dev ────────────────────────────────────── Docker sin comprobar  1/5 inst · 1/3 en marcha ─┐
 │ Inicio  Instancias  Salud  [Ayuda]                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ ╭────────────────────────────────────────────────────────────╮                                             │
 │ │ Ayuda                                                      │                                             │
-│ │ Atajos de esta pantalla                                    │                                             │
+│ │ Pantalla                                                   │                                             │
+│ │   [S]  Iniciar «survival»  (no disponible)                 │                                             │
+│ │   [P]  Detener «survival» (guarda el mundo)                │                                             │
+│ │   [R]  Reiniciar «survival»                                │                                             │
+│ │   [B]  Crear backup ahora                                  │                                             │
+│ │   [C]  Copiar dirección de conexión                        │                                             │
+│ │   [enter]  Ver detalle de «survival»                       │                                             │
 │ │                                                            │                                             │
+│ │ Globales                                                   │                                             │
+│ │   F1  ayuda                                                │                                             │
+│ │   Ctrl+P  comandos                                         │                                             │
+│ │   F2  salud del sistema                                    │                                             │
+│ │   Ctrl+Q  salir                                            │                                             │
+│ │   Ctrl+N  nueva instancia                                  │                                             │
 │ │   ↑/k  subir                                               │                                             │
 │ │   ↓/j  bajar                                               │                                             │
 │ │   Enter  abrir/confirmar                                   │                                             │
 │ │   Esc  volver                                              │                                             │
-│ │   F1  ayuda                                                │                                             │
-│ │   Ctrl+P  comandos                                         │                                             │
-│ │   Tab  cambiar panel                                       │                                             │
-│ │                                                            │                                             │
-│ │   Ctrl+N  nueva instancia                                  │                                             │
-│ │   F2  salud del sistema                                    │                                             │
-│ │   c  copiar                                                │                                             │
-│ │   Ctrl+Q  salir                                            │                                             │
-│ │                                                            │                                             │
+│ │   … más atajos en la paleta (Ctrl+P)                       │                                             │
 │ │   Esc  cerrar ayuda                                        │                                             │
 │ │                                                            │                                             │
 │ │                                                            │                                             │
 │ ╰────────────────────────────────────────────────────────────╯                                             │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
 │ Ayuda                                                                                                      │
 └─ F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ──────────────────────────────────────────────────────────────┘

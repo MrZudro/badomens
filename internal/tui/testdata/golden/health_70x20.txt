@@ -2,19 +2,19 @@
 │ Inicio  Instancias  [Salud]  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ Salud del sistema                                                  │
-│                                                                    │
-│   ✓ Docker  Docker está listo.  OK                                 │
-│   ✓ Docker Compose    v2.30.1                                      │
-│   ✓ Tailscale  100.64.0.1 · maquina.tail1234.ts.net  IP/MagicDNS   │
-│   ✓ Puertos  sin conflictos  rango libre                           │
-│   ✓ Disco  120 GB libres de 500 GB  ok                             │
-│   ✓ RAM  8 CPU · 16 GiB RAM · 4 GiB asignados  runtime             │
-│   ✓ Actualización  repositorio MrZudro/badomens  al día            │
-│   ✓ Plan  3 en paralelo · 5 registradas  límites                   │
-│                                                                    │
-│   [D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de n… │
-│                                                                    │
-│                                                                    │
+│ ╭─ ENTORNO ───────────────────────────────────────────────── ok ─╮ │
+│ │ ✓ Docker  Docker está listo.  OK                               │ │
+│ │ ✓ Docker Compose  v2.30.1  ok                                  │ │
+│ │ ✓ Tailscale  100.64.0.1 · maquina.tail1234.ts.net  IP/MagicDNS │ │
+│ │ ✓ Puertos  sin conflictos  rango libre                         │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
+│ ╭─ RECURSOS ──────────────────────────────────────────────── ok ─╮ │
+│ │ ✓ Disco  120 GB libres de 500 GB  ok                           │ │
+│ │ ✓ RAM  8 CPU · 16 GiB RAM · 4 GiB asignados  runtime           │ │
+│ │ ✓ Actualización  repositorio MrZudro/badomens  al día          │ │
+│ │ ✓ Plan  3 en paralelo · 5 registradas  límites                 │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
+│ [D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nue… │
 │                                                                    │
 │ Salud del sistema                                                  │
 └─ [R] Comprobar  [D]…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

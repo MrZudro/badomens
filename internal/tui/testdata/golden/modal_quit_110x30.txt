@@ -1,0 +1,30 @@
+┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+│ [Inicio]  Instancias  Salud  Ayuda                                                                         │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ╭────────────────────────────────────────────────────────────╮                                             │
+│ │ Hay una operación en curso                                 │                                             │
+│ │ Si sales ahora se cancelará la operación pendiente.        │                                             │
+│ │                                                            │                                             │
+│ │  [N] No, esperar a que termine                             │                                             │
+│ │ [Y] Sí, salir y cancelar la operación ⚠                    │                                             │
+│ ╰────────────────────────────────────────────────────────────╯                                             │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│ cargando instancias…                                                                         ⟳ trabajando… │
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [B] Crear  [C] Co…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

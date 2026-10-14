@@ -187,9 +187,10 @@ type instanceScreen struct {
 
 	pendingSave *instance.Spec
 
-	// P-03: confirmación del cambio de versión (backup previo obligatorio).
-	confirmKind  string // "", "version"
-	confirmValue string
+	// P-03/§5.15: confirmación modal (borrado destructivo y cambio de versión).
+	modal      *components.Modal
+	modalKind  string // "", "delete", "version"
+	modalValue string // versión pendiente de aplicar
 
 	// P-08: recuperación ante caídas.
 	lastState    string
@@ -467,18 +468,8 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		s.input, c = s.input.Update(msg)
 		return s, c
 	}
-	if s.confirmKind != "" {
-		switch msg.String() {
-		case "enter":
-			kind, val := s.confirmKind, s.confirmValue
-			s.confirmKind, s.confirmValue = "", ""
-			if kind == "version" {
-				return s, s.changeVersionCmd(val)
-			}
-		case "esc":
-			s.confirmKind, s.confirmValue = "", ""
-		}
-		return s, nil
+	if s.modal != nil {
+		return s, s.handleModalKey(msg)
 	}
 	if s.focus {
 		return s.handleConsoleKey(msg)
@@ -675,7 +666,7 @@ func (s *instanceScreen) runPrompt(act, val string) tea.Cmd {
 		}
 		return s.deleteCmd()
 	case "__version__":
-		s.confirmKind, s.confirmValue = "version", val
+		s.openVersionModal(val)
 		return nil
 	case "acl.add", "acl.remove", "acl.op", "acl.deop":
 		return s.accessMutateCmd(act, val)
@@ -716,14 +707,123 @@ func (s *instanceScreen) changeVersionCmd(v string) tea.Cmd {
 	})
 }
 
-// startDeletePrompt pide escribir el nombre para habilitar el borrado (P-03).
+// startDeletePrompt abre la confirmación reforzada del borrado (§5.15/P-03) como
+// un modal con borde: exige escribir el nombre exacto y arranca con el foco en el
+// botón seguro («No, volver»), nunca en el destructivo.
 func (s *instanceScreen) startDeletePrompt() tea.Cmd {
-	s.prompt = true
-	s.promptAct = "__delete__"
-	s.promptLabel = "Escribe «" + s.slug + "» para borrar la instancia"
-	s.input.Placeholder = s.slug
-	s.input.SetValue("")
-	return s.input.Focus()
+	m := components.DestroyConfirm("eliminar", s.slug)
+	// Motivo corto para que el botón destructivo quepa en una línea junto a su
+	// etiqueta (el detalle de qué escribir ya está en el cuerpo del modal).
+	m.Actions[0].DisabledReason = "escribe el nombre"
+	m.Body = "Se borrarán el contenedor y todos los datos de «" + s.slug + "»."
+	s.modal = &m
+	s.modalKind, s.modalValue = "delete", ""
+	return nil
+}
+
+// openVersionModal confirma el cambio de versión con un modal que avisa del
+// backup previo. Enter confirma y Esc cancela (§5.15).
+func (s *instanceScreen) openVersionModal(v string) {
+	m := components.Modal{
+		Title: "Cambiar la versión",
+		Body: "Se hará un backup de «" + s.slug + "» antes de cambiar a " + v +
+			". Bajar de versión puede corromper el mundo.",
+		Actions: []components.Action{
+			{ID: "confirm", Verb: "Cambiar", Object: "a " + v, Key: "y", Hint: "Hace un backup y aplica la nueva versión.", Kind: components.Primary},
+			{ID: "cancel", Verb: "No cambiar", Object: "la versión", Key: "n", Hint: "Cierra sin tocar la versión.", Kind: components.Secondary},
+		},
+		Focused: 0,
+	}
+	s.modal = &m
+	s.modalKind, s.modalValue = "version", v
+}
+
+// handleModalKey atiende el modal activo: captura todas las teclas, Esc cancela
+// sin mutar nada y Enter solo actúa sobre el botón enfocado (o sobre el
+// destructivo cuando el texto exigido ya coincide).
+func (s *instanceScreen) handleModalKey(msg tea.KeyMsg) tea.Cmd {
+	m := *s.modal
+	key := msg.String()
+	// Con texto exigido, cualquier carácter imprimible se escribe: una letra del
+	// nombre (p. ej. «h» o «l») nunca debe interpretarse como navegación (§5).
+	if m.RequireText != "" {
+		if r := []rune(key); len(r) == 1 && r[0] >= 32 {
+			m.Typed += string(r[0])
+			s.modal = &m
+			return nil
+		}
+	}
+	switch key {
+	case "esc":
+		s.clearModal()
+		return nil
+	case "left", "h", "shift+tab":
+		if m.Focused > 0 {
+			m.Focused--
+		}
+		s.modal = &m
+		return nil
+	case "right", "l", "tab":
+		if m.Focused < len(m.Actions)-1 {
+			m.Focused++
+		}
+		s.modal = &m
+		return nil
+	case "backspace":
+		if m.RequireText != "" {
+			if r := []rune(m.Typed); len(r) > 0 {
+				m.Typed = string(r[:len(r)-1])
+			}
+			s.modal = &m
+		}
+		return nil
+	case "enter":
+		act := m.Actions[m.Focused]
+		if m.RequireText != "" {
+			// Escribir el nombre exacto habilita confirmar: si no coincide no se
+			// borra nada y el modal sigue abierto.
+			if !m.Enabled() {
+				return nil
+			}
+			act = m.Actions[0]
+		}
+		switch act.ID {
+		case "confirm":
+			if !m.Enabled() {
+				return nil
+			}
+			return s.confirmModal()
+		case "cancel":
+			s.clearModal()
+			return nil
+		}
+		return nil
+	}
+	return nil
+}
+
+// confirmModal aplica la acción del modal ya aceptado. El borrado conserva la
+// validación del nombre (runPrompt) aunque el botón ya estuviera habilitado.
+func (s *instanceScreen) confirmModal() tea.Cmd {
+	kind, val := s.modalKind, s.modalValue
+	typed := ""
+	if s.modal != nil {
+		typed = s.modal.Typed
+	}
+	s.clearModal()
+	switch kind {
+	case "delete":
+		return s.runPrompt("__delete__", typed)
+	case "version":
+		return s.changeVersionCmd(val)
+	}
+	return nil
+}
+
+// clearModal cierra el modal activo sin ejecutar nada.
+func (s *instanceScreen) clearModal() {
+	s.modal = nil
+	s.modalKind, s.modalValue = "", ""
 }
 
 // startVersionPrompt pide la nueva versión (con backup y confirmación, P-03).
@@ -1246,6 +1346,11 @@ func (s *instanceScreen) View(w, h int) string {
 	if w > 4 {
 		s.input.Width = w - 2
 	}
+	// Una confirmación modal (§5.15) ocupa la vista: se pinta sola para que no
+	// la recorte el alto reservado ni quede tapada por el cuerpo de la pestaña.
+	if s.modal != nil {
+		return s.modal.Render(w, s.pal, s.ascii)
+	}
 	var b strings.Builder
 	switch s.tab {
 	case 0:
@@ -1272,10 +1377,6 @@ func (s *instanceScreen) View(w, h int) string {
 	}
 	if s.pending != "" && s.tab != 1 { // en la pestaña Consola el aviso va dentro del panel
 		b.WriteString("\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render("⚠ Comando peligroso: «"+s.pending+"». Pulsa Enter otra vez para confirmar, o Esc para cancelar."))
-	}
-	if s.confirmKind == "version" {
-		b.WriteString("\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render(
-			"⚠ Se hará un backup y se cambiará la versión a «"+s.confirmValue+"». Bajar de versión puede corromper el mundo. [Enter] Confirmar · [Esc] Cancelar"))
 	}
 	return b.String()
 }
@@ -2120,17 +2221,15 @@ func wrapWords(text string, max int) []string {
 }
 
 // reservedBodyLines cuenta las líneas que View añade DESPUÉS del cuerpo de la
-// pestaña (prompt, aviso de comando peligroso, confirmación) para que un panel de
-// alto completo no las deje fuera del cuerpo.
+// pestaña (prompt y aviso de comando peligroso) para que un panel de alto
+// completo no las deje fuera del cuerpo. Las confirmaciones modales (§5.15)
+// ocupan la vista entera y no reservan nada aquí.
 func (s *instanceScreen) reservedBodyLines() int {
 	n := 0
 	if s.prompt {
 		n += 3 // dos de separación y la línea del formulario
 	}
 	if s.pending != "" && s.tab != 1 {
-		n += 3
-	}
-	if s.confirmKind == "version" {
 		n += 3
 	}
 	return n
@@ -2873,7 +2972,7 @@ func (s *instanceScreen) Status() string {
 // CapturesInput: el detalle captura las teclas cuando hay un campo de texto, un
 // prompt o una confirmación con foco, para no disparar atajos globales (§5).
 func (s *instanceScreen) CapturesInput() bool {
-	return s.prompt || s.confirmKind != "" || s.focus || s.editing
+	return s.prompt || s.modal != nil || s.focus || s.editing
 }
 
 func logColor(line string, pal theme.Palette) string {

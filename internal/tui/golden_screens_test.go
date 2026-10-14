@@ -134,13 +134,19 @@ func gHealth() *App {
 		h.freeGB, h.totalGB, h.diskOK = 120, 500, true
 		h.portsOK = true
 		h.checkedUp, h.latest, h.hasUpdate = true, "1.0.1", false
+		h.assignedGB, h.assignedKnown = 4, true
 	}
 	return a
 }
 
 func gHelp() *App {
 	a := NewApp(goldenSvc(), darkOpts())
-	a.router.SetOverlay(newHelpScreen(a.keys, a.pal, a.ascii))
+	// Una fila cargada da nombres reales a los atajos de la pantalla activa.
+	a.Update(pollRowsMsg{rows: []svc.Row{{
+		Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4",
+		Port: 25565, State: "running", MaxPlayers: 20, PlayersOnline: 3, Host: "100.64.0.1",
+	}}})
+	a.router.SetOverlay(newHelpScreen(a.keys, a.actions(), a.pal, a.ascii))
 	return a
 }
 
@@ -151,6 +157,26 @@ func gPalette() *App {
 		Port: 25565, State: "running", MaxPlayers: 20, PlayersOnline: 3, Host: "100.64.0.1",
 	}}})
 	a.router.SetOverlay(newPaletteScreen(a.actions(), a.pal, a.ascii))
+	return a
+}
+
+// gDeleteModal abre la confirmación reforzada del borrado en el detalle (§5.15).
+func gDeleteModal() *App {
+	a := NewApp(goldenSvc(), darkOpts())
+	a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, "survival"))
+	if inst, ok := a.router.Top().(*instanceScreen); ok {
+		inst.detail = &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}
+		inst.status = ""
+		_ = inst.startDeletePrompt()
+	}
+	return a
+}
+
+// gQuitModal abre el modal de salida con una operación en curso (RF-7).
+func gQuitModal() *App {
+	a := NewApp(goldenSvc(), darkOpts())
+	a.busy = true
+	_, _ = a.askQuit()
 	return a
 }
 
@@ -217,17 +243,29 @@ func asciiCases() []gcase {
 				h.freeGB, h.totalGB, h.diskOK = 120, 500, true
 				h.portsOK = true
 				h.checkedUp, h.latest, h.hasUpdate = true, "1.0.1", false
+				h.assignedGB, h.assignedKnown = 4, true
 			}
 			return a
 		}},
 	}
 }
 
+// modalCases son capturas de las confirmaciones modales (§5.15) en ancho medio.
+func modalCases() []gcase {
+	return []gcase{
+		{name: "modal_delete_110x30", w: 110, h: 30, build: gDeleteModal},
+		{name: "modal_quit_110x30", w: 110, h: 30, build: gQuitModal},
+	}
+}
+
 // TestGoldenScreens (RF-1/§10.2): capturas doradas de Detalle, Asistente (cada
-// paso), Salud, Ayuda y Paleta en 40×12, 70×20, 110×30 y 200×50, más variantes
-// ASCII. Se regeneran con `go test ./internal/tui/ -update`.
+// paso), Salud, Ayuda, Paleta y las confirmaciones modales en 40×12, 70×20,
+// 110×30 y 200×50, más variantes ASCII. Se regeneran con
+// `go test ./internal/tui/ -update`.
 func TestGoldenScreens(t *testing.T) {
-	for _, c := range append(goldenScreenCases(), asciiCases()...) {
+	cases := append(goldenScreenCases(), asciiCases()...)
+	cases = append(cases, modalCases()...)
+	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
 			a := c.build()

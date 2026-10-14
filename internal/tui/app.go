@@ -115,7 +115,7 @@ func RenderSnapshot(cfg *config.Config, slug, view string, w, h int) (string, er
 	case "palette":
 		app.router.SetOverlay(newPaletteScreen(app.actions(), theme.For(pal), cfg.UI.ASCII))
 	case "help":
-		app.router.SetOverlay(newHelpScreen(DefaultKeys, theme.For(pal), cfg.UI.ASCII))
+		app.router.SetOverlay(newHelpScreen(DefaultKeys, app.actions(), theme.For(pal), cfg.UI.ASCII))
 	}
 	if view != "" && view != "list" {
 		app.Update(ejecutaDirecto(app.router.Active().Init()))
