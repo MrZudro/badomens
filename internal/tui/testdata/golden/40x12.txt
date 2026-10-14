@@ -1,8 +1,12 @@
-┌ badomens                 ● Docker OK ┐
-INSTANCIAS (2/5 · 1/3 en marcha)
-▶ Survival  0/20  4G  pto 25565
-  Creativo  0/0  2G  pto 25566
-· Iniciar «survival» — Ya está en marcha
-[P] Detener «survival» (guarda el mundo)
-[R] Reiniciar «survival»  [M] Más…
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens 0.0.0-dev ─── ● Docker OK ─┐
+│ [Inicio]  Instancias  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ INSTANCIAS (2/5 · 1/3 en marcha)     │
+│ ▶ Survival  0/20  4G  pto 25565      │
+│   Creativo  0/0  2G  pto 25566       │
+│ · Iniciar «survival» — Ya está en m… │
+│ [P] Detener «survival» (guarda el m… │
+│ [R] Reiniciar «survival»             │
+│ [B] Crear backup ahora               │
+│ Instancias                           │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

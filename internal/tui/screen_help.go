@@ -49,3 +49,9 @@ func (h *helpScreen) View(w, hgt int) string {
 func (h *helpScreen) Actions() []components.Action { return nil }
 func (h *helpScreen) Title() string                { return "Ayuda" }
 func (h *helpScreen) ID() string                   { return "help" }
+
+// NavSection indica la sección de primer nivel activa.
+func (h *helpScreen) NavSection() string { return "help" }
+
+// Status no aporta mensaje propio.
+func (h *helpScreen) Status() string { return "" }

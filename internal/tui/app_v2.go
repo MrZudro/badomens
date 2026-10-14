@@ -20,6 +20,7 @@ import (
 	"github.com/MrZudro/badomens/internal/tui/layout"
 	"github.com/MrZudro/badomens/internal/tui/svc"
 	"github.com/MrZudro/badomens/internal/tui/theme"
+	"github.com/MrZudro/badomens/internal/version"
 )
 
 // AppOptions controla la app rediseñada.
@@ -44,13 +45,13 @@ type App struct {
 	poller *Poller
 
 	pal     theme.Palette
+	styles  shellStyles
 	keys    KeyMap
 	cat     *i18n.Catalog
 	size    layout.Size
 	toasts  []toastEntry
 	toastID int
 	status  string
-	hint    string
 	ascii   bool
 	reduced bool
 	anim    *anim.Manager
@@ -64,6 +65,14 @@ type App struct {
 	idleWarned bool
 	dockerSeen bool
 	quitting   bool
+
+	// Estado de la cabecera: Tailscale y contadores de instancias (§2).
+	tsIP         string
+	tsOK         bool
+	tsSeen       bool
+	instCount    int
+	runningCount int
+	countsSeen   bool
 
 	// Vigilante de auto-apagado en el proceso de la TUI (RF-8 §6).
 	idleEvents   chan events.Event
@@ -98,7 +107,8 @@ func NewApp(sv *svc.Services, opts AppOptions) *App {
 	}
 	a.router = NewRouter(home)
 	a.poller = &Poller{Svc: sv}
-	a.status = a.cat.T("home.title")
+	a.styles = newShellStyles(pal, opts.ASCII)
+	a.status = ""
 	return a
 }
 
@@ -138,6 +148,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pollRowsMsg:
 		var cmds []tea.Cmd
 		if msg.err == nil {
+			a.noteCounts(msg.rows)
 			a.noteIdleBanner(msg.rows)
 			if c := a.maybeStartIdleWatch(msg.rows); c != nil {
 				cmds = append(cmds, c)
@@ -145,6 +156,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		cmds = append(cmds, a.router.Update(msg))
 		return a, tea.Batch(cmds...)
+	case homeReqMsg:
+		// Tailscale para la cabecera; la pantalla sigue procesando el mensaje.
+		a.tsIP, a.tsOK, a.tsSeen = msg.tsIP, msg.tsOK, true
+		return a, a.router.Update(msg)
 	case idleEventMsg:
 		return a, tea.Batch(a.handleIdleEvent(msg.ev), a.waitIdleEvent())
 	case idleWatchDoneMsg:
@@ -224,6 +239,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.poller.Cmds(nowUTC(), true, false)
 	case themeChangedMsg:
 		a.pal = theme.For(msg.name)
+		a.styles = newShellStyles(a.pal, a.ascii)
 		return a, nil
 	case tea.KeyMsg:
 		return a.handleGlobalKey(msg)
@@ -484,6 +500,9 @@ func (a *App) pushToast(text string, kinds ...components.Kind) tea.Cmd {
 	if strings.TrimSpace(text) == "" {
 		return nil
 	}
+	// La barra de estado conserva el último mensaje de dominio (§3), aunque el
+	// toast desaparezca.
+	a.status = text
 	kind := components.Secondary
 	if len(kinds) > 0 {
 		kind = kinds[0]
@@ -509,6 +528,17 @@ func (a *App) expireToast(seq int) {
 		}
 	}
 	a.toasts = out
+}
+
+// noteCounts actualiza los contadores de la cabecera (§2) a partir del listado.
+func (a *App) noteCounts(rows []svc.Row) {
+	run := 0
+	for _, r := range rows {
+		if r.State == "running" {
+			run++
+		}
+	}
+	a.instCount, a.runningCount, a.countsSeen = len(rows), run, true
 }
 
 // noteIdleBanner avisa si hay auto-apagado configurado sin vigilante activo.
@@ -634,7 +664,53 @@ func leftPad2(n int) string {
 	return itoa(n)
 }
 
-// View pinta la app completa en el tamaño actual.
+// shellStyles agrupa los estilos del marco para no reconstruirlos en cada frame
+// (§6.5). Se crean con el tema activo y se reutilizan tal cual.
+type shellStyles struct {
+	title    lipgloss.Style
+	border   lipgloss.Style
+	muted    lipgloss.Style
+	good     lipgloss.Style
+	warn     lipgloss.Style
+	bad      lipgloss.Style
+	navOn    lipgloss.Style
+	navOff   lipgloss.Style
+	barLeft  string
+	barRight string
+}
+
+func newShellStyles(p theme.Palette, ascii bool) shellStyles {
+	v := "│"
+	if ascii {
+		v = "|"
+	}
+	border := lipgloss.NewStyle().Foreground(lipgloss.Color(p.Border))
+	return shellStyles{
+		title:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.Accent)),
+		border:   border,
+		muted:    lipgloss.NewStyle().Foreground(lipgloss.Color(p.Muted)),
+		good:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Good)),
+		warn:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Warn)),
+		bad:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Bad)),
+		navOn:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.AccentText)).Background(lipgloss.Color(p.Accent)),
+		navOff:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.Muted)),
+		barLeft:  border.Render(v + " "),
+		barRight: border.Render(" " + v),
+	}
+}
+
+// frameChars devuelve las esquinas y el trazo horizontal del marco: caja Unicode
+// o ASCII (+ - |) según el modo (§2/§4.2).
+func frameChars(ascii bool) (tl, tr, bl, br, hz string) {
+	if ascii {
+		return "+", "+", "+", "+", "-"
+	}
+	return "┌", "┐", "└", "┘", "─"
+}
+
+// View pinta la app completa: marco con cabecera, navegación, cuerpo, estado y
+// barra de acciones (§2/§3). Cabecera, nav, separador, estado y acciones tienen
+// altura fija; solo el cuerpo se desplaza.
 func (a *App) View() string {
 	w, h := a.size.W, a.size.H
 	if w <= 0 {
@@ -644,60 +720,116 @@ func (a *App) View() string {
 		return zone.Scan(lipgloss.NewStyle().Foreground(lipgloss.Color(a.pal.Warn)).
 			Render(a.cat.Tf("app.too_small", map[string]string{"w": itoa(w), "h": itoa(h)})))
 	}
-	header := a.headerView(w)
-	footer := a.footerView(w)
-	banners := a.bannerView(w)
-	toasts := ""
-	if len(a.toasts) > 0 {
-		lines := make([]string, 0, len(a.toasts))
-		for _, t := range a.toasts {
-			lines = append(lines, components.RenderToast(components.Toast{Text: t.Text, Kind: t.Kind}, a.pal))
-		}
-		toasts = strings.Join(lines, "\n") + "\n"
+	// Ancho interior: dentro de "│ " … " │" (2 celdas de marco + 2 de relleno).
+	inner := w - 4
+	if inner < 1 {
+		inner = 1
 	}
+
 	// Franja fija de la pantalla (título y pestañas), si la expone (§4).
 	chrome := ""
 	if a.router.Overlay() == nil && a.confirm == nil {
 		if c, ok := a.router.Top().(Chromed); ok {
-			chrome = c.Chrome(w)
+			chrome = c.Chrome(inner)
 		}
 	}
-	chromeLines := 0
+	var chromeLines []string
 	if chrome != "" {
-		chromeLines = strings.Count(chrome, "\n") + 1
+		chromeLines = strings.Split(chrome, "\n")
 	}
-	// Reserva fija: 1 línea de cabecera + 1 de barra de atajos + banners + toasts
-	// + pestañas. El cuerpo es el único que se desplaza (§4).
+
+	banners := a.bannerView(inner)
+	toastLines := make([]string, 0, len(a.toasts))
+	for _, t := range a.toasts {
+		toastLines = append(toastLines, components.RenderToast(components.Toast{Text: t.Text, Kind: t.Kind}, a.pal))
+	}
+
+	// Reserva fija: cabecera (marca) 1 + nav 1 + separador 1 + estado 1 +
+	// acciones (marca) 1 = 5 líneas. El resto lo ocupan banners, toasts, pestañas
+	// y el cuerpo (el único que se desplaza).
 	extra := 0
 	if banners != "" {
 		extra++
 	}
-	extra += len(a.toasts)
-	extra += chromeLines
-	bodyH := h - 2 - extra
+	extra += len(toastLines) + len(chromeLines)
+	bodyH := h - 5 - extra
 	if bodyH < 1 {
 		bodyH = 1
 	}
-	body := a.router.Active().View(w, bodyH)
+
+	body := a.router.Active().View(inner, bodyH)
 	if overlay := a.router.Overlay(); overlay != nil {
-		body = overlay.View(w, bodyH)
+		body = overlay.View(inner, bodyH)
 	}
 	if a.confirm != nil {
-		body = a.confirm.Render(w, a.pal, a.ascii)
+		body = a.confirm.Render(inner, a.pal, a.ascii)
 	}
-	// Guarda de tamaño: el cuerpo nunca puede superar el ancho ni el alto útil.
-	body = clampWidth(body, w)
-	middle := banners + toasts
-	if chrome != "" {
-		middle += chrome + "\n"
+	bodyLines := strings.Split(body, "\n")
+	if len(bodyLines) > bodyH {
+		bodyLines = bodyLines[:bodyH]
 	}
-	middle += body
-	middle = clampLines(middle, h-2)
-	view := strings.Join([]string{header, middle, footer}, "\n")
-	// Guarda final de ancho: ninguna línea puede superar w.
-	view = clampWidth(view, w)
+	for len(bodyLines) < bodyH {
+		bodyLines = append(bodyLines, "")
+	}
+
+	lines := make([]string, 0, h)
+	lines = append(lines, a.headerView(w))
+	lines = append(lines, a.barLine(padLine(a.navView(inner), inner)))
+	lines = append(lines, a.sepLine(w))
+	if banners != "" {
+		lines = append(lines, a.barLine(padLine(banners, inner)))
+	}
+	for _, tl := range toastLines {
+		lines = append(lines, a.barLine(padLine(tl, inner)))
+	}
+	for _, cl := range chromeLines {
+		lines = append(lines, a.barLine(padLine(cl, inner)))
+	}
+	for _, bl := range bodyLines {
+		lines = append(lines, a.barLine(padLine(bl, inner)))
+	}
+	lines = append(lines, a.barLine(padLine(a.statusView(inner), inner)))
+	lines = append(lines, a.bottomLine(w, a.actionsText(w-5)))
+	if len(lines) > h {
+		lines = lines[:h]
+	}
 	// Registra las zonas de ratón y quita sus marcadores (bubblezone, §4.1).
-	return zone.Scan(view)
+	return zone.Scan(strings.Join(lines, "\n"))
+}
+
+// barLine envuelve una línea interior con los laterales del marco.
+func (a *App) barLine(content string) string {
+	return a.styles.barLeft + content + a.styles.barRight
+}
+
+// sepLine dibuja el separador horizontal entre la navegación y el cuerpo.
+func (a *App) sepLine(w int) string {
+	_, _, _, _, hz := frameChars(a.ascii)
+	l, r := "├", "┤"
+	if a.ascii {
+		l, r = "+", "+"
+	}
+	n := w - 2
+	if n < 0 {
+		n = 0
+	}
+	return a.styles.border.Render(l + strings.Repeat(hz, n) + r)
+}
+
+// bottomLine dibuja el borde inferior con la barra de acciones dentro.
+func (a *App) bottomLine(w int, actions string) string {
+	_, _, bl, br, hz := frameChars(a.ascii)
+	avail := w - 5
+	if avail < 1 {
+		avail = 1
+	}
+	content := a.styles.muted.Render(layout.Truncate(actions, avail))
+	fill := w - 5 - layout.Width(content)
+	if fill < 0 {
+		fill = 0
+	}
+	return a.styles.border.Render(bl+hz+" ") + content +
+		a.styles.border.Render(" "+strings.Repeat(hz, fill)+br)
 }
 
 // bannerView pinta el banner fijo de prerrequisitos (Docker/Tailscale).
@@ -716,87 +848,305 @@ func (a *App) bannerView(w int) string {
 			msg = a.cat.T("app.banner.ascii_down")
 		}
 	}
-	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(a.pal.Bad)).Render(layout.Truncate(msg, w)) + "\n"
+	return a.styles.bad.Render(layout.Truncate(msg, w))
 }
 
+// headerView pinta la cabecera en el borde superior: producto + versión, estado
+// Docker/Tailscale y contadores (§2). Se sacrifican contadores y Tailscale si no
+// caben; nunca desborda el ancho.
 func (a *App) headerView(w int) string {
-	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(a.pal.Accent)).Render("badomens")
-	docker := a.cat.T("app.header.docker_ok")
-	color := a.pal.Good
-	switch {
-	case a.docker.State == "":
-		docker = a.cat.T("app.header.docker_unchecked")
-		color = a.pal.Muted
-	case !a.docker.State.Ready():
-		docker = a.cat.Tf("app.header.docker_bad", map[string]string{"state": string(a.docker.State)})
-		color = a.pal.Bad
+	tl, tr, _, _, hz := frameChars(a.ascii)
+	leftFull := "badomens"
+	if version.Version != "" {
+		leftFull = "badomens " + version.Version
 	}
-	if a.ascii {
-		switch {
-		case a.docker.State == "":
-			docker = a.cat.T("app.header.ascii_unchecked")
-			color = a.pal.Muted
-		case a.docker.State.Ready():
-			docker = a.cat.T("app.header.ascii_ok")
-		default:
-			docker = a.cat.Tf("app.header.ascii_bad", map[string]string{"state": string(a.docker.State)})
+	left := leftFull
+	lw := layout.Width(left)
+
+	parts := make([]string, 0, 3)
+	parts = append(parts, a.dockerHeader())
+	if t := a.tailscaleHeader(); t != "" {
+		parts = append(parts, t)
+	}
+	if c := a.countersHeader(); c != "" {
+		parts = append(parts, c)
+	}
+	// Se sacrifican contadores, Tailscale y, por último, la versión, antes de
+	// truncar; la cabecera nunca desborda el ancho.
+	for {
+		if w-8-lw-layout.Width(strings.Join(parts, "  ")) >= 1 {
+			break
 		}
+		if len(parts) > 1 {
+			parts = parts[:len(parts)-1]
+			continue
+		}
+		if left != "badomens" {
+			left = "badomens"
+			lw = layout.Width(left)
+			continue
+		}
+		break
 	}
-	right := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(docker)
-	pad := w - lipgloss.Width(title) - lipgloss.Width(right) - 4
-	if pad < 1 {
-		pad = 1
+	right := strings.Join(parts, "  ")
+	if avail := w - 8 - layout.Width(right); avail < lw {
+		if avail < 1 {
+			avail = 1
+		}
+		left = layout.Truncate(left, avail)
+		lw = layout.Width(left)
 	}
-	if a.ascii {
-		return "+ " + title + strings.Repeat(" ", pad) + right + " +"
+	fill := w - 8 - lw - layout.Width(right)
+	if fill < 0 {
+		fill = 0
 	}
-	return "┌ " + title + strings.Repeat(" ", pad) + right + " ┐"
+	return a.styles.border.Render(tl+hz+" ") + a.styles.title.Render(left) +
+		a.styles.border.Render(" "+strings.Repeat(hz, fill)+" ") + right +
+		a.styles.border.Render(" "+hz+tr)
 }
 
-func (a *App) footerView(w int) string {
-	help := a.keys.ShortHelp()
-	if a.ascii {
-		help = a.keys.ShortHelpASCII()
+// dockerHeader describe el estado de Docker con icono + texto (nunca solo color).
+func (a *App) dockerHeader() string {
+	switch {
+	case a.docker.State == "" || a.docker.State == dockerx.StateUnknown:
+		if a.ascii {
+			return a.styles.muted.Render(a.cat.T("app.header.ascii_unchecked"))
+		}
+		return a.styles.muted.Render(a.cat.T("app.header.docker_unchecked"))
+	case a.docker.State.Ready():
+		if a.ascii {
+			return a.styles.good.Render(a.cat.T("app.header.ascii_ok"))
+		}
+		return a.styles.good.Render(a.cat.T("app.header.docker_ok"))
+	default:
+		vars := map[string]string{"state": string(a.docker.State)}
+		if a.ascii {
+			return a.styles.bad.Render(a.cat.Tf("app.header.ascii_bad", vars))
+		}
+		return a.styles.bad.Render(a.cat.Tf("app.header.docker_bad", vars))
 	}
-	second := ""
-	if top := a.router.Active(); top != nil {
-		second = top.Title()
-	}
-	if a.status != "" {
-		second = a.status
-	}
-	if a.hint != "" {
-		second = a.cat.Tf("app.footer.hint", map[string]string{"hint": a.hint})
-	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(a.pal.Muted)).
-		Render(layout.Truncate("  "+help+"    "+second, w))
 }
 
-// clampLines recorta un texto al número de líneas indicado.
-func clampLines(s string, n int) string {
-	if n <= 0 {
+// tailscaleHeader describe Tailscale (vacío mientras no se haya comprobado).
+func (a *App) tailscaleHeader() string {
+	if !a.tsSeen {
 		return ""
 	}
-	lines := strings.Split(s, "\n")
-	if len(lines) <= n {
-		return s
+	if a.tsOK {
+		if a.ascii {
+			return a.styles.good.Render(a.cat.T("app.header.ascii_ts_ok"))
+		}
+		return a.styles.good.Render(a.cat.T("app.header.ts_ok"))
 	}
-	return strings.Join(lines[:n], "\n")
+	if a.ascii {
+		return a.styles.warn.Render(a.cat.T("app.header.ascii_ts_bad"))
+	}
+	return a.styles.warn.Render(a.cat.T("app.header.ts_bad"))
 }
 
-// clampWidth recorta cada línea al ancho indicado respetando las secuencias
-// ANSI (x/ansi.Truncate) para no romper los estilos.
-func clampWidth(s string, w int) string {
+// countersHeader resume instancias en marcha y cupos (vacío antes del listado).
+func (a *App) countersHeader() string {
+	if !a.countsSeen {
+		return ""
+	}
+	return a.cat.Tf("app.header.counters", map[string]string{
+		"inst": itoa(a.instCount), "maxInst": itoa(a.svc.MaxInstances),
+		"run": itoa(a.runningCount), "maxRun": itoa(a.svc.MaxParallel),
+	})
+}
+
+// navView dibuja la navegación de primer nivel con la sección activa marcada con
+// corchetes (visible sin depender del color) y recortada a lo que quepa (§2).
+func (a *App) navView(w int) string {
+	active := a.navSection()
+	items := []struct{ id, label string }{
+		{"home", a.cat.T("nav.home")},
+		{"instances", a.cat.T("nav.instances")},
+		{"health", a.cat.T("nav.health")},
+		{"help", a.cat.T("nav.help")},
+	}
+	var b strings.Builder
+	used := 0
+	first := true
+	for _, it := range items {
+		label := it.label
+		on := it.id == active
+		if on {
+			label = "[" + label + "]"
+		}
+		lw := layout.Width(label)
+		need := lw
+		if !first {
+			need += 2
+		}
+		if used+need > w {
+			break
+		}
+		if !first {
+			b.WriteString("  ")
+			used += 2
+		}
+		if on {
+			b.WriteString(a.styles.navOn.Render(label))
+		} else {
+			b.WriteString(a.styles.navOff.Render(label))
+		}
+		used += lw
+		first = false
+	}
+	return b.String()
+}
+
+// navSection resuelve la sección activa por la pantalla/overlay vigente.
+func (a *App) navSection() string {
+	if o := a.router.Overlay(); o != nil {
+		if ns, ok := o.(NavSectioner); ok {
+			if s := ns.NavSection(); s != "" {
+				return s
+			}
+		}
+	}
+	if top := a.router.Top(); top != nil {
+		if ns, ok := top.(NavSectioner); ok {
+			if s := ns.NavSection(); s != "" {
+				return s
+			}
+		}
+		switch top.ID() {
+		case "instance":
+			return "instances"
+		case "health":
+			return "health"
+		case "help":
+			return "help"
+		}
+	}
+	return "home"
+}
+
+// statusView pinta la barra de estado: último mensaje de dominio con icono +
+// texto, e indicador de operación en curso a la derecha (§3).
+func (a *App) statusView(w int) string {
+	text := strings.TrimSpace(a.statusText())
+	style := a.styles.muted
+	switch {
+	case hasAnyPrefix(text, "✖", "[XX]"):
+		style = a.styles.bad
+	case hasAnyPrefix(text, "⚠", "[!!]"):
+		style = a.styles.warn
+	case hasAnyPrefix(text, "✓", "[OK]"):
+		style = a.styles.good
+	case hasAnyPrefix(text, "⟳", "[..]"):
+		style = a.styles.title
+	}
+	right := ""
+	if a.busy {
+		right = a.cat.T("app.status.busy")
+		if a.ascii {
+			right = a.cat.T("app.status.busy_ascii")
+		}
+	}
+	avail := w - layout.Width(right) - 1
+	if avail < 1 {
+		avail = 1
+	}
+	text = layout.Truncate(text, avail)
+	gap := w - layout.Width(text) - layout.Width(right)
+	if gap < 1 {
+		gap = 1
+	}
+	return style.Render(text) + strings.Repeat(" ", gap) + a.styles.muted.Render(right)
+}
+
+// statusText prefiere el mensaje de la pantalla activa y cae al último mensaje
+// de dominio global; si no hay ninguno, usa el título de la pantalla para que la
+// barra nunca quede en blanco (§3).
+func (a *App) statusText() string {
+	if st, ok := a.router.Active().(Statuser); ok {
+		if s := strings.TrimSpace(st.Status()); s != "" {
+			return s
+		}
+	}
+	if s := strings.TrimSpace(a.status); s != "" {
+		return s
+	}
+	if active := a.router.Active(); active != nil {
+		return active.Title()
+	}
+	return ""
+}
+
+// actionsText compone la barra de acciones: atajos contextuales de la pantalla y
+// los globales no imprimibles al final (siempre visibles, §2).
+func (a *App) actionsText(w int) string {
+	help := a.keys.GlobalHelp()
+	if a.ascii {
+		help = a.keys.GlobalHelpASCII()
+	}
+	// En anchos estrechos, encoge los atajos globales antes de truncar para no
+	// perder «Salir».
+	if layout.Width(help) >= w {
+		help = a.keys.GlobalHelpTiny()
+		if a.ascii {
+			help = a.keys.GlobalHelpTinyASCII()
+		}
+	}
+	ctx := a.contextKeys()
+	helpW := layout.Width(help)
+	// Si no queda espacio razonable para un atajo contextual, se muestra solo la
+	// barra global (evita un «[S…» truncado e ilegible).
+	if ctx == "" || helpW+3 >= w || w-helpW-3 < 8 {
+		return help
+	}
+	return layout.Truncate(ctx, w-helpW-3) + "   " + help
+}
+
+// contextKeys lista las teclas de las acciones de la pantalla activa.
+func (a *App) contextKeys() string {
+	acts := a.router.Active().Actions()
+	parts := make([]string, 0, len(acts))
+	seen := make(map[string]bool, len(acts))
+	for _, act := range acts {
+		if act.Key == "" || seen[act.Key] {
+			continue
+		}
+		seen[act.Key] = true
+		parts = append(parts, "["+strings.ToUpper(act.Key)+"] "+act.Verb)
+	}
+	return strings.Join(parts, "  ")
+}
+
+// spacesBuf es una reserva de espacios reutilizable para rellenar líneas sin
+// asignar con strings.Repeat en cada frame (§6.5).
+var spacesBuf = strings.Repeat(" ", 512)
+
+// padLine ajusta una línea al ancho interior exacto, recortando con «…» si sobra
+// y rellenando con espacios si falta.
+func padLine(s string, w int) string {
 	if w <= 0 {
 		return s
 	}
-	lines := strings.Split(s, "\n")
-	for i, l := range lines {
-		if ansi.StringWidth(l) > w {
-			lines[i] = ansi.Truncate(l, w, "…")
+	switch width := layout.Width(s); {
+	case width > w:
+		return ansi.Truncate(s, w, "…")
+	case width < w:
+		n := w - width
+		if n <= len(spacesBuf) {
+			return s + spacesBuf[:n]
+		}
+		return s + strings.Repeat(" ", n)
+	}
+	return s
+}
+
+// hasAnyPrefix indica si s empieza por alguno de los prefijos dados.
+func hasAnyPrefix(s string, prefixes ...string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
 		}
 	}
-	return strings.Join(lines, "\n")
+	return false
 }
 
 func nowUTC() time.Time { return time.Now() }

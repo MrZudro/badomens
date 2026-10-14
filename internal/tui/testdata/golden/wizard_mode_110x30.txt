@@ -1,10 +1,30 @@
-┌ badomens                                                                              Docker sin comprobar ┐
-Nueva instancia
-
-Elige cómo configurarla:
-
- [R] Configuración rápida (3 preguntas) 
-[A] Configuración avanzada (todas las opciones)
-
-Los valores recomendados aparecen en el resumen antes de crear.
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS
+┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Nueva instancia                                                                                            │
+│                                                                                                            │
+│ Elige cómo configurarla:                                                                                   │
+│                                                                                                            │
+│  [R] Configuración rápida (3 preguntas)                                                                    │
+│ [A] Configuración avanzada (todas las opciones)                                                            │
+│                                                                                                            │
+│ Los valores recomendados aparecen en el resumen antes de crear.                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│ Nueva instancia                                                                                            │
+└─ [R] Configuración  [A] Configuración  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────┘

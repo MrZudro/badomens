@@ -1,12 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-╭────────────────────────────────────╮
-│ Ayuda                              │
-│ Atajos de esta pantalla            │
-│                                    │
-│   ↑/k  subir                       │
-│   ↓/j  bajar                       │
-│   Enter  abrir/confirmar           │
-│   Esc  volver                      │
-│   F1  ayuda                        │
-│   Ctrl+P  comandos                 │
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  Instancias  Salud  [Ayuda]   │
+├──────────────────────────────────────┤
+│ ╭────────────────────────────────╮   │
+│ │ Ayuda                          │   │
+│ │ Atajos de esta pantalla        │   │
+│ │                                │   │
+│ │   ↑/k  subir                   │   │
+│ │   ↓/j  bajar                   │   │
+│ │   Enter  abrir/confirmar       │   │
+│ Ayuda                                │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

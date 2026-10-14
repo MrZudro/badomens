@@ -1,9 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-1 Básico › 2 Mundo › 3 Jugadores › 4 Re…
-
-▶ Semilla: > -2844874353865282585      …
-    Texto/número que genera el mapa; la…
-
-⚠ Riesgo de suplantación: sin modo onli…
-
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ 1 Básico › 2 Mundo › 3 Jugadores › … │
+│                                      │
+│ ▶ Semilla: > -2844874353865282585  … │
+│     Texto/número que genera el mapa… │
+│                                      │
+│ ⚠ Riesgo de suplantación: sin modo … │
+│                                      │
+│ Nueva instancia                      │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

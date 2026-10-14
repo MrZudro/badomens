@@ -50,5 +50,19 @@ type Chromed interface {
 	Chrome(w int) string
 }
 
+// Statuser lo implementan las pantallas que aportan el mensaje de la barra de
+// estado sin incrustarlo en su cuerpo (§3). Si Status() devuelve vacío, el App
+// usa su último mensaje de dominio.
+type Statuser interface {
+	Status() string
+}
+
+// NavSectioner lo implementan las pantallas que indican la sección de primer
+// nivel activa (§2). La clave es estable: "home", "instances", "health" o
+// "help"; el App la traduce a su etiqueta.
+type NavSectioner interface {
+	NavSection() string
+}
+
 // popScreenMsg pide al App que desapile la pantalla actual.
 type popScreenMsg struct{}

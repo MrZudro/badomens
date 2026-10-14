@@ -1,12 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-Salud del sistema
-
-  ✓ Docker  Docker está listo.  OK
-  ✓ Docker Compose    v2.30.1
-  ✓ Tailscale  100.64.0.1 · maquina.tai…
-  ✓ Puertos  sin conflictos  rango libre
-  ✓ Disco  120 GB libres de 500 GB  ok
-  ✓ RAM  8 CPU · 16 GiB RAM · 4 GiB asi…
-  ✓ Actualización  repositorio MrZudro/…
-  ✓ Plan  3 en paralelo · 5 registradas…
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  Instancias  [Salud]  Ayuda   │
+├──────────────────────────────────────┤
+│ Salud del sistema                    │
+│                                      │
+│   ✓ Docker  Docker está listo.  OK   │
+│   ✓ Docker Compose    v2.30.1        │
+│   ✓ Tailscale  100.64.0.1 · maquina… │
+│   ✓ Puertos  sin conflictos  rango … │
+│   ✓ Disco  120 GB libres de 500 GB … │
+│ Salud del sistema                    │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

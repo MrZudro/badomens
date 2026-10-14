@@ -1,13 +1,20 @@
-┌ badomens                                      Docker sin comprobar ┐
-1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatizac…
-
-▶ Auto-apagado: no
-    Apaga el servidor si nadie entra durante el tiempo elegido.
-  Tiempo de inactividad: 15m
-    Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máximo 24 …
-  Arrancar al crear: sí
-    Inicia el servidor en cuanto termina la creación.
-
-⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualqui…
-
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir   …
+┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                 │
+├────────────────────────────────────────────────────────────────────┤
+│ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
+│                                                                    │
+│ ▶ Auto-apagado: no                                                 │
+│     Apaga el servidor si nadie entra durante el tiempo elegido.    │
+│   Tiempo de inactividad: 15m                                       │
+│     Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máximo… │
+│   Arrancar al crear: sí                                            │
+│     Inicia el servidor en cuanto termina la creación.              │
+│                                                                    │
+│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cua… │
+│                                                                    │
+│                                                                    │
+│                                                                    │
+│                                                                    │
+│                                                                    │
+│ Nueva instancia                                                    │
+└─ [TAB] Siguiente:  …   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

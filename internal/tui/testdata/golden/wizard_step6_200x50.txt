@@ -1,24 +1,50 @@
-┌ badomens                                                                                                                                                                        Docker sin comprobar ┐
-1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar
-
-Revisar y crear                                    ¿Qué es esto?                                                               
-                                                                                                                               
-  Nombre: (auto)                                                                                                               
-  Motor: paper                                                                                                                 
-  Versión de Minecraft: 1.21.4                                                                                                 
-  Semilla: (auto)                                                                                                              
-  Jugadores máximos: 20                                                                                                        
-  Dificultad: normal                                                                                                           
-  Modo de juego: survival                                                                                                      
-  Cuentas premium (modo online): no                                                                                            
-  Lista blanca: no                                                                                                             
-  Operadores: (ninguno)                                                                                                        
-  Memoria (RAM): 4G                                                                                                            
-  Puerto: (automático)                                                                                                         
-  Mensaje del servidor (MOTD): (auto)                                                                                          
-  Auto-apagado: no                                                                                                             
-  Tiempo de inactividad: 15m                                                                                                   
-  Arrancar al crear: sí                                                                                                        
-                                                                                                                               
-[Enter] Crear y arrancar · [Esc] Volver a editar                                                                               
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS
+┌─ badomens 0.0.0-dev ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                                                                                                                                                   │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                                                                                                                 │
+│                                                                                                                                                                                                      │
+│ Revisar y crear                                    ¿Qué es esto?                                                                                                                                     │
+│                                                                                                                                                                                                      │
+│   Nombre: (auto)                                                                                                                                                                                     │
+│   Motor: paper                                                                                                                                                                                       │
+│   Versión de Minecraft: 1.21.4                                                                                                                                                                       │
+│   Semilla: (auto)                                                                                                                                                                                    │
+│   Jugadores máximos: 20                                                                                                                                                                              │
+│   Dificultad: normal                                                                                                                                                                                 │
+│   Modo de juego: survival                                                                                                                                                                            │
+│   Cuentas premium (modo online): no                                                                                                                                                                  │
+│   Lista blanca: no                                                                                                                                                                                   │
+│   Operadores: (ninguno)                                                                                                                                                                              │
+│   Memoria (RAM): 4G                                                                                                                                                                                  │
+│   Puerto: (automático)                                                                                                                                                                               │
+│   Mensaje del servidor (MOTD): (auto)                                                                                                                                                                │
+│   Auto-apagado: no                                                                                                                                                                                   │
+│   Tiempo de inactividad: 15m                                                                                                                                                                         │
+│   Arrancar al crear: sí                                                                                                                                                                              │
+│                                                                                                                                                                                                      │
+│ [Enter] Crear y arrancar · [Esc] Volver a editar                                                                                                                                                     │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│ Nueva instancia                                                                                                                                                                                      │
+└─ [TAB] Siguiente:  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

@@ -57,9 +57,10 @@ func Classify(w, h int) Class {
 
 // ClassifyWidth calcula la clase por ancho, sin exigir el alto mínimo. Las
 // pantallas lo usan para decidir el número de paneles; el alto se respeta
-// recortando el contenido (la clase de la terminal ya la validó App).
+// recortando el contenido (la clase de la terminal ya la validó App). El marco
+// de la app reserva 4 columnas, por eso el ancho interior crítico es 36, no 40.
 func ClassifyWidth(w int) Class {
-	if w < 40 {
+	if w < 36 {
 		return TooSmall
 	}
 	switch {

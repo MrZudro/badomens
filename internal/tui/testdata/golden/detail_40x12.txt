@@ -1,12 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-Survival  Resumen  1/9  ←/→
-Motor:      paper 1.21.4
-Memoria:    4G
-Puerto:     25565
-Jugadores:  —
-Dificultad: normal · modo survival
-Estado:     ● En línea
-
-╭──────────────────────────────────────…
-│ Cómo conectarse                      …
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ Survival  Resumen  1/9  ←/→          │
+│ Motor:      paper 1.21.4             │
+│ Memoria:    4G                       │
+│ Puerto:     25565                    │
+│ Jugadores:  —                        │
+│ Dificultad: normal · modo survival   │
+│ Estado:     ● En línea               │
+│ Instancia survival                   │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

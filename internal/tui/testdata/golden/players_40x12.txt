@@ -1,12 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-Survival  Jugadores  3/9  ←/→
-En línea: no se pudo medir (¿servidor a…
-
-Lista blanca
-  Whitelist: ACTIVADA
-
-Jugadores permitidos
-  ▶ ana
-  ▶ luis
-
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ Survival  Jugadores  3/9  ←/→        │
+│ En línea: no se pudo medir (¿servid… │
+│                                      │
+│ Lista blanca                         │
+│   Whitelist: ACTIVADA                │
+│                                      │
+│ Jugadores permitidos                 │
+│ Instancia survival                   │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

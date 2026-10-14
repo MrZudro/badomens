@@ -163,6 +163,44 @@ func BenchmarkViewConsolaGrande(b *testing.B) {
 	}
 }
 
+// --- benchmarks por pantalla (§6.6) ---
+
+func benchScreen(b *testing.B, build func() *App, w, h int) {
+	a := build()
+	a.Update(tea.WindowSizeMsg{Width: w, Height: h})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = a.View()
+	}
+}
+
+func BenchmarkViewPlayers(b *testing.B) { benchScreen(b, gDetail(2), 110, 30) }
+func BenchmarkViewHealth(b *testing.B)  { benchScreen(b, gHealth, 110, 30) }
+func BenchmarkViewWizard(b *testing.B)  { benchScreen(b, gWizard(1, 0), 110, 30) }
+func BenchmarkViewHelp(b *testing.B)    { benchScreen(b, gHelp, 110, 30) }
+
+// BenchmarkNavHome mide repintar tras mover el cursor por 50 instancias.
+func BenchmarkNavHome(b *testing.B) {
+	a := NewApp(svc.NewFake(nil), darkOpts())
+	rows := make([]svc.Row, 50)
+	for i := range rows {
+		rows[i] = svc.Row{Slug: fmt.Sprintf("i%02d", i), Name: "Instancia", State: "running", Port: 25565, MaxPlayers: 20, PlayersOnline: 3, MemUsedMB: 512, MemLimitMB: 4096}
+	}
+	a.Update(pollRowsMsg{rows: rows})
+	a.Update(tea.WindowSizeMsg{Width: 160, Height: 45})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		key := tea.KeyMsg{Type: tea.KeyDown}
+		if i%2 == 1 {
+			key = tea.KeyMsg{Type: tea.KeyUp}
+		}
+		a.Update(key)
+		_ = a.View()
+	}
+}
+
 // --- UI-07: resize con la consola activa ---
 
 func TestUI07ResizeConsolaActiva(t *testing.T) {
@@ -189,10 +227,11 @@ func TestUI07ResizeConsolaActiva(t *testing.T) {
 			}
 		}
 	}
-	// El ancho del campo se recalcula con el terminal (no ancho fijo).
+	// El ancho del campo se recalcula con el terminal (no ancho fijo): al ancho
+	// interior (marco de 4 columnas) el detalle le resta 2 para el prompt.
 	resize(a, 132, 40)
 	_ = a.View()
-	if inst.input.Width != 132-2 {
-		t.Fatalf("el ancho del input debe seguir al terminal, tengo %d", inst.input.Width)
+	if want := (132 - 4) - 2; inst.input.Width != want {
+		t.Fatalf("el ancho del input debe seguir al terminal, tengo %d, quiero %d", inst.input.Width, want)
 	}
 }

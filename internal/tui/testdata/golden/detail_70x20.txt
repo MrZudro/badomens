@@ -1,17 +1,20 @@
-┌ badomens                                      Docker sin comprobar ┐
-Survival   Resumen   Consola   Jugadores   Backups   Mundos   Plugins…
-Motor:      paper 1.21.4
-Memoria:    4G
-Puerto:     25565
-Jugadores:  —
-Dificultad: normal · modo survival
-Estado:     ● En línea
-
-╭──────────────────────────────────────────────────────────────╮
-│ Cómo conectarse                                              │
-│ Dirección:  100.64.0.1:25565   (c = copiar)                  │
-│ Versión: Minecraft 1.21.4 · Modo online (cuenta oficial)     │
-│ ⚠ MagicDNS desactivado: falta el nombre de conexión; usa la  │
-│ dirección IP                                                 │
-╰──────────────────────────────────────────────────────────────╯
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir   …
+┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                 │
+├────────────────────────────────────────────────────────────────────┤
+│ Survival  Resumen  1/9  ←/→                                        │
+│ Motor:      paper 1.21.4                                           │
+│ Memoria:    4G                                                     │
+│ Puerto:     25565                                                  │
+│ Jugadores:  —                                                      │
+│ Dificultad: normal · modo survival                                 │
+│ Estado:     ● En línea                                             │
+│                                                                    │
+│ ╭──────────────────────────────────────────────────────────────╮   │
+│ │ Cómo conectarse                                              │   │
+│ │ Dirección:  100.64.0.1:25565   (c = copiar)                  │   │
+│ │ Versión: Minecraft 1.21.4 · Modo online (cuenta oficial)     │   │
+│ │ ⚠ MagicDNS desactivado: falta el nombre de conexión; usa la  │   │
+│ │ dirección IP                                                 │   │
+│ ╰──────────────────────────────────────────────────────────────╯   │
+│ Instancia survival                                                 │
+└─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

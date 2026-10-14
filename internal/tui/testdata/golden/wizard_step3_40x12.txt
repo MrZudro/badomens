@@ -1,9 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-1 Básico › 2 Mundo › 3 Jugadores › 4 Re…
-
-▶ Memoria (RAM): > 4G                  …
-    RAM máxima del servidor. Más no sie…
-
-⚠ Riesgo de suplantación: sin modo onli…
-
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ 1 Básico › 2 Mundo › 3 Jugadores › … │
+│                                      │
+│ ▶ Memoria (RAM): > 4G              … │
+│     RAM máxima del servidor. Más no… │
+│                                      │
+│ ⚠ Riesgo de suplantación: sin modo … │
+│                                      │
+│ Nueva instancia                      │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

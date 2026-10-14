@@ -1,10 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-Survival  Consola  2/9  ←/→
-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
-[22:10:19 INFO]: Done (1.234s)! For help
-, type "help"
-seguir=sí  pausa=no  filtro=—
-> comando para la consola (ej. say hola)
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ Survival  Consola  2/9  ←/→          │
+│ [22:10:19 INFO]: Done (1.234s)! For  │
+│ help, type "help"                    │
+│ seguir=sí  pausa=no  filtro=—        │
+│ > comando para la consola (ej. say … │
+│                                      │
+│                                      │
+│ Instancia survival                   │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

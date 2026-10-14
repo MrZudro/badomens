@@ -100,13 +100,28 @@ var es = map[string]string{
 	"health.update":       "Actualización",
 
 	// Carcasa de la app (cabecera, banners, toasts, salida).
-	"app.too_small":                "Agranda la terminal (mínimo 40×12). Ahora: {{w}}×{{h}}",
-	"app.header.docker_ok":         "● Docker OK",
-	"app.header.docker_unchecked":  "Docker sin comprobar",
-	"app.header.docker_bad":        "✖ Docker {{state}}",
-	"app.header.ascii_ok":          "[OK] Docker",
-	"app.header.ascii_unchecked":   "[..] Docker sin comprobar",
-	"app.header.ascii_bad":         "[XX] Docker {{state}}",
+	"app.too_small":               "Agranda la terminal (mínimo 40×12). Ahora: {{w}}×{{h}}",
+	"app.header.docker_ok":        "● Docker OK",
+	"app.header.docker_unchecked": "Docker sin comprobar",
+	"app.header.docker_bad":       "✖ Docker {{state}}",
+	"app.header.ascii_ok":         "[OK] Docker",
+	"app.header.ascii_unchecked":  "[..] Docker sin comprobar",
+	"app.header.ascii_bad":        "[XX] Docker {{state}}",
+	"app.header.counters":         "{{inst}}/{{maxInst}} inst · {{run}}/{{maxRun}} en marcha",
+	"app.header.ts_ok":            "Tailscale ●",
+	"app.header.ts_bad":           "✖ Tailscale",
+	"app.header.ascii_ts_ok":      "[OK] Tailscale",
+	"app.header.ascii_ts_bad":     "[XX] Tailscale",
+
+	// Navegación de primer nivel (§2): Inicio · Instancias · Salud · Ayuda.
+	"nav.home":      "Inicio",
+	"nav.instances": "Instancias",
+	"nav.health":    "Salud",
+	"nav.help":      "Ayuda",
+
+	// Barra de estado (§3): mensaje de dominio más reciente + indicador busy.
+	"app.status.busy":              "⟳ trabajando…",
+	"app.status.busy_ascii":        "[..] trabajando...",
 	"app.banner.docker_down":       "✖ Docker no está disponible — tus servidores no responden. [Ctrl+R] Reparar Docker",
 	"app.banner.docker_starting":   "◐ Docker está arrancando… [Ctrl+R] Reintentar",
 	"app.banner.ascii_down":        "[XX] Docker no esta disponible - tus servidores no responden. [Ctrl+R] Reparar Docker",

@@ -11,6 +11,13 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ### ➕ Añadido
 
+- **Marco de la app (§2)**: borde de caja (Unicode o ASCII) alrededor de todo el
+  panel, con cabecera (producto + versión + estado Docker/Tailscale + contadores
+  `n/max inst · r/max en marcha`, que se degradan si no caben), navegación de
+  primer nivel (`Inicio · Instancias · Salud · Ayuda`, sección activa entre
+  corchetes sin depender del color), barra de estado (último mensaje de dominio +
+  indicador de operación) y barra de acciones contextual en el borde inferior.
+  Nuevas interfaces opcionales `Statuser` y `NavSectioner`.
 - **Servicio de acceso verificable (`svc.Access`)**: la pestaña Jugadores lee
   whitelist y operadores con fuente explícita (`live`, `saved`, `unavailable`) y
   hace **read-back** tras cada mutación; nunca presenta configuración guardada
@@ -33,6 +40,10 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ### 🔧 Cambiado
 
+- **Ancho interior y clasificación**: el marco reserva 4 columnas, así que las
+  pantallas reciben el ancho interior y `layout.ClassifyWidth` usa 36 como umbral
+  crítico. Los estilos del marco se cachean por tema (nada de construir
+  `lipgloss.Style` en cada frame).
 - **Atajos globales no imprimibles (§5)**: crear instancia `Ctrl+N`, comandos
   `Ctrl+P`, reparar Docker `Ctrl+R`, tema `Ctrl+T`, ayuda `F1`, salud `F2` y
   salir `Ctrl+Q`/`Ctrl+C`. Desaparecen `q`, `?`, `H`, `:` como atajos globales;

@@ -318,6 +318,12 @@ func (h *healthScreen) Invoke(id string) tea.Cmd {
 func (h *healthScreen) Title() string { return "Salud del sistema" }
 func (h *healthScreen) ID() string    { return "health" }
 
+// NavSection indica la sección de primer nivel activa.
+func (h *healthScreen) NavSection() string { return "health" }
+
+// Status aporta el mensaje de operaciones en curso (p. ej. reparar Docker).
+func (h *healthScreen) Status() string { return h.busy }
+
 // healthPortsRow compone el detalle de un resultado de puerto (para tests).
 func healthPortsRow(res ports.Result) string {
 	if res.Free {

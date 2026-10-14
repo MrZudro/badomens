@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/tui/layout"
 	"github.com/MrZudro/badomens/internal/tui/svc"
@@ -426,5 +427,48 @@ func TestUI05PromptCompactoVisible(t *testing.T) {
 	}
 	if !strings.Contains(out, "z") {
 		t.Fatal("el valor escrito debe verse en el input")
+	}
+}
+
+// UI-10: la barra de estado y la de acciones ocupan siempre su región fija
+// (penúltima y última línea del marco), con banner de Docker, toasts y 2.000
+// líneas de consola.
+func TestUI10BarraEstadoYAccionesFijas(t *testing.T) {
+	a := testApp()
+	resize(a, 100, 30)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 1
+	inst.logs = strings.Repeat("línea de log\n", 2000)
+	a.Update(pollDockerMsg{diag: dockerx.Diagnosis{State: dockerx.StateStarting}})
+	a.pushToast("✓ barra de estado de prueba")
+	out := stripANSI(a.View())
+	lines := strings.Split(out, "\n")
+	if len(lines) != 30 {
+		t.Fatalf("la vista debe ocupar exactamente 30 líneas, tengo %d", len(lines))
+	}
+	if !strings.Contains(lines[len(lines)-1], "Ayuda") {
+		t.Fatalf("la barra de acciones debe ser la última línea: %q", lines[len(lines)-1])
+	}
+	if !strings.Contains(lines[len(lines)-2], "barra de estado de prueba") {
+		t.Fatalf("la barra de estado debe ser la penúltima línea: %q", lines[len(lines)-2])
+	}
+}
+
+// TestShellNavSeccionActiva: la navegación marca la sección con corchetes (visible
+// sin depender del color) y cambia al abrir el detalle, también en 40×12.
+func TestShellNavSeccionActiva(t *testing.T) {
+	a := testApp()
+	resize(a, 120, 40)
+	a.Update(pollRowsMsg{rows: []svc.Row{{Slug: "survival", Name: "Survival", State: "running"}}})
+	if out := stripANSI(a.View()); !strings.Contains(out, "[Inicio]") {
+		t.Fatalf("Inicio debe estar marcado en la nav:\n%s", out)
+	}
+	openInstance(t, a, "survival")
+	if out := stripANSI(a.View()); !strings.Contains(out, "[Instancias]") {
+		t.Fatalf("Instancias debe estar marcada en el detalle:\n%s", out)
+	}
+	resize(a, 40, 12)
+	if out := stripANSI(a.View()); !strings.Contains(out, "[Instancias]") {
+		t.Fatalf("la sección activa debe verse en 40×12:\n%s", out)
 	}
 }

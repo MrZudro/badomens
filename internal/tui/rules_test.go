@@ -110,7 +110,10 @@ func TestI18nCarcasaCableada(t *testing.T) {
 	src := string(raw)
 	keys := []string{
 		"app.too_small", "app.header.docker_ok", "app.header.docker_bad",
-		"app.banner.docker_down", "app.banner.docker_starting", "app.footer.hint",
+		"app.header.counters", "app.header.ts_ok", "app.header.ts_bad",
+		"nav.home", "nav.instances", "nav.health", "nav.help",
+		"app.status.busy",
+		"app.banner.docker_down", "app.banner.docker_starting",
 		"app.toast.docker_down", "app.toast.docker_up", "app.toast.repairing",
 		"app.toast.created", "app.toast.idle_no_watcher", "app.toast.idle_stopped",
 		"app.quit.title", "app.disabled.docker",

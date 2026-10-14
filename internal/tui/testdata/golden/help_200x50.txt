@@ -1,23 +1,50 @@
-┌ badomens                                                                                                                                                                        Docker sin comprobar ┐
-╭────────────────────────────────────────────────────────────╮
-│ Ayuda                                                      │
-│ Atajos de esta pantalla                                    │
-│                                                            │
-│   ↑/k  subir                                               │
-│   ↓/j  bajar                                               │
-│   Enter  abrir/confirmar                                   │
-│   Esc  volver                                              │
-│   F1  ayuda                                                │
-│   Ctrl+P  comandos                                         │
-│   Tab  cambiar panel                                       │
-│                                                            │
-│   Ctrl+N  nueva instancia                                  │
-│   F2  salud del sistema                                    │
-│   c  copiar                                                │
-│   Ctrl+Q  salir                                            │
-│                                                            │
-│   Esc  cerrar ayuda                                        │
-│                                                            │
-│                                                            │
-╰────────────────────────────────────────────────────────────╯
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS
+┌─ badomens 0.0.0-dev ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+│ Inicio  Instancias  Salud  [Ayuda]                                                                                                                                                                   │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ╭────────────────────────────────────────────────────────────╮                                                                                                                                       │
+│ │ Ayuda                                                      │                                                                                                                                       │
+│ │ Atajos de esta pantalla                                    │                                                                                                                                       │
+│ │                                                            │                                                                                                                                       │
+│ │   ↑/k  subir                                               │                                                                                                                                       │
+│ │   ↓/j  bajar                                               │                                                                                                                                       │
+│ │   Enter  abrir/confirmar                                   │                                                                                                                                       │
+│ │   Esc  volver                                              │                                                                                                                                       │
+│ │   F1  ayuda                                                │                                                                                                                                       │
+│ │   Ctrl+P  comandos                                         │                                                                                                                                       │
+│ │   Tab  cambiar panel                                       │                                                                                                                                       │
+│ │                                                            │                                                                                                                                       │
+│ │   Ctrl+N  nueva instancia                                  │                                                                                                                                       │
+│ │   F2  salud del sistema                                    │                                                                                                                                       │
+│ │   c  copiar                                                │                                                                                                                                       │
+│ │   Ctrl+Q  salir                                            │                                                                                                                                       │
+│ │                                                            │                                                                                                                                       │
+│ │   Esc  cerrar ayuda                                        │                                                                                                                                       │
+│ │                                                            │                                                                                                                                       │
+│ │                                                            │                                                                                                                                       │
+│ ╰────────────────────────────────────────────────────────────╯                                                                                                                                       │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│ Ayuda                                                                                                                                                                                                │
+└─ F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

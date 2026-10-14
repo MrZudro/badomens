@@ -1,10 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-Nueva instancia
-
-Elige cómo configurarla:
-
- [R] Configuración rápida (3 preguntas) 
-[A] Configuración avanzada (todas las o…
-
-Los valores recomendados aparecen en el…
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ Nueva instancia                      │
+│                                      │
+│ Elige cómo configurarla:             │
+│                                      │
+│  [R] Configuración rápida (3 pregun… │
+│ [A] Configuración avanzada (todas l… │
+│                                      │
+│ Nueva instancia                      │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

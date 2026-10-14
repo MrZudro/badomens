@@ -1,16 +1,30 @@
-┌ badomens                                                                              Docker sin comprobar ┐
-Survival   Resumen   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado   Ajustes  
-En línea: no se pudo medir (¿servidor apagado?)
-
-Lista blanca
-  Whitelist: ACTIVADA
-
-Jugadores permitidos
-  ▶ ana
-  ▶ luis
-
-Operadores
-  ▶ ana
-
-[A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador · [Shift+O] Quitar operador · [R] Verificar d…
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS
+┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Survival   Resumen   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado   Ajustes… │
+│ En línea: no se pudo medir (¿servidor apagado?)                                                            │
+│                                                                                                            │
+│ Lista blanca                                                                                               │
+│   Whitelist: ACTIVADA                                                                                      │
+│                                                                                                            │
+│ Jugadores permitidos                                                                                       │
+│   ▶ ana                                                                                                    │
+│   ▶ luis                                                                                                   │
+│                                                                                                            │
+│ Operadores                                                                                                 │
+│   ▶ ana                                                                                                    │
+│                                                                                                            │
+│ [A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador · [Shift+O] Quitar operador · [R] Verific… │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│ Instancia survival                                                                                         │
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [E] Escribir  [C]…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

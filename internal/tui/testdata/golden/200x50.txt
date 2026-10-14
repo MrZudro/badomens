@@ -1,16 +1,50 @@
-┌ badomens                                                                                                                                                                                 ● Docker OK ┐
-INSTANCIAS (2/5 · 1/3 en marc…  Survival · paper 1.21.4                                                                                               ACTIVIDAD                                         
-▶ Survival  0/20  4G  pto 25…   ● En línea                                                                                                            ● Survival  0/20 jug.                             
-  Creativo  0/0  2G  pto 255…                                                                                                                                                                           
-                                CPU/RAM   0/0 MB                                                                                                                                                        
-                                                                                                                                                                                                        
-                                ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮                                                    
-                                │ Cómo conectarse                                                                                                  │                                                    
-                                │ Versión: Minecraft 1.21.4 · Modo offline (cualquier nombre)                                                      │                                                    
-                                │ ⚠ IP de Tailscale no disponible: ejecuta 'tailscale up' en el equipo del servidor                                │                                                    
-                                │ ⚠ MagicDNS desactivado: falta el nombre de conexión; usa la dirección IP                                         │                                                    
-                                ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯                                                    
-                                                                                                                                                                                                        
-                                · Iniciar «survival» — Ya está en marcha  [P] Detener «survival» (guarda el mundo)  [R] Reiniciar «survival»                                                            
-                                [B] Crear backup ahora  [C] Copiar dirección de conexión  [ENTER] Ver detalle de «survival»                                                                             
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS
+┌─ badomens 0.0.0-dev ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── ● Docker OK  2/5 inst · 1/3 en marcha ─┐
+│ [Inicio]  Instancias  Salud  Ayuda                                                                                                                                                                   │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ INSTANCIAS (2/5 · 1/3 en marc…  Survival · paper 1.21.4                                                                                            ACTIVIDAD                                         │
+│ ▶ Survival  0/20  4G  pto 25…   ● En línea                                                                                                         ● Survival  0/20 jug.                             │
+│   Creativo  0/0  2G  pto 255…                                                                                                                                                                        │
+│                                 CPU/RAM   0/0 MB                                                                                                                                                     │
+│                                                                                                                                                                                                      │
+│                                 ╭───────────────────────────────────────────────────────────────────────────────────────────────────────────────╮                                                    │
+│                                 │ Cómo conectarse                                                                                               │                                                    │
+│                                 │ Versión: Minecraft 1.21.4 · Modo offline (cualquier nombre)                                                   │                                                    │
+│                                 │ ⚠ IP de Tailscale no disponible: ejecuta 'tailscale up' en el equipo del servidor                             │                                                    │
+│                                 │ ⚠ MagicDNS desactivado: falta el nombre de conexión; usa la dirección IP                                      │                                                    │
+│                                 ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────╯                                                    │
+│                                                                                                                                                                                                      │
+│                                 · Iniciar «survival» — Ya está en marcha  [P] Detener «survival» (guarda el mundo)  [R] Reiniciar «survival»                                                         │
+│                                 [B] Crear backup ahora  [C] Copiar dirección de conexión  [ENTER] Ver detalle de «survival»                                                                          │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│ Instancias                                                                                                                                                                                           │
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [B] Crear  [C] Copiar  [ENTER] Ver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ──────────────────────────────────────────────────────────────────────────┘

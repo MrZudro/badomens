@@ -1513,6 +1513,21 @@ func (s *instanceScreen) Invoke(id string) tea.Cmd {
 func (s *instanceScreen) Title() string { return "Instancia " + s.slug }
 func (s *instanceScreen) ID() string    { return "instance" }
 
+// NavSection indica la sección de primer nivel activa.
+func (s *instanceScreen) NavSection() string { return "instances" }
+
+// Status aporta el mensaje de la barra de estado: el de acceso en la pestaña de
+// jugadores, si no el mensaje general de la pantalla.
+func (s *instanceScreen) Status() string {
+	if s.tab == 2 && s.accessStatus != "" {
+		return s.accessStatus
+	}
+	if s.status != "" {
+		return s.status
+	}
+	return s.accessStatus
+}
+
 // CapturesInput: el detalle captura las teclas cuando hay un campo de texto, un
 // prompt o una confirmación con foco, para no disparar atajos globales (§5).
 func (s *instanceScreen) CapturesInput() bool {

@@ -1,20 +1,20 @@
-┌ badomens                                      Docker sin comprobar ┐
-1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatizac…
-
-Revisar y crear
-
-  Nombre: (auto)
-  Motor: paper
-  Versión de Minecraft: 1.21.4
-  Semilla: (auto)
-  Jugadores máximos: 20
-  Dificultad: normal
-  Modo de juego: survival
-  Cuentas premium (modo online): no
-  Lista blanca: no
-  Operadores: (ninguno)
-  Memoria (RAM): 4G
-  Puerto: (automático)
-  Mensaje del servidor (MOTD): (auto)
-  Auto-apagado: no
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir   …
+┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                 │
+├────────────────────────────────────────────────────────────────────┤
+│ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
+│                                                                    │
+│ Revisar y crear                                                    │
+│                                                                    │
+│   Nombre: (auto)                                                   │
+│   Motor: paper                                                     │
+│   Versión de Minecraft: 1.21.4                                     │
+│   Semilla: (auto)                                                  │
+│   Jugadores máximos: 20                                            │
+│   Dificultad: normal                                               │
+│   Modo de juego: survival                                          │
+│   Cuentas premium (modo online): no                                │
+│   Lista blanca: no                                                 │
+│   Operadores: (ninguno)                                            │
+│   Memoria (RAM): 4G                                                │
+│ Nueva instancia                                                    │
+└─ [TAB] Siguiente:  …   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

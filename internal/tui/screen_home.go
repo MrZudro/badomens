@@ -607,6 +607,12 @@ func (s *homeScreen) Actions() []components.Action {
 func (s *homeScreen) Title() string { return "Instancias" }
 func (s *homeScreen) ID() string    { return "home" }
 
+// NavSection indica la sección de primer nivel activa.
+func (s *homeScreen) NavSection() string { return "home" }
+
+// Status aporta el mensaje de la barra de estado (vacío mientras no haya nada).
+func (s *homeScreen) Status() string { return s.status }
+
 // Click abre el detalle de la fila pulsada con el ratón (§4.1).
 func (s *homeScreen) Click(m tea.MouseMsg) tea.Cmd {
 	for _, r := range s.rows {

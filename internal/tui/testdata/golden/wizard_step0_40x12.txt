@@ -1,12 +1,12 @@
-┌ badomens        Docker sin comprobar ┐
-1 Básico › 2 Mundo › 3 Jugadores › 4 Re…
-
-▶ Nombre: > survival-amigos            …
-    Nombre visible; también da nombre a…
-  Motor: paper
-    El programa que ejecuta el servidor…
-  Versión de Minecraft: 1.21.4
-    Los jugadores deben usar esta versi…
-
-⚠ Riesgo de suplantación: sin modo onli…
-  F1 Ayuda · Ctrl+P Comandos · Tab Pane…
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ 1 Básico › 2 Mundo › 3 Jugadores › … │
+│                                      │
+│ ▶ Nombre: > survival-amigos        … │
+│     Nombre visible; también da nomb… │
+│   Motor: paper                       │
+│     El programa que ejecuta el serv… │
+│   Versión de Minecraft: 1.21.4       │
+│ Nueva instancia                      │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

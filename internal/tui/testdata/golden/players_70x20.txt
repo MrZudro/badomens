@@ -1,16 +1,20 @@
-┌ badomens                                      Docker sin comprobar ┐
-Survival   Resumen   Consola   Jugadores   Backups   Mundos   Plugins…
-En línea: no se pudo medir (¿servidor apagado?)
-
-Lista blanca
-  Whitelist: ACTIVADA
-
-Jugadores permitidos
-  ▶ ana
-  ▶ luis
-
-Operadores
-  ▶ ana
-
-[A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador · [Sh…
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir   …
+┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                 │
+├────────────────────────────────────────────────────────────────────┤
+│ Survival  Jugadores  3/9  ←/→                                      │
+│ En línea: no se pudo medir (¿servidor apagado?)                    │
+│                                                                    │
+│ Lista blanca                                                       │
+│   Whitelist: ACTIVADA                                              │
+│                                                                    │
+│ Jugadores permitidos                                               │
+│   ▶ ana                                                            │
+│   ▶ luis                                                           │
+│                                                                    │
+│ Operadores                                                         │
+│   ▶ ana                                                            │
+│                                                                    │
+│ [A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador ·… │
+│                                                                    │
+│ Instancia survival                                                 │
+└─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

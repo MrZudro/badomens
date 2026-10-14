@@ -48,6 +48,28 @@ func (k KeyMap) ShortHelpASCII() string {
 	return "F1 Ayuda | Ctrl+P Comandos | Tab Panel | F2 Salud | Ctrl+Q Salir"
 }
 
+// GlobalHelp es la barra compacta de atajos globales no imprimibles para la
+// línea de acciones (§2): deja sitio a los atajos contextuales de la pantalla.
+func (k KeyMap) GlobalHelp() string {
+	return "F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir"
+}
+
+// GlobalHelpASCII es la variante ASCII de GlobalHelp.
+func (k KeyMap) GlobalHelpASCII() string {
+	return "F1 Ayuda | Ctrl+P | F2 Salud | Ctrl+Q Salir"
+}
+
+// GlobalHelpTiny es la barra de atajos mínima para terminales estrechas, para no
+// perder «Salir» por truncado.
+func (k KeyMap) GlobalHelpTiny() string {
+	return "F1 Ayuda · ^P · F2 · ^Q Salir"
+}
+
+// GlobalHelpTinyASCII es la variante ASCII de GlobalHelpTiny.
+func (k KeyMap) GlobalHelpTinyASCII() string {
+	return "F1 Ayuda | ^P | F2 | ^Q Salir"
+}
+
 // FullHelp devuelve la hoja de atajos completa de la pantalla actual.
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{

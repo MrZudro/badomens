@@ -51,6 +51,7 @@ func gDetail(tab int) func() *App {
 		a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, "survival"))
 		if inst, ok := a.router.Top().(*instanceScreen); ok {
 			inst.detail = &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}
+			inst.status = ""
 			inst.idleCfg = idle.Config{Enabled: true, Timeout: 15 * time.Minute, BackupBeforeStop: true}
 			inst.idleLoaded = true
 			if tab == 2 {
@@ -74,6 +75,7 @@ func gConsole() *App {
 	a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, "survival"))
 	if inst, ok := a.router.Top().(*instanceScreen); ok {
 		inst.detail = &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}
+		inst.status = ""
 		inst.tab = 1
 		inst.logs = strings.Join([]string{
 			"[22:10:03 INFO]: Alex joined the game",
@@ -174,6 +176,7 @@ func asciiCases() []gcase {
 			a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, "survival"))
 			if inst, ok := a.router.Top().(*instanceScreen); ok {
 				inst.detail = &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}
+				inst.status = ""
 			}
 			return a
 		}},

@@ -1,18 +1,30 @@
-┌ badomens                                                                              Docker sin comprobar ┐
-╭────────────────────────────────────────────────────────────╮
-│ Paleta de comandos                                         │
-│ Comandos                                                   │
-│ ▶ Iniciar «survival»  s                                    │
-│   Detener «survival» (guarda el mundo)  p                  │
-│   Reiniciar «survival»  r                                  │
-│   Crear backup ahora  b                                    │
-│   Copiar dirección de conexión  c                          │
-│   Ver detalle de «survival»  enter                         │
-│   Abrir Salud del sistema  F2                              │
-│   Crear una instancia nueva  ctrl+n                        │
-│   Ver la ayuda de esta pantalla  F1                        │
-│                                                            │
-│                                                            │
-│                                                            │
-╰────────────────────────────────────────────────────────────╯
-  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS
+┌─ badomens 0.0.0-dev ────────────────────────────────────── Docker sin comprobar  1/5 inst · 1/3 en marcha ─┐
+│ [Inicio]  Instancias  Salud  Ayuda                                                                         │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ╭────────────────────────────────────────────────────────────╮                                             │
+│ │ Paleta de comandos                                         │                                             │
+│ │ Comandos                                                   │                                             │
+│ │ ▶ Iniciar «survival»  s                                    │                                             │
+│ │   Detener «survival» (guarda el mundo)  p                  │                                             │
+│ │   Reiniciar «survival»  r                                  │                                             │
+│ │   Crear backup ahora  b                                    │                                             │
+│ │   Copiar dirección de conexión  c                          │                                             │
+│ │   Ver detalle de «survival»  enter                         │                                             │
+│ │   Abrir Salud del sistema  F2                              │                                             │
+│ │   Crear una instancia nueva  ctrl+n                        │                                             │
+│ │   Ver la ayuda de esta pantalla  F1                        │                                             │
+│ │                                                            │                                             │
+│ │                                                            │                                             │
+│ │                                                            │                                             │
+│ ╰────────────────────────────────────────────────────────────╯                                             │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│                                                                                                            │
+│ Comandos                                                                                                   │
+└─ F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ──────────────────────────────────────────────────────────────┘
