@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/execx"
 	"github.com/MrZudro/badomens/internal/host"
 )
@@ -115,23 +116,27 @@ func checkDataDir(cfg *config.Config, add func(name, status, message string)) {
 }
 
 func checkDocker(ctx context.Context, add func(name, status, message string)) {
-	if !execx.LookPath("docker") {
-		add("Docker CLI", StatusError, "no se encontró 'docker' en el PATH (https://docs.docker.com/get-docker/)")
-		return
-	}
-	add("Docker CLI", StatusOK, "docker presente")
-	res, err := execx.Run(ctx, "docker", "info", "--format", "{{.ServerVersion}}")
-	if err != nil {
-		add("Docker daemon", StatusError, "el daemon de Docker no responde: "+strings.TrimSpace(res.Stderr))
-	} else {
-		add("Docker daemon", StatusOK, "server "+res.Stdout)
-	}
-	// Docker Compose v2.
-	res, err = execx.Run(ctx, "docker", "compose", "version", "--short")
-	if err != nil {
+	diag := dockerx.Diagnose(ctx, dockerx.DefaultEnv())
+	switch diag.State {
+	case dockerx.StateOK:
+		add("Docker CLI", StatusOK, "docker presente")
+		add("Docker daemon", StatusOK, "server "+diag.ServerVersion)
+		add("Docker Compose", StatusOK, diag.ComposeVersion)
+	case dockerx.StateNotInstalled:
+		add("Docker CLI", StatusError, diag.Message+" (https://docs.docker.com/get-docker/)")
+	case dockerx.StateComposeMissing:
+		add("Docker CLI", StatusOK, "docker presente")
+		if diag.ServerVersion != "" {
+			add("Docker daemon", StatusOK, "server "+diag.ServerVersion)
+		}
 		add("Docker Compose", StatusWarn, "no se pudo ejecutar 'docker compose version'")
-	} else {
-		add("Docker Compose", StatusOK, res.Stdout)
+	default:
+		add("Docker CLI", StatusOK, "docker presente")
+		msg := diag.Message
+		if diag.Reason != "" {
+			msg += " [" + diag.Reason + "]"
+		}
+		add("Docker daemon", StatusError, msg)
 	}
 }
 

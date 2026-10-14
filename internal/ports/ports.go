@@ -250,6 +250,9 @@ type DefaultChecker struct {
 	PeerTimeout time.Duration
 	// PeerWorkers es la concurrencia máxima del sondeo (por defecto 8).
 	PeerWorkers int
+	// Exclude son instancias del registro que no deben contar como conflicto
+	// (p. ej. la propia instancia al revalidar su puerto en un arranque).
+	Exclude map[string]bool
 }
 
 // Check reúne los conflictos de las cuatro fuentes. El error solo se devuelve
@@ -270,7 +273,7 @@ func (c *DefaultChecker) Check(ctx context.Context, bind netip.Addr, port int) (
 		return Result{}, err
 	}
 	for _, rp := range reg {
-		if rp.Port != port {
+		if rp.Port != port || c.Exclude[rp.Instance] {
 			continue
 		}
 		detail := "instancia «" + rp.Instance + "» del registro de badomens"

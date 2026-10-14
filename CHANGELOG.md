@@ -49,6 +49,12 @@ versionado es [semántico](https://semver.org/lang/es/).
   `docs/contrato-json.md`).
 - **Documentación**: `docs/tui-auditoria.md`, `docs/tui-paridad.md` y el test de
   regla que exige paridad CLI↔TUI para cada subcomando.
+- **Accesibilidad y flags de la TUI**: `badomens tui --plain` (resumen lineal
+  sin cajas ni color, P-16), `--theme`, `--no-animations` y `--ascii`.
+- **RF-6/RF-3**: `doctor` reutiliza `internal/dockerx` (motivo estable en el
+  diagnóstico) y `instance start` **revalida el puerto** antes de arrancar (si
+  está ocupado devuelve `error_capacity_exceeded` con `details.reason=port_in_use`
+  y el puerto sugerido).
 
 ### 🧹 Pendiente
 

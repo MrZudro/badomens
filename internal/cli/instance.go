@@ -2,13 +2,28 @@ package cli
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/result"
 	"github.com/spf13/cobra"
 )
+
+// describeConflicts resume quién ocupa un puerto para el mensaje de error.
+func describeConflicts(cs []ports.Conflict) string {
+	parts := make([]string, 0, len(cs))
+	for _, c := range cs {
+		if c.Owner.Detail != "" {
+			parts = append(parts, c.Owner.Detail)
+		} else {
+			parts = append(parts, c.Owner.Kind.String())
+		}
+	}
+	return strings.Join(parts, "; ")
+}
 
 func newInstanceCmd(e *Env) *cobra.Command {
 	cmd := &cobra.Command{
@@ -149,6 +164,21 @@ func startInstance(cmd *cobra.Command, e *Env, spec *instance.Spec, maxParallel 
 				fmt.Sprintf("ya hay %d instancias en paralelo (máximo %d)", running, maxParallel),
 				"detiene una antes, o usa --force",
 			)), err
+		}
+	}
+	// RF-3: revalidar el puerto (pudo ocuparse desde la creación).
+	if checker, cerr := e.portsChecker(); cerr == nil {
+		checker.Exclude = map[string]bool{spec.Slug: true}
+		if res, rerr := checker.Check(cmd.Context(), netip.Addr{}, spec.Port); rerr == nil && !res.Free {
+			msg := fmt.Sprintf("el puerto %d de %s está ocupado", spec.Port, spec.Slug)
+			if who := describeConflicts(res.Conflicts); who != "" {
+				msg += " (" + who + ")"
+			}
+			err := errx.Capacity(msg, fmt.Sprintf("usa 'badomens ports check %d' o cambia el puerto", spec.Port)).
+				WithDetail("reason", "port_in_use").
+				WithDetail("port", spec.Port).
+				WithDetail("suggested", res.Suggested)
+			return result.FromError("instance start", err), err
 		}
 	}
 	if err := rt.Start(cmd.Context(), spec); err != nil {

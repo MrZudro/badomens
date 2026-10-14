@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/MrZudro/badomens/internal/config"
@@ -12,7 +13,8 @@ import (
 
 func newTUICmd(e *Env) *cobra.Command {
 	var force, snapshot, noPreflight bool
-	var view string
+	var view, themeName string
+	var noAnimations, ascii, plain bool
 	cmd := &cobra.Command{
 		Use:   "tui",
 		Short: "Panel interactivo multi-instancia en el terminal",
@@ -21,6 +23,22 @@ func newTUICmd(e *Env) *cobra.Command {
 			cfg, err := e.requireConfig()
 			if err != nil {
 				return e.finish(result.FromError("tui", err), "")
+			}
+			if plain {
+				out, perr := tuiPlain(cmd.Context(), e)
+				if perr != nil {
+					return e.finish(result.FromError("tui", perr), "")
+				}
+				return e.finish(result.OK("tui", "resumen lineal", map[string]any{"plain": out}), out)
+			}
+			if themeName != "" {
+				cfg.UI.Theme = themeName
+			}
+			if noAnimations {
+				cfg.UI.ReducedMotion = true
+			}
+			if ascii {
+				cfg.UI.ASCII = true
 			}
 			if snapshot {
 				if view == "" {
@@ -35,7 +53,7 @@ func newTUICmd(e *Env) *cobra.Command {
 			if !force && (!isTTY(e.stdin) || !isTTYWriter(e.stdout)) {
 				return e.finish(result.FromError("tui", errx.Usage(
 					"la TUI necesita una terminal interactiva",
-					"ejecuta 'badomens tui' en tu terminal (Windows Terminal, PowerShell…). Requisitos: Docker + Compose y, si está activo, Tailscale ('badomens doctor' los comprueba). Usa --force solo para salidas capturadas",
+					"ejecuta 'badomens tui' en tu terminal, o usa 'badomens tui --plain' para un resumen lineal. Requisitos: Docker + Compose y, si está activo, Tailscale ('badomens doctor' los comprueba). Usa --force solo para salidas capturadas",
 				)), "")
 			}
 			// Comprobación de actualización al arrancar (solo interactivo).
@@ -54,7 +72,40 @@ func newTUICmd(e *Env) *cobra.Command {
 	cmd.Flags().BoolVar(&snapshot, "snapshot", false, "renderiza un frame y sale (pruebas/capturas)")
 	cmd.Flags().BoolVar(&noPreflight, "no-preflight", false, "saltar la comprobación de requisitos y de actualización al abrir")
 	cmd.Flags().StringVar(&view, "view", "", "pantalla del snapshot: list|detail|logs|backups|help (usa -i <slug> para detail/logs/backups)")
+	cmd.Flags().StringVar(&themeName, "theme", "", "tema: dark|light|high-contrast|colorblind")
+	cmd.Flags().BoolVar(&noAnimations, "no-animations", false, "movimiento reducido: sin pulso, transiciones ni spinners animados")
+	cmd.Flags().BoolVar(&ascii, "ascii", false, "iconos y bordes solo ASCII")
+	cmd.Flags().BoolVar(&plain, "plain", false, "salida lineal sin cajas ni animación (accesibilidad/lector de pantalla)")
 	return cmd
+}
+
+// tuiPlain imprime un resumen lineal de las instancias, sin cajas ni color, para
+// lectores de pantalla y entornos no interactivos (P-16).
+func tuiPlain(ctx context.Context, e *Env) (string, error) {
+	m, err := e.manager()
+	if err != nil {
+		return "", err
+	}
+	rt, err := e.runtime()
+	if err != nil {
+		return "", err
+	}
+	specs, err := m.List()
+	if err != nil {
+		return "", err
+	}
+	if len(specs) == 0 {
+		return "No hay instancias. Usa 'badomens setup --name <nombre>' para crear la primera.", nil
+	}
+	out := fmt.Sprintf("Instancias (%d):", len(specs))
+	for _, s := range specs {
+		state, _ := rt.State(ctx, s.Slug)
+		if state == "" {
+			state = "sin contenedor"
+		}
+		out += fmt.Sprintf("\n- %s: %s %s, puerto %d, estado %s", s.Slug, s.Engine, s.Version, s.Port, state)
+	}
+	return out, nil
 }
 
 // checkUpdateAtTUI comprueba (con throttle) si hay una versión nueva y, si la

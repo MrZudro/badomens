@@ -120,14 +120,9 @@ func reg() *engines.Registry {
 	return engines.NewRegistry(engines.DefaultClient())
 }
 
-// portsAllocator construye el asignador de puertos (RF-3) con el prober real:
-// registro, docker, bind y peers según la configuración.
-func (e *Env) portsAllocator(ctx context.Context) (*ports.Allocator, error) {
+// portsChecker construye el checker de puertos (RF-3) con el prober real.
+func (e *Env) portsChecker() (*ports.DefaultChecker, error) {
 	cfg, err := e.requireConfig()
-	if err != nil {
-		return nil, err
-	}
-	rng, err := ports.ParseRange(cfg.Ports.Range)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +130,7 @@ func (e *Env) portsAllocator(ctx context.Context) (*ports.Allocator, error) {
 	if err != nil {
 		return nil, err
 	}
-	checker := &ports.DefaultChecker{
+	return &ports.DefaultChecker{
 		Prober: ports.NewRealProber(func(ctx context.Context) ([]ports.RegistryPort, error) {
 			m, merr := e.manager()
 			if merr != nil {
@@ -152,6 +147,22 @@ func (e *Env) portsAllocator(ctx context.Context) (*ports.Allocator, error) {
 			return out, nil
 		}),
 		TailnetScan: mode,
+	}, nil
+}
+
+// portsAllocator construye el asignador de puertos (RF-3).
+func (e *Env) portsAllocator(_ context.Context) (*ports.Allocator, error) {
+	cfg, err := e.requireConfig()
+	if err != nil {
+		return nil, err
+	}
+	rng, err := ports.ParseRange(cfg.Ports.Range)
+	if err != nil {
+		return nil, err
+	}
+	checker, err := e.portsChecker()
+	if err != nil {
+		return nil, err
 	}
 	return ports.NewAllocator(cfg.DataDir, checker, rng), nil
 }
