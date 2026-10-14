@@ -2,11 +2,11 @@
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ Survival  [Jugadores]  3/9  ←/→      │
-│ En línea: no se pudo medir (¿servid… │
-│                                      │
-│ Lista blanca                         │
-│   Whitelist: ACTIVADA                │
-│                                      │
-│ Jugadores permitidos                 │
-│ Instancia survival                   │
+│ ╭─ ACCESO ─────────────── en vivo ─╮ │
+│ │Whitelist: ✓ ACTIVADA             │ │
+│ │En línea: no se pudo medir (¿serv…│ │
+│ │Jugadores permitidos              │ │
+│ │  ▶ ana                           │ │
+│ ╰──────────────────────────────────╯ │
+│ Whitelist: ✓ ACTIVADA                │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

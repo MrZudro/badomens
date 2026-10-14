@@ -2,19 +2,19 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ Survival  [Jugadores]  3/9  ←/→                                    │
-│ En línea: no se pudo medir (¿servidor apagado?)                    │
-│                                                                    │
-│ Lista blanca                                                       │
-│   Whitelist: ACTIVADA                                              │
-│                                                                    │
-│ Jugadores permitidos                                               │
-│   ▶ ana                                                            │
-│   ▶ luis                                                           │
-│                                                                    │
-│ Operadores                                                         │
-│   ▶ ana                                                            │
-│                                                                    │
-│ [A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador ·… │
-│                                                                    │
-│ Instancia survival                                                 │
+│ ╭─ ACCESO ───────────────────────────────────────────── en vivo ─╮ │
+│ │Whitelist: ✓ ACTIVADA                                           │ │
+│ │En línea: no se pudo medir (¿servidor apagado?)                 │ │
+│ │Jugadores permitidos                                            │ │
+│ │  ▶ ana                                                         │ │
+│ │  ▶ luis                                                        │ │
+│ │                                                                │ │
+│ │Operadores                                                      │ │
+│ │  ▶ ana                                                         │ │
+│ │[A] Añadir · [D] Quitar · [W] On/Off · [O] Operador             │ │
+│ │[Shift+O] Quitar operador · [R] Verificar                       │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
+│ Whitelist: ✓ ACTIVADA                                              │
 └─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

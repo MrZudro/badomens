@@ -2,29 +2,29 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ Survival   Resumen   Consola   [Jugadores]   Backups   Mundos   Plugins/Mods   Red   Auto-apagado   Ajust… │
-│ En línea: no se pudo medir (¿servidor apagado?)                                                            │
-│                                                                                                            │
-│ Lista blanca                                                                                               │
-│   Whitelist: ACTIVADA                                                                                      │
-│                                                                                                            │
-│ Jugadores permitidos                                                                                       │
-│   ▶ ana                                                                                                    │
-│   ▶ luis                                                                                                   │
-│                                                                                                            │
-│ Operadores                                                                                                 │
-│   ▶ ana                                                                                                    │
-│                                                                                                            │
-│ [A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador · [Shift+O] Quitar operador · [R] Verific… │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│ Instancia survival                                                                                         │
+│ ╭─ ACCESO ────────────────────────────────────────── en vivo ─╮╭─ OPERADORES ──────────────────────── 1 ─╮ │
+│ │Whitelist: ✓ ACTIVADA                                        ││  ▶ ana                                  │ │
+│ │En línea: no se pudo medir (¿servidor apagado?)              ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │Jugadores permitidos                                         ││                                         │ │
+│ │  ▶ ana                                                      ││                                         │ │
+│ │  ▶ luis                                                     ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │                                                             ││                                         │ │
+│ │[A] Añadir · [D] Quitar · [W] Activar/desactivar             ││                                         │ │
+│ │[O] Operador · [Shift+O] Quitar operador                     ││                                         │ │
+│ │[R] Verificar de nuevo                                       ││                                         │ │
+│ ╰─────────────────────────────────────────────────────────────╯╰─────────────────────────────────────────╯ │
+│ Whitelist: ✓ ACTIVADA                                                                                      │
 └─ [S] Iniciar  [P] Detener  [R] Reiniciar  [E] Escribir  [C]…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

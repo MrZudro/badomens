@@ -794,7 +794,14 @@ func (s *instanceScreen) handleAccessMsg(msg accessMsg) (Screen, tea.Cmd) {
 	s.access = msg.state
 	s.accessLoaded = true
 	if msg.op == "" {
-		s.accessStatus = "✓ Estado de acceso verificado"
+		// Una lectura solo "verifica" si hubo estado en vivo. Con configuración
+		// guardada o consulta no disponible no se afirma una verificación que no
+		// ocurrió: el panel y la barra de estado ya explican la fuente (§6/§8).
+		if msg.state.Source == svc.AccessLive {
+			s.accessStatus = "✓ Estado de acceso verificado"
+		} else {
+			s.accessStatus = ""
+		}
 		return s, nil
 	}
 	switch msg.state.Source {
@@ -1088,7 +1095,7 @@ func (s *instanceScreen) View(w, h int) string {
 	case 1:
 		b.WriteString(s.consoleView(w, h))
 	case 2:
-		b.WriteString(s.playersView())
+		b.WriteString(s.playersView(w, h-s.reservedBodyLines()))
 	case 3:
 		b.WriteString(s.backupsView())
 	case 4:
@@ -1326,75 +1333,305 @@ func (s *instanceScreen) filteredLogs() []string {
 	return out
 }
 
-func (s *instanceScreen) playersView() string {
+// --- Jugadores y acceso (§5.5) ---
+
+// playersView dibuja la pestaña «Jugadores y acceso» por regiones. En anchos
+// medios y anchos reparte el contenido en dos paneles contiguos cuyos anchos
+// suman exactamente w: ACCESO (estado de la lista blanca, jugadores en línea,
+// permitidos y atajos) y OPERADORES. En compacto usa un solo panel a ancho
+// completo con las dos secciones. Solo representa estado: aquí no se hace I/O
+// ni se recalcula la lista; el read-back llega por accessMsg.
+func (s *instanceScreen) playersView(w, h int) string {
 	if s.detail == nil || s.detail.Spec == nil {
 		return "cargando…"
 	}
-	var b strings.Builder
-	online := "no se pudo medir (¿servidor apagado?)"
-	if s.playersKnown {
-		online = itoa(s.playersOnline) + " conectados ahora"
+	if w < 2 {
+		w = 2
 	}
-	b.WriteString("En línea: " + online + "\n\n")
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Lista blanca") + "\n")
-	b.WriteString("  " + s.accessStatusLine() + "\n")
-	if s.accessBusy {
-		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render("⟳ aplicando…") + "\n")
+	if h < 4 {
+		h = 4 // título, una línea de cuerpo y el borde inferior
 	}
-	if s.accessStatus != "" {
-		b.WriteString("  " + s.accessStatus + "\n")
+	if c := layout.ClassifyWidth(w); c == layout.Wide || c == layout.Normal {
+		// La clase garantiza w ≥ 70, así que el 60 % deja los dos paneles por
+		// encima del ancho útil mínimo (42 y 28 celdas).
+		leftW := w * 60 / 100
+		return lipgloss.JoinHorizontal(lipgloss.Top,
+			s.accessPanel(leftW, h), s.operatorsPanel(w-leftW, h))
 	}
-	if !s.accessLoaded {
-		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("verificando estado de acceso…") + "\n")
-	}
-	b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Jugadores permitidos") + "\n")
-	wl := s.accessWhitelist()
-	if len(wl) == 0 {
-		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("(ninguno)") + "\n")
-	}
-	for _, p := range wl {
-		b.WriteString("  " + components.Pointer(s.ascii) + " " + p + "\n")
-	}
-	b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Operadores") + "\n")
-	ops := s.accessOperators()
-	if len(ops) == 0 {
-		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("(ninguno)") + "\n")
-	}
-	for _, p := range ops {
-		b.WriteString("  " + components.Pointer(s.ascii) + " " + p + "\n")
-	}
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(
-		"[A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador · [Shift+O] Quitar operador · [R] Verificar de nuevo"))
-	return b.String()
+	return s.compactAccessPanel(w, h)
 }
 
-// accessStatusLine resume el estado de la whitelist y su fuente (§6): distingue
-// estado en vivo verificado de configuración guardada no verificable.
-func (s *instanceScreen) accessStatusLine() string {
+// accessPanel compone el panel ACCESO de dos columnas. El pie de atajos se ancla
+// al fondo del panel cuando hay sitio (§4); si la lista crece y no lo hay, pasa
+// junto al estado para no perderse.
+func (s *instanceScreen) accessPanel(w, h int) string {
+	max := bodyLines(h)
+	head := s.accessHead(w)
+	list := s.accessListSection()
+	body := append(append([]string{}, head...), "")
+	body = append(body, list...)
+	foot := s.shortcutLines(w, false)
+	if len(body)+len(foot) <= max {
+		if pad := max - len(body) - len(foot); pad > 0 {
+			body = append(body, make([]string, pad)...)
+		}
+		body = append(body, foot...)
+	} else {
+		body = append(append(append([]string{}, head...), foot...), list...)
+	}
+	return components.Panel("ACCESO", s.accessSourceTag(), strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
+}
+
+// compactAccessPanel usa una sola columna con las secciones de permitidos y
+// operadores. Si el alto no da, se sacrifica primero el pie de atajos y después
+// la sección de operadores: el estado y los permitidos nunca desaparecen.
+func (s *instanceScreen) compactAccessPanel(w, h int) string {
+	max := bodyLines(h)
+	body := append(s.accessHead(w), s.accessListSection()...)
+	ops := s.accessOpsSection()
+	foot := s.shortcutLines(w, true)
+	switch {
+	case len(body)+1+len(ops)+len(foot) <= max:
+		body = append(body, "")
+		body = append(body, ops...)
+		body = append(body, foot...)
+	case len(body)+1+len(ops) <= max:
+		body = append(body, "")
+		body = append(body, ops...)
+	case len(body)+len(foot) <= max:
+		body = append(body, foot...)
+	}
+	return components.Panel("ACCESO", s.accessSourceTag(), strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
+}
+
+// operatorsPanel lista los operadores en su propio panel.
+func (s *instanceScreen) operatorsPanel(w, h int) string {
+	ops := s.accessOperators()
+	count := ""
+	if len(ops) > 0 {
+		count = itoa(len(ops))
+	}
+	return components.Panel("OPERADORES", count, strings.Join(s.playerLines(ops, "[O] Operador"), "\n"), w, h, false, s.pal, s.ascii)
+}
+
+// bodyLines es el alto útil del cuerpo de un panel (sin bordes).
+func bodyLines(h int) int {
+	if n := h - 2; n > 1 {
+		return n
+	}
+	return 1
+}
+
+// accessHead es el bloque superior: estado de la lista blanca con su fuente,
+// mensajes de la última operación y jugadores conectados ahora. El texto se
+// envuelve por palabras para que ni el estado ni la fuente se recorten en
+// paneles estrechos (UI-06).
+func (s *instanceScreen) accessHead(w int) []string {
+	out := s.accessStatusLines(w)
+	if s.accessBusy {
+		out = append(out, lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render("⟳ aplicando…"))
+	}
+	if s.accessStatus != "" {
+		out = append(out, wrapWords(s.accessStatus, w-2)...)
+	}
 	if !s.accessLoaded {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("Estado: NO VERIFICADA")
+		out = append(out, lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("verificando estado de acceso…"))
+	}
+	return append(out, s.onlineLine())
+}
+
+// accessListSection es la cabecera «Jugadores permitidos» y sus entradas.
+func (s *instanceScreen) accessListSection() []string {
+	out := []string{lipgloss.NewStyle().Bold(true).Render("Jugadores permitidos")}
+	return append(out, s.playerLines(s.accessWhitelist(), "[A] Añadir")...)
+}
+
+// accessOpsSection es la cabecera «Operadores» y sus entradas.
+func (s *instanceScreen) accessOpsSection() []string {
+	out := []string{lipgloss.NewStyle().Bold(true).Render("Operadores")}
+	return append(out, s.playerLines(s.accessOperators(), "[O] Operador")...)
+}
+
+// playerLines pinta una lista de nombres. Si está vacía, dice qué falta y con qué
+// tecla se resuelve (§8: estado vacío con acción).
+func (s *instanceScreen) playerLines(names []string, action string) []string {
+	if len(names) == 0 {
+		return []string{lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("(ninguno) · " + action)}
+	}
+	out := make([]string, 0, len(names))
+	for _, p := range names {
+		out = append(out, "  "+components.Pointer(s.ascii)+" "+p)
+	}
+	return out
+}
+
+// onlineLine informa de los jugadores conectados ahora mismo. El dato llega por
+// mensaje (playersCmd): aquí no se consulta nada.
+func (s *instanceScreen) onlineLine() string {
+	if s.playersKnown {
+		return "En línea: " + itoa(s.playersOnline) + " conectados ahora"
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("En línea: no se pudo medir (¿servidor apagado?)")
+}
+
+// accessSourceTag etiqueta la fuente del dato en el borde del panel (§3): estado
+// en vivo, configuración guardada o consulta no disponible.
+func (s *instanceScreen) accessSourceTag() string {
+	if !s.accessLoaded {
+		return ""
 	}
 	switch s.access.Source {
 	case svc.AccessLive:
-		state := "DESACTIVADA"
+		return "en vivo"
+	case svc.AccessSavedConfig:
+		return "guardado"
+	case svc.AccessUnavailable:
+		return "error"
+	}
+	return ""
+}
+
+// playersShortcutFull y playersShortcutBrief son la línea de atajos de la
+// pestaña; la forma corta se usa en compacto.
+const (
+	playersShortcutFull  = "[A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador · [Shift+O] Quitar operador · [R] Verificar de nuevo"
+	playersShortcutBrief = "[A] Añadir · [D] Quitar · [W] On/Off · [O] Operador · [Shift+O] Quitar operador · [R] Verificar"
+)
+
+// shortcutLines reparte la línea de atajos en líneas que quepan en w-2 celdas,
+// sin partir una tecla por la mitad.
+func (s *instanceScreen) shortcutLines(w int, compact bool) []string {
+	text := playersShortcutFull
+	if compact {
+		text = playersShortcutBrief
+	}
+	packed := packTokens(text, w-2)
+	out := make([]string, 0, len(packed))
+	for _, l := range packed {
+		out = append(out, lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(l))
+	}
+	return out
+}
+
+// packTokens reparte un texto separado por « · » en líneas de ancho `w` como
+// máximo, cortando siempre por el separador para no partir un atajo.
+func packTokens(text string, w int) []string {
+	if w < 8 {
+		w = 8
+	}
+	var out []string
+	cur := ""
+	for _, part := range strings.Split(text, " · ") {
+		switch {
+		case cur == "":
+			cur = part
+		case layout.Width(cur)+3+layout.Width(part) <= w:
+			cur += " · " + part
+		default:
+			out = append(out, cur)
+			cur = part
+		}
+	}
+	if cur != "" {
+		out = append(out, cur)
+	}
+	return out
+}
+
+// wrapWords envuelve un texto por palabras en líneas de ancho `max` como máximo:
+// así un estado largo no se recorta ni desplaza el panel.
+func wrapWords(text string, max int) []string {
+	if max < 8 {
+		max = 8
+	}
+	var out []string
+	cur := ""
+	for _, word := range strings.Fields(text) {
+		switch {
+		case cur == "":
+			cur = word
+		case layout.Width(cur)+1+layout.Width(word) <= max:
+			cur += " " + word
+		default:
+			out = append(out, cur)
+			cur = word
+		}
+	}
+	if cur != "" {
+		out = append(out, cur)
+	}
+	return out
+}
+
+// reservedBodyLines cuenta las líneas que View añade DESPUÉS del cuerpo de la
+// pestaña (prompt, aviso de comando peligroso, confirmación) para que un panel de
+// alto completo no las deje fuera del cuerpo.
+func (s *instanceScreen) reservedBodyLines() int {
+	n := 0
+	if s.prompt {
+		n += 3 // dos de separación y la línea del formulario
+	}
+	if s.pending != "" && s.tab != 1 {
+		n += 3
+	}
+	if s.confirmKind == "version" {
+		n += 3
+	}
+	return n
+}
+
+// accessStatusLine resume el estado de la whitelist y su fuente en una línea.
+func (s *instanceScreen) accessStatusLine() string {
+	text, color := s.accessStatusText()
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(strings.ReplaceAll(text, "\n", " · "))
+}
+
+// accessStatusLines envuelve el estado por palabras y lo pinta del color del
+// estado: en paneles estrechos ni «no verificable» ni «ERROR DE CONSULTA» se
+// recortan.
+func (s *instanceScreen) accessStatusLines(w int) []string {
+	text, color := s.accessStatusText()
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	out := make([]string, 0, 2)
+	// Cada segmento (separado por «\n») se envuelve por su cuenta: así «no
+	// verificable» o «ERROR DE CONSULTA» nunca se parten por la mitad.
+	for _, segment := range strings.Split(text, "\n") {
+		for _, l := range wrapWords(segment, w-2) {
+			out = append(out, style.Render(l))
+		}
+	}
+	return out
+}
+
+// accessStatusText redacta el estado de la lista blanca y su fuente (§6) con
+// icono y texto (nunca solo color): distingue estado en vivo verificado de
+// configuración guardada no verificable, consulta fallida y estado sin verificar.
+// El salto de línea separa fragmentos que deben conservarse juntos al envolver.
+func (s *instanceScreen) accessStatusText() (string, string) {
+	if !s.accessLoaded {
+		return "Estado: " + components.Warn(s.ascii) + " NO VERIFICADA", s.pal.Muted
+	}
+	switch s.access.Source {
+	case svc.AccessLive:
+		icon, state, color := components.Cross(s.ascii), "DESACTIVADA", s.pal.Warn
 		if s.access.WhitelistEnabled {
-			state = "ACTIVADA"
+			icon, state, color = components.Check(s.ascii), "ACTIVADA", s.pal.Good
 		}
 		when := ""
 		if !s.access.VerifiedAt.IsZero() {
 			when = " · verificado " + humanAgo(s.access.VerifiedAt)
 		}
-		return "Whitelist: " + state + when
+		return "Whitelist: " + icon + " " + state + when, color
 	case svc.AccessSavedConfig:
 		saved := "desactivada"
 		if s.access.WhitelistEnabled {
 			saved = "activada"
 		}
-		return "Configuración guardada: " + saved + " · Estado en vivo: no verificable (servidor apagado)"
+		return components.Warn(s.ascii) + " Configuración guardada: " + saved + "\nEstado en vivo: no verificable (servidor apagado)", s.pal.Warn
 	case svc.AccessUnavailable:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).Render("Lista blanca: ERROR DE CONSULTA")
+		return components.Cross(s.ascii) + " Lista blanca: ERROR DE CONSULTA", s.pal.Bad
 	}
-	return "Estado: NO VERIFICADA"
+	return "Estado: " + components.Warn(s.ascii) + " NO VERIFICADA", s.pal.Muted
 }
 
 // accessWhitelist devuelve la lista mostrada: el estado de acceso si se cargó y
@@ -1622,11 +1859,16 @@ func (s *instanceScreen) ID() string    { return "instance" }
 // NavSection indica la sección de primer nivel activa.
 func (s *instanceScreen) NavSection() string { return "instances" }
 
-// Status aporta el mensaje de la barra de estado: el de acceso en la pestaña de
-// jugadores, si no el mensaje general de la pantalla.
+// Status aporta el mensaje de la barra de estado: en la pestaña de jugadores, el
+// resultado de la última operación de acceso o, si no hay ninguna, el resumen de
+// una línea del estado de la lista blanca (§4). Fuera de esa pestaña, el mensaje
+// general de la pantalla.
 func (s *instanceScreen) Status() string {
-	if s.tab == 2 && s.accessStatus != "" {
-		return s.accessStatus
+	if s.tab == 2 {
+		if s.accessStatus != "" {
+			return s.accessStatus
+		}
+		return s.accessStatusLine()
 	}
 	if s.status != "" {
 		return s.status

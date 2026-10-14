@@ -53,6 +53,13 @@ versionado es [semántico](https://semver.org/lang/es/).
   de vacío (`(vacío)`), muchas líneas y línea larga; ante un fallo de lectura se
   conserva el buffer y se muestra un aviso breve y accionable. La pestaña activa
   se marca con corchetes (`[Consola]`) además del color.
+- **Jugadores y acceso en paneles (§5.5)**: la pestaña se compone en dos paneles
+  `ACCESO` | `OPERADORES` (una sola columna en compacto) con el estado de la
+  whitelist (`ACTIVADA`/`DESACTIVADA`/`NO VERIFICADA`/`ERROR DE CONSULTA`) con
+  icono + texto, la fuente del dato en el borde (`en vivo`/`guardado`/`error`) y
+  las listas con estado vacío accionable. Una lectura solo se marca como
+  verificada si hubo **estado en vivo**; con configuración guardada ya no se
+  afirma verificación. Pruebas `ACL-02/03/05/09` y `UI-06`.
 
 ### 🔧 Cambiado
 

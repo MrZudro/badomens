@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -277,7 +279,7 @@ func TestACL01EstadoLive(t *testing.T) {
 	inst := openInstance(t, a, "survival")
 	inst.tab = 2
 	a.Update(ejecutaDirecto(inst.accessCmd()))
-	out := inst.playersView()
+	out := inst.playersView(110, 30)
 	for _, want := range []string{"ACTIVADA", "ana", "luis"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("la vista de acceso debe contener %q:\n%s", want, out)
@@ -296,12 +298,16 @@ func TestACL06EstadoNoVerificable(t *testing.T) {
 	inst := openInstance(t, a, "survival")
 	inst.tab = 2
 	a.Update(ejecutaDirecto(inst.accessCmd()))
-	out := inst.playersView()
+	out := inst.playersView(110, 30)
 	if !strings.Contains(out, "no verificable") {
 		t.Fatalf("debe indicar que no es verificable:\n%s", out)
 	}
 	if inst.access.Source != svc.AccessSavedConfig {
 		t.Fatalf("debe ser configuración guardada, tengo %q", inst.access.Source)
+	}
+	// Una lectura guardada no es una verificación: no debe afirmarse "verificado".
+	if strings.Contains(strings.ToLower(inst.accessStatus), "verificado") {
+		t.Fatalf("el estado guardado no debe afirmar verificación, tengo %q", inst.accessStatus)
 	}
 }
 
@@ -544,4 +550,240 @@ func TestUI01VacioCTAConBannerMinimo(t *testing.T) {
 		t.Fatalf("el banner corto debe conservar la acción de reparar:\n%s", out)
 	}
 	assertWithinSize(t, out, 40, 12)
+}
+
+// --- Fase D: Jugadores y acceso en paneles (§5.5) ---
+
+// ACL-02: la configuración guardada no tapa el estado real; la vista muestra la
+// lista del servidor (con «maria») y la etiqueta como estado en vivo.
+func TestACL02LiveDifiereDeGuardado(t *testing.T) {
+	s := svc.NewFake([]*instance.Spec{goldenSpec()})
+	if _, err := s.Access.AddWhitelist(context.Background(), "survival", "maria"); err != nil {
+		t.Fatalf("alta en el estado en vivo: %v", err)
+	}
+	a := NewApp(s, darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 2
+	a.Update(ejecutaDirecto(inst.accessCmd()))
+	out := inst.playersView(110, 30)
+	if inst.access.Source != svc.AccessLive {
+		t.Fatalf("el estado debe ser live, tengo %q", inst.access.Source)
+	}
+	if containsStr(inst.detail.Spec.Whitelist, "maria") {
+		t.Fatal("el escenario exige que la configuración guardada NO tenga «maria»")
+	}
+	if !strings.Contains(out, "maria") {
+		t.Fatalf("debe verse la lista en vivo, con «maria»:\n%s", out)
+	}
+	if strings.Contains(out, "Configuración guardada") {
+		t.Fatalf("el estado en vivo no debe presentarse como guardado:\n%s", out)
+	}
+	if !strings.Contains(out, "verificado") || !strings.Contains(out, "en vivo") {
+		t.Fatalf("debe indicarse la fuente y la hora de verificación:\n%s", out)
+	}
+}
+
+// ACL-03: la lista cambia SOLO al aplicar el read-back, no al enviar el comando.
+func TestACL03ListaCambiaTrasReadBack(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 2
+	a.Update(ejecutaDirecto(inst.accessCmd()))
+	if antes := inst.playersView(110, 30); strings.Contains(antes, "maria") {
+		t.Fatalf("«maria» no debe aparecer antes de la operación:\n%s", antes)
+	}
+	a.Update(press("a"))
+	for _, r := range "maria" {
+		a.Update(press(string(r)))
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	msg := ejecutaCmd(cmd)
+	am, ok := msg.(accessMsg)
+	if !ok {
+		t.Fatalf("se esperaba accessMsg, tengo %T", msg)
+	}
+	// El comando ya se envió (el fake mutó su estado), pero la pantalla no lo
+	// aplica hasta recibir el mensaje de read-back.
+	if out := inst.playersView(110, 30); strings.Contains(out, "maria") {
+		t.Fatalf("sin read-back aplicado la lista no debe cambiar:\n%s", out)
+	}
+	a.Update(am)
+	out := inst.playersView(110, 30)
+	if !strings.Contains(out, "maria") {
+		t.Fatalf("tras aplicar el read-back «maria» debe estar en la lista:\n%s", out)
+	}
+	if !strings.Contains(out, "Verificado") {
+		t.Fatalf("el alta confirmada debe indicarse como verificada:\n%s", out)
+	}
+}
+
+// ACL-05: si el read-back no puede verificar, se avisa «pendiente de verificar»
+// y nunca se afirma que el cambio esté verificado.
+func TestACL05EnviadoPendienteDeVerificar(t *testing.T) {
+	s := svc.NewFakeWith([]*instance.Spec{goldenSpec()},
+		svc.FakeOptions{IdleWatcherActive: true, AccessVerifyFail: true})
+	a := NewApp(s, darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 2
+	a.Update(ejecutaDirecto(inst.accessCmd()))
+	a.Update(press("a"))
+	for _, r := range "maria" {
+		a.Update(press(string(r)))
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	a.Update(ejecutaCmd(cmd))
+	if inst.access.Source != svc.AccessSavedConfig {
+		t.Fatalf("sin lectura en vivo la fuente debe ser guardada, tengo %q", inst.access.Source)
+	}
+	out := inst.playersView(110, 30)
+	if !strings.Contains(out, "pendiente de verificar") {
+		t.Fatalf("debe avisar de que el resultado está pendiente de verificar:\n%s", out)
+	}
+	if strings.Contains(out, "Verificado") {
+		t.Fatalf("no debe afirmar que el cambio está verificado:\n%s", out)
+	}
+}
+
+// ACL-09: activar/desactivar la lista blanca se refleja solo tras el read-back y
+// no confunde el interruptor con la lista de nombres.
+func TestACL09ActivarDesactivarConReadBack(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 2
+	a.Update(ejecutaDirecto(inst.accessCmd()))
+	if !inst.access.WhitelistEnabled {
+		t.Fatal("el estado inicial debe tener la lista blanca activada")
+	}
+	antes := append([]string(nil), inst.access.Whitelist...)
+	_, cmd := a.Update(press("w"))
+	if cmd == nil {
+		t.Fatal("W debe pedir el cambio de estado con read-back")
+	}
+	msg := ejecutaCmd(cmd)
+	am, ok := msg.(accessMsg)
+	if !ok {
+		t.Fatalf("se esperaba accessMsg, tengo %T", msg)
+	}
+	if !inst.access.WhitelistEnabled {
+		t.Fatal("el estado no debe cambiar antes de aplicar el read-back")
+	}
+	a.Update(am)
+	if inst.access.WhitelistEnabled {
+		t.Fatal("tras el read-back la lista blanca debe quedar desactivada")
+	}
+	if inst.access.Source != svc.AccessLive {
+		t.Fatalf("el cambio confirmado debe ser live, tengo %q", inst.access.Source)
+	}
+	if strings.Join(inst.access.Whitelist, ",") != strings.Join(antes, ",") {
+		t.Fatalf("la lista de nombres no debe cambiar: %v → %v", antes, inst.access.Whitelist)
+	}
+	out := inst.playersView(110, 30)
+	if !strings.Contains(out, "DESACTIVADA") || !strings.Contains(out, "Verificado") {
+		t.Fatalf("la vista debe mostrar el estado desactivado y verificado:\n%s", out)
+	}
+}
+
+// --- ACL/UI: layout en paneles de la pestaña Jugadores ---
+
+// TestUI06AccesoEstados: cargando, error y éxito se distinguen por texto y
+// etiqueta (no solo por color), y ninguna línea desborda en los tamaños de
+// referencia.
+func TestUI06AccesoEstados(t *testing.T) {
+	cargandoInst := func() *instanceScreen {
+		a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+		resize(a, 120, 40)
+		inst := openInstance(t, a, "survival")
+		inst.tab = 2
+		return inst
+	}
+
+	// Cargando: todavía sin respuesta del servicio de acceso.
+	cargando := cargandoInst().playersView(110, 30)
+	if !strings.Contains(cargando, "verificando estado de acceso") || !strings.Contains(cargando, "NO VERIFICADA") {
+		t.Fatalf("el estado de carga debe estar etiquetado:\n%s", cargando)
+	}
+
+	// Error de consulta.
+	errSvc := svc.NewFakeWith([]*instance.Spec{goldenSpec()},
+		svc.FakeOptions{IdleWatcherActive: true, AccessReadErr: errors.New("docker no responde")})
+	errApp := NewApp(errSvc, darkOpts())
+	resize(errApp, 120, 40)
+	errInst := openInstance(t, errApp, "survival")
+	errInst.tab = 2
+	errApp.Update(ejecutaDirecto(errInst.accessCmd()))
+	fallo := errInst.playersView(110, 30)
+	if !strings.Contains(fallo, "ERROR DE CONSULTA") {
+		t.Fatalf("la consulta fallida debe etiquetarse:\n%s", fallo)
+	}
+
+	// Éxito: estado en vivo verificado.
+	okApp := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(okApp, 120, 40)
+	okInst := openInstance(t, okApp, "survival")
+	okInst.tab = 2
+	okApp.Update(ejecutaDirecto(okInst.accessCmd()))
+	vivo := okInst.playersView(110, 30)
+	if !strings.Contains(vivo, "ACTIVADA") || !strings.Contains(vivo, "en vivo") {
+		t.Fatalf("el éxito debe indicar estado y fuente:\n%s", vivo)
+	}
+	if strings.Contains(vivo, "ERROR DE CONSULTA") || strings.Contains(vivo, "NO VERIFICADA") {
+		t.Fatalf("el éxito no debe mostrar etiquetas de error ni de estado desconocido:\n%s", vivo)
+	}
+	if cargando == fallo || cargando == vivo || fallo == vivo {
+		t.Fatal("cargando, error y éxito deben ser distinguibles entre sí")
+	}
+
+	// Sin desborde en los tamaños de referencia, también con prompt abierto.
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {100, 30}, {132, 40}} {
+		resize(okApp, sz[0], sz[1])
+		assertWithinSize(t, stripANSI(okApp.View()), sz[0], sz[1])
+	}
+	resize(okApp, 80, 24)
+	okApp.Update(press("a"))
+	assertWithinSize(t, stripANSI(okApp.View()), 80, 24)
+	out := stripANSI(okApp.View())
+	if !strings.Contains(out, "Nombre del jugador") {
+		t.Fatalf("el prompt debe seguir visible con el panel de acceso:\n%s", out)
+	}
+}
+
+// TestPlayersPanelesPorAncho: en medio/ancho hay dos paneles cuyos anchos suman
+// el ancho interior y en compacto una sola columna, sin desbordar.
+func TestPlayersPanelesPorAncho(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 2
+	a.Update(ejecutaDirecto(inst.accessCmd()))
+
+	normal := inst.playersView(106, 20)
+	lines := strings.Split(stripANSI(normal), "\n")
+	if len(lines) != 20 {
+		t.Fatalf("el panel doble debe ocupar 20 líneas, tengo %d", len(lines))
+	}
+	for i, ln := range lines {
+		if layout.Width(ln) != 106 {
+			t.Fatalf("línea %d mide %d celdas, quiero 106: %q", i+1, layout.Width(ln), ln)
+		}
+	}
+	if !strings.Contains(normal, "ACCESO") || !strings.Contains(normal, "OPERADORES") {
+		t.Fatalf("en ancho medio deben verse los dos paneles:\n%s", normal)
+	}
+
+	compacto := stripANSI(inst.playersView(60, 20))
+	if strings.Contains(compacto, "OPERADORES") {
+		t.Fatalf("en compacto hay una sola columna (sin panel OPERADORES):\n%s", compacto)
+	}
+	if !strings.Contains(compacto, "Operadores") {
+		t.Fatalf("en compacto los operadores van dentro del panel ACCESO:\n%s", compacto)
+	}
+	for _, ln := range strings.Split(compacto, "\n") {
+		if layout.Width(ln) > 60 {
+			t.Fatalf("compacto desborda 60 celdas: %q", ln)
+		}
+	}
 }
