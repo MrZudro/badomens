@@ -2,19 +2,19 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
-│                                                                    │
-│ ▶ Puerto: (automático)                                             │
-│     Número por el que se conectan los jugadores. Lo elegimos libr… │
-│   Mensaje del servidor (MOTD):                                     │
-│     Texto que ven los jugadores en la lista de servidores.         │
-│                                                                    │
-│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cua… │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
+│ ╭─ Red ──────────────────────────────────────────────────── 5/7 ─╮ │
+│ │▶ Puerto: (automático)                                          │ │
+│ │    Número por el que se conectan los jugadores. Lo elegimos li…│ │
+│ │  Mensaje del servidor (MOTD):                                  │ │
+│ │    Texto que ven los jugadores en la lista de servidores.      │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.     │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                    │
-└─ [TAB] Siguiente:  …   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
+└─ [TAB] Siguiente  […   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

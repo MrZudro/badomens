@@ -2,11 +2,11 @@
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
-│                                      │
-│ ▶ Semilla: > -2844874353865282585  … │
-│     Texto/número que genera el mapa… │
-│                                      │
-│ ⚠ Riesgo de suplantación: sin modo … │
-│                                      │
+│ ╭─ Mundo ──────────────────── 2/7 ─╮ │
+│ │▶ Semilla: > -2844874353865282…   │ │
+│ │    Texto/número que genera el ma…│ │
+│ │                                  │ │
+│ │                                  │ │
+│ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

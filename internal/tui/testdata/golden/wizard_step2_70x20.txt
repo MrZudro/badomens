@@ -2,19 +2,19 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
-│                                                                    │
-│ ▶ Jugadores máximos: > 20                                          │
-│     Cuántos pueden estar conectados a la vez. Más jugadores = más… │
-│   Dificultad: normal                                               │
-│     Pacífico, Fácil, Normal o Difícil: cuánto daño hacen los mons… │
-│   Modo de juego: survival                                          │
-│     Survival, Creativo, Aventura o Espectador para quienes entran… │
-│   Cuentas premium (modo online): no                                │
-│     Activo: solo cuentas oficiales. Inactivo: entra cualquiera co… │
-│   Lista blanca: no                                                 │
-│     Solo entran los jugadores que apruebes. Muy recomendada si el… │
-│   Operadores:                                                      │
-│     Jugadores con poder de administrador dentro del juego (comand… │
-│                                                                    │
+│ ╭─ Jugadores ────────────────────────────────────────────── 3/7 ─╮ │
+│ │▶ Jugadores máximos: > 20                                       │ │
+│ │    Cuántos pueden estar conectados a la vez. Más jugadores = m…│ │
+│ │  Dificultad: normal                                            │ │
+│ │    Pacífico, Fácil, Normal o Difícil: cuánto daño hacen los mo…│ │
+│ │  Modo de juego: survival                                       │ │
+│ │    Survival, Creativo, Aventura o Espectador para quienes entr…│ │
+│ │  Cuentas premium (modo online): no                             │ │
+│ │    Activo: solo cuentas oficiales. Inactivo: entra cualquiera …│ │
+│ │  Lista blanca: no                                              │ │
+│ │    Solo entran los jugadores que apruebes. Muy recomendada si …│ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.     │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                    │
-└─ [TAB] Siguiente:  …   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
+└─ [TAB] Siguiente  […   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

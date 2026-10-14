@@ -2,19 +2,19 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
-│                                                                    │
-│ ▶ Semilla: > -2844874353865282585                                  │
-│     Texto/número que genera el mapa; la misma semilla da el mismo… │
-│                                                                    │
-│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cua… │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
+│ ╭─ Mundo ────────────────────────────────────────────────── 2/7 ─╮ │
+│ │▶ Semilla: > -2844874353865282585                               │ │
+│ │    Texto/número que genera el mapa; la misma semilla da el mis…│ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.     │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                    │
-└─ [TAB] Siguiente:  …   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
+└─ [TAB] Siguiente  […   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

@@ -2,11 +2,11 @@
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
-│                                      │
-│ ▶ Memoria (RAM): > 4G              … │
-│     RAM máxima del servidor. Más no… │
-│                                      │
-│ ⚠ Riesgo de suplantación: sin modo … │
-│                                      │
+│ ╭─ Recursos ───────────────── 4/7 ─╮ │
+│ │▶ Memoria (RAM): > 4G             │ │
+│ │    RAM máxima del servidor. Más …│ │
+│ │                                  │ │
+│ │                                  │ │
+│ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

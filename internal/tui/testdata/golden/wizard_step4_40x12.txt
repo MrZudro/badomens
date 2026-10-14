@@ -2,11 +2,11 @@
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
-│                                      │
-│ ▶ Puerto: (automático)               │
-│     Número por el que se conectan l… │
-│   Mensaje del servidor (MOTD):       │
-│     Texto que ven los jugadores en … │
-│                                      │
+│ ╭─ Red ────────────────────── 5/7 ─╮ │
+│ │▶ Puerto: (automático)            │ │
+│ │    Número por el que se conectan…│ │
+│ │  Mensaje del servidor (MOTD):    │ │
+│ │    Texto que ven los jugadores e…│ │
+│ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

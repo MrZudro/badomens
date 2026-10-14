@@ -2,29 +2,29 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                       │
-│                                                                                                            │
-│ ▶ Memoria (RAM): > 4G                                                                                    … │
-│     RAM máxima del servidor. Más no siempre es mejor; te suger…                                          … │
-│                                                                                                          … │
-│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la… │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
+│ ╭─ Recursos ─────────────────────────────────────────────────── 4/7 ─╮╭─ AYUDA ──────────────────────────╮ │
+│ │▶ Memoria (RAM): > 4G                                               ││La RAM es el máximo que puede usar│ │
+│ │    RAM máxima del servidor. Más no siempre es mejor; te sugerimos …││la máquina virtual de Java. Darla │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││de más a un servidor quita memoria│ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││a otros y no siempre mejora el    │ │
+│ │                                                                    ││rendimiento; darla de menos       │ │
+│ │                                                                    ││provoca cierres por falta de      │ │
+│ │                                                                    ││memoria. La sugerencia sale de la │ │
+│ │                                                                    ││RAM de tu equipo y de cuántos     │ │
+│ │                                                                    ││servidores tienes corriendo.      │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││Ejemplo: 4G                       │ │
+│ │                                                                    ││Por defecto: recomendada según el │ │
+│ │                                                                    ││equipo                            │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││Requiere reiniciar · Afecta al    │ │
+│ │                                                                    ││rendimiento                       │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ ╰────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────╯ │
 │ Nueva instancia                                                                                            │
-└─ [TAB] Siguiente:  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────────────────┘
+└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────┘

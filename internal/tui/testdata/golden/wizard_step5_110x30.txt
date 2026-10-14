@@ -2,29 +2,29 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                       │
-│                                                                                                            │
-│ ▶ Auto-apagado: no                                                                                       … │
-│     Apaga el servidor si nadie entra durante el tiempo elegido.                                          … │
-│   Tiempo de inactividad: 15m                                                                             … │
-│     Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máx…                                          … │
-│   Arrancar al crear: sí                                                                                  … │
-│     Inicia el servidor en cuanto termina la creación.                                                    … │
-│                                                                                                          … │
-│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la… │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
+│ ╭─ Automatización ───────────────────────────────────────────── 6/7 ─╮╭─ AYUDA ──────────────────────────╮ │
+│ │▶ Auto-apagado: no                                                  ││Activa o desactiva el apagado     │ │
+│ │    Apaga el servidor si nadie entra durante el tiempo elegido.     ││automático por inactividad.       │ │
+│ │  Tiempo de inactividad: 15m                                        ││Mientras haya al menos un jugador │ │
+│ │    Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máximo 2…││dentro, el contador no corre.     │ │
+│ │  Arrancar al crear: sí                                             ││Ahorra CPU y RAM cuando no se     │ │
+│ │    Inicia el servidor en cuanto termina la creación.               ││juega.                            │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││Por defecto: desactivado          │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ ╰────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────╯ │
 │ Nueva instancia                                                                                            │
-└─ [TAB] Siguiente:  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────────────────┘
+└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────┘

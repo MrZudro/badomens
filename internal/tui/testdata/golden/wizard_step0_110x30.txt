@@ -2,29 +2,29 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                       │
-│                                                                                                            │
-│ ▶ Nombre: > survival-amigos                                                                              … │
-│     Nombre visible; también da nombre a carpeta y contenedor (…                                          … │
-│   Motor: paper                                                                                           … │
-│     El programa que ejecuta el servidor; define si puedes usar…                                          … │
-│   Versión de Minecraft: 1.21.4                                                                           … │
-│     Los jugadores deben usar esta versión. La marcada ★ es la …                                          … │
-│                                                                                                          … │
-│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la… │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                            │
+│ ╭─ Básico ───────────────────────────────────────────────────── 1/7 ─╮╭─ AYUDA ──────────────────────────╮ │
+│ │▶ Nombre: > survival-amigos                                         ││El nombre es la cara visible del  │ │
+│ │    Nombre visible; también da nombre a carpeta y contenedor (minús…││servidor y lo que verán los demás.│ │
+│ │  Motor: paper                                                      ││Se convierte en el identificador  │ │
+│ │    El programa que ejecuta el servidor; define si puedes usar plug…││técnico (slug) que nombra la      │ │
+│ │  Versión de Minecraft: 1.21.4                                      ││carpeta, el contenedor y los      │ │
+│ │    Los jugadores deben usar esta versión. La marcada ★ es la recom…││backup: por eso solo admite       │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││minúsculas, números y guiones. No │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││se puede cambiar después de crear │ │
+│ │                                                                    ││la instancia.                     │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││Ejemplo: survival-amigos          │ │
+│ │                                                                    ││Por defecto: obligatorio          │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││Solo al crear                     │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ ╰────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────╯ │
 │ Nueva instancia                                                                                            │
-└─ [TAB] Siguiente:  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────────────────┘
+└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────┘

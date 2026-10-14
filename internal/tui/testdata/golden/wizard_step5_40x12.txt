@@ -2,11 +2,11 @@
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
-│                                      │
-│ ▶ Auto-apagado: no                   │
-│     Apaga el servidor si nadie entr… │
-│   Tiempo de inactividad: 15m         │
-│     Cuánto tiempo sin nadie antes d… │
-│   Arrancar al crear: sí              │
+│ ╭─ Automatización ─────────── 6/7 ─╮ │
+│ │▶ Auto-apagado: no                │ │
+│ │    Apaga el servidor si nadie en…│ │
+│ │  Tiempo de inactividad: 15m      │ │
+│ │    Cuánto tiempo sin nadie antes…│ │
+│ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

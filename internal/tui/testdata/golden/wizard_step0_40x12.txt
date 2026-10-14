@@ -2,11 +2,11 @@
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
-│                                      │
-│ ▶ Nombre: > survival-amigos        … │
-│     Nombre visible; también da nomb… │
-│   Motor: paper                       │
-│     El programa que ejecuta el serv… │
-│   Versión de Minecraft: 1.21.4       │
+│ ╭─ Básico ─────────────────── 1/7 ─╮ │
+│ │▶ Nombre: > survival-amigos       │ │
+│ │    Nombre visible; también da no…│ │
+│ │  Motor: paper                    │ │
+│ │    El programa que ejecuta el se…│ │
+│ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

@@ -2,29 +2,29 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                       │
-│                                                                                                            │
-│ ▶ Jugadores máximos: > 20                                                                                … │
-│     Cuántos pueden estar conectados a la vez. Más jugadores = …                                          … │
-│   Dificultad: normal                                                                                     … │
-│     Pacífico, Fácil, Normal o Difícil: cuánto daño hacen los m…                                          … │
-│   Modo de juego: survival                                                                                … │
-│     Survival, Creativo, Aventura o Espectador para quienes ent…                                          … │
-│   Cuentas premium (modo online): no                                                                      … │
-│     Activo: solo cuentas oficiales. Inactivo: entra cualquiera…                                          … │
-│   Lista blanca: no                                                                                       … │
-│     Solo entran los jugadores que apruebes. Muy recomendada si…                                          … │
-│   Operadores:                                                                                            … │
-│     Jugadores con poder de administrador dentro del juego (com…                                          … │
-│                                                                                                          … │
-│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la… │
-│                                                                                                          … │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
+│ ╭─ Jugadores ────────────────────────────────────────────────── 3/7 ─╮╭─ AYUDA ──────────────────────────╮ │
+│ │▶ Jugadores máximos: > 20                                           ││Límite de jugadores simultáneos.  │ │
+│ │    Cuántos pueden estar conectados a la vez. Más jugadores = más C…││Subirlo aumenta la carga de CPU y │ │
+│ │  Dificultad: normal                                                ││RAM; el valor recomendado se      │ │
+│ │    Pacífico, Fácil, Normal o Difícil: cuánto daño hacen los monstr…││calcula con la memoria asignada.  │ │
+│ │  Modo de juego: survival                                           ││                                  │ │
+│ │    Survival, Creativo, Aventura o Espectador para quienes entran p…││Ejemplo: 20                       │ │
+│ │  Cuentas premium (modo online): no                                 ││                                  │ │
+│ │    Activo: solo cuentas oficiales. Inactivo: entra cualquiera con …││Afecta al rendimiento             │ │
+│ │  Lista blanca: no                                                  ││                                  │ │
+│ │    Solo entran los jugadores que apruebes. Muy recomendada si el m…││                                  │ │
+│ │  Operadores:                                                       ││                                  │ │
+│ │    Jugadores con poder de administrador dentro del juego (comandos…││                                  │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││                                  │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ ╰────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────╯ │
 │ Nueva instancia                                                                                            │
-└─ [TAB] Siguiente:  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────────────────┘
+└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────┘

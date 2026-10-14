@@ -2,29 +2,29 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                       │
-│                                                                                                            │
-│ ▶ Puerto: (automático)                                                                                   … │
-│     Número por el que se conectan los jugadores. Lo elegimos l…                                          … │
-│   Mensaje del servidor (MOTD):                                                                           … │
-│     Texto que ven los jugadores en la lista de servidores.                                               … │
-│                                                                                                          … │
-│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la… │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                          … │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
+│ ╭─ Red ──────────────────────────────────────────────────────── 5/7 ─╮╭─ AYUDA ──────────────────────────╮ │
+│ │▶ Puerto: (automático)                                              ││El puerto es la dirección numérica│ │
+│ │    Número por el que se conectan los jugadores. Lo elegimos libre …││de conexión (por defecto 25565).  │ │
+│ │  Mensaje del servidor (MOTD):                                      ││badomens comprueba que esté libre │ │
+│ │    Texto que ven los jugadores en la lista de servidores.          ││en tu equipo, en Docker y en la   │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││tailnet y propone el primero libre│ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││si no lo está. Cambiarlo requiere │ │
+│ │                                                                    ││reiniciar.                        │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││Ejemplo: 25565                    │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││Requiere reiniciar                │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ │                                                                    ││                                  │ │
+│ ╰────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────╯ │
 │ Nueva instancia                                                                                            │
-└─ [TAB] Siguiente:  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────────────────┘
+└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────┘

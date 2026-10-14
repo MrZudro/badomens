@@ -68,6 +68,13 @@ versionado es [semántico](https://semver.org/lang/es/).
   presets, backup y **cuenta atrás desde el bus de eventos**; Ajustes con estados
   editando/guardando/guardado/error y sin mutar el `Spec` antes de persistir. La
   franja de pestañas muestra siempre completa la pestaña activa (ventana `…`).
+- **Asistente en paneles (§5.12)**: elección de modo, cada paso del formulario
+  (con contador `n/N`), el selector de versiones y el resumen «Revisar» en paneles
+  con borde, con panel AYUDA lateral en anchos; `F1` (además de `?`) abre la ayuda
+  del campo; versiones **cacheadas por motor** (no se repiden al cambiar de motor);
+  validación de puerto en vivo (debounce 300 ms), versión incompatible, riesgo
+  offline (también repetido en «Revisar») y error de creación visibles. Todo cabe
+  de 40×12 a 200×50 (alto exacto).
 
 ### 🔧 Cambiado
 

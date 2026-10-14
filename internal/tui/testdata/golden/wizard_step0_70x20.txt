@@ -2,19 +2,19 @@
 │ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
-│                                                                    │
-│ ▶ Nombre: > survival-amigos                                        │
-│     Nombre visible; también da nombre a carpeta y contenedor (min… │
-│   Motor: paper                                                     │
-│     El programa que ejecuta el servidor; define si puedes usar pl… │
-│   Versión de Minecraft: 1.21.4                                     │
-│     Los jugadores deben usar esta versión. La marcada ★ es la rec… │
-│                                                                    │
-│ ⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cua… │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
+│ ╭─ Básico ───────────────────────────────────────────────── 1/7 ─╮ │
+│ │▶ Nombre: > survival-amigos                                     │ │
+│ │    Nombre visible; también da nombre a carpeta y contenedor (m…│ │
+│ │  Motor: paper                                                  │ │
+│ │    El programa que ejecuta el servidor; define si puedes usar …│ │
+│ │  Versión de Minecraft: 1.21.4                                  │ │
+│ │    Los jugadores deben usar esta versión. La marcada ★ es la r…│ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.     │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                    │
-└─ [TAB] Siguiente:  …   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
+└─ [TAB] Siguiente  […   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

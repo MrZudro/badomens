@@ -240,7 +240,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case wizardCreatedMsg:
 		if msg.err != nil {
 			a.pushToast(a.cat.Tf("app.toast.create_fail", map[string]string{"cause": msg.err.Error()}), components.Destructive)
-			return a, nil
+			return a, a.router.Update(msg)
 		}
 		a.router.Pop()
 		a.pushToast(a.cat.Tf("app.toast.created", map[string]string{"name": msg.slug}))

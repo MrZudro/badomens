@@ -2,11 +2,11 @@
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
-│                                      │
-│ ▶ Jugadores máximos: > 20          … │
-│     Cuántos pueden estar conectados… │
-│   Dificultad: normal                 │
-│     Pacífico, Fácil, Normal o Difíc… │
-│   Modo de juego: survival            │
+│ ╭─ Jugadores ──────────────── 3/7 ─╮ │
+│ │▶ Jugadores máximos: > 20         │ │
+│ │    Cuántos pueden estar conectad…│ │
+│ │  Dificultad: normal              │ │
+│ │    Pacífico, Fácil, Normal o Dif…│ │
+│ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

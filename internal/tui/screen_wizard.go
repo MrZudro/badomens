@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/host"
@@ -29,6 +30,7 @@ type wizardCreatedMsg struct {
 
 type wizardVersionsMsg struct {
 	engine   string
+	snaps    bool
 	versions []engines.Version
 	err      error
 }
@@ -49,7 +51,7 @@ type wizardPortMsg struct {
 // wizField es un campo del asistente con su ayuda (RF-4).
 type wizField struct {
 	key     string
-	kind    string // text | cycle | bool | version
+	kind    string // text | cycle | bool | version | port
 	value   string
 	boolVal bool
 	options []string
@@ -82,11 +84,15 @@ type wizardScreen struct {
 	verEngine    string
 	verCursor    int
 	verLoading   bool
+	verErr       string
 	showSNAPS    bool
 	pickingVer   bool
 	versionsSeen bool
+	// verCache guarda las listas ya pedidas, por motor + snapshots: volver a un
+	// motor ya visto no repite la petición.
+	verCache map[string][]engines.Version
 
-	// Ayuda larga.
+	// Ayuda larga del campo (F1/?).
 	helpOpen bool
 
 	// Validación en vivo del puerto con debounce (RF-3).
@@ -102,16 +108,22 @@ type wizardScreen struct {
 func newWizardScreen(sv *svc.Services, pal theme.Palette, ascii bool) *wizardScreen {
 	in := textinput.New()
 	in.Width = 40
-	return &wizardScreen{svc: sv, pal: pal, ascii: ascii, mode: -1, input: in, engine: engines.Order[0]}
+	return &wizardScreen{
+		svc: sv, pal: pal, ascii: ascii, mode: -1, input: in,
+		engine: engines.Order[0], verCache: map[string][]engines.Version{},
+	}
 }
 
 func (w *wizardScreen) Init() tea.Cmd {
 	return func() tea.Msg { return wizardHostMsg{cap: host.Detect(context.Background())} }
 }
 
-func (w *wizardScreen) start(mode int) {
+// start prepara los pasos del modo elegido y devuelve el Cmd que carga el
+// catálogo de versiones (nil si el motor ya estaba en la caché, RF-5).
+func (w *wizardScreen) start(mode int) tea.Cmd {
 	w.mode = mode
 	w.step, w.cur = 0, 0
+	w.err = ""
 	def := func(key, val string) wizField {
 		return wizField{key: key, kind: "text", value: val}
 	}
@@ -152,7 +164,7 @@ func (w *wizardScreen) start(mode int) {
 		}
 	}
 	w.syncInput()
-	w.ensureVersions()
+	return w.loadVersions()
 }
 
 func (w *wizardScreen) currentStep() *wizStep {
@@ -178,21 +190,76 @@ func (w *wizardScreen) setField(f wizField) {
 	st.fields[w.cur] = f
 }
 
-func (w *wizardScreen) ensureVersions() {
-	w.verEngine = w.engine.Name
-	w.verLoading = true
-	w.versions = nil
-	w.verCursor = 0
+// --- Versiones con caché por motor y snapshots (RF-5) ---
+
+// verKeyOf identifica una lista de versiones: motor + modo snapshots.
+func verKeyOf(engine string, snaps bool) string {
+	return engine + "|" + strconv.FormatBool(snaps)
 }
 
+// verKey es la clave de caché de la selección actual.
+func (w *wizardScreen) verKey() string { return verKeyOf(w.engine.Name, w.showSNAPS) }
+
+// loadVersions sirve las versiones desde la caché del motor (y del modo
+// snapshots) y, si no están, devuelve el Cmd que las pide. Nunca se pide dos
+// veces la misma lista: cambiar de motor y volver no repite la consulta.
+func (w *wizardScreen) loadVersions() tea.Cmd {
+	w.verEngine = w.engine.Name
+	if list, ok := w.verCache[w.verKey()]; ok {
+		w.versions, w.verLoading, w.versionsSeen = list, false, true
+		w.verCursor, w.verErr = 0, ""
+		w.pickRecommended()
+		return nil
+	}
+	w.versions, w.verLoading, w.verCursor, w.verErr = nil, true, 0, ""
+	return w.versionsCmd()
+}
+
+// versionsCmd pide el catálogo del motor actual con contexto y timeout.
 func (w *wizardScreen) versionsCmd() tea.Cmd {
 	ref, engine, all := w.svc, w.engine.Name, w.showSNAPS
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 		defer cancel()
 		list, err := ref.Catalog.Versions(ctx, engine, all)
-		return wizardVersionsMsg{engine: engine, versions: list, err: err}
+		return wizardVersionsMsg{engine: engine, snaps: all, versions: list, err: err}
 	}
+}
+
+// noteVersions cachea el catálogo recibido y lo aplica solo si sigue
+// correspondiendo al motor y al modo snapshots vigentes (las respuestas
+// tardías se descartan, §7).
+func (w *wizardScreen) noteVersions(msg wizardVersionsMsg) {
+	if msg.err == nil && msg.versions != nil {
+		w.verCache[verKeyOf(msg.engine, msg.snaps)] = msg.versions
+	}
+	if msg.engine != w.engine.Name || msg.snaps != w.showSNAPS {
+		return
+	}
+	w.versions, w.verLoading, w.versionsSeen = msg.versions, false, true
+	w.verEngine = msg.engine
+	if msg.err != nil {
+		w.err = "no se pudieron cargar las versiones: " + msg.err.Error()
+		return
+	}
+	w.pickRecommended()
+}
+
+// toggleHelp abre o cierra la ayuda larga del campo activo (F1/?).
+func (w *wizardScreen) toggleHelp() {
+	if w.helpOpen {
+		w.helpOpen = false
+		return
+	}
+	if w.mode < 0 || w.currentStep() == nil {
+		return
+	}
+	// Abrir la ayuda no debe perder lo escrito: se confirma el campo y el foco
+	// vuelve al paso.
+	w.commitTextField()
+	w.edit = false
+	w.input.Blur()
+	w.helpOpen = true
 }
 
 func (w *wizardScreen) syncInput() {
@@ -217,13 +284,15 @@ func (w *wizardScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		w.cap = msg.cap
 		return w, nil
 	case wizardVersionsMsg:
-		if msg.engine == w.engine.Name {
-			w.versions, w.verLoading = msg.versions, false
-			w.versionsSeen = true
-			if w.verEngine != msg.engine {
-				w.verEngine = msg.engine
-			}
-			w.pickRecommended()
+		w.noteVersions(msg)
+		return w, nil
+	case wizardCreatedMsg:
+		if msg.err != nil {
+			// El error de creación se queda visible en el paso Revisar (§8).
+			w.err = "no se pudo crear: " + msg.err.Error()
+			w.step = len(w.steps) - 1
+			w.cur = 0
+			w.syncInput()
 		}
 		return w, nil
 	case wizardPortDebounceMsg:
@@ -250,18 +319,26 @@ func (w *wizardScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	if w.mode < 0 {
 		switch km.String() {
 		case "r":
-			w.start(0)
-			return w, w.versionsCmd()
+			return w, w.start(0)
 		case "a":
-			w.start(1)
-			return w, w.versionsCmd()
+			return w, w.start(1)
 		case "esc":
 			return w, func() tea.Msg { return popScreenMsg{} }
 		}
 		return w, nil
 	}
+	// F1 abre y cierra la ayuda del campo, también mientras se escribe: no es una
+	// tecla imprimible y no choca con el texto.
+	if km.String() == "f1" {
+		w.toggleHelp()
+		return w, nil
+	}
 	if w.helpOpen {
-		w.helpOpen = false
+		// La ayuda larga es modal: solo Esc o Enter la cierran (§5).
+		switch km.String() {
+		case "esc", "enter":
+			w.helpOpen = false
+		}
 		return w, nil
 	}
 	if w.pickingVer {
@@ -274,30 +351,34 @@ func (w *wizardScreen) handleVersionPicker(km tea.KeyMsg) (Screen, tea.Cmd) {
 	switch km.String() {
 	case "esc":
 		w.pickingVer = false
+		w.verErr = ""
 		w.syncInput()
 	case "j", "down":
 		if w.verCursor < len(w.versions)-1 {
 			w.verCursor++
 		}
+		w.verErr = ""
 	case "k", "up":
 		if w.verCursor > 0 {
 			w.verCursor--
 		}
+		w.verErr = ""
 	case "s":
+		// Cada variante (releases/snapshots) tiene su propia caché.
 		w.showSNAPS = !w.showSNAPS
-		w.verLoading = true
-		return w, w.versionsCmd()
+		w.verErr = ""
+		return w, w.loadVersions()
 	case "enter":
 		if w.verCursor >= 0 && w.verCursor < len(w.versions) {
 			v := w.versions[w.verCursor]
 			if !v.Compatible {
-				w.err = "esa versión no se puede usar: " + v.IncompatibleWhy
+				w.verErr = "esa versión no se puede usar: " + v.IncompatibleWhy
 				return w, nil
 			}
 			f, _ := w.currentField()
 			f.value = v.ID()
 			w.setField(f)
-			w.pickingVer = false
+			w.pickingVer, w.verErr, w.err = false, "", ""
 			return w, nil
 		}
 	}
@@ -334,6 +415,7 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 		if w.step > 0 {
 			w.step--
 			w.cur = 0
+			w.err = ""
 			w.syncInput()
 			return w, nil
 		}
@@ -344,6 +426,7 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 		if w.step > 0 {
 			w.step--
 			w.cur = 0
+			w.err = ""
 			w.syncInput()
 		}
 	case "down", "j":
@@ -364,13 +447,13 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 			w.syncInput()
 		}
 	case "left":
-		w.cycle(-1)
+		return w, w.cycle(-1)
 	case "right":
-		w.cycle(1)
+		return w, w.cycle(1)
 	case " ":
 		w.toggle()
 	case "?":
-		w.helpOpen = true
+		w.toggleHelp()
 	case "w":
 		w.enableWhitelist()
 	case "p":
@@ -382,9 +465,7 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 		return w.enterField()
 	}
 	return w, nil
-}
-
-// commitTextField vuelca el valor escrito al campo activo.
+} // commitTextField vuelca el valor escrito al campo activo.
 func (w *wizardScreen) commitTextField() {
 	f, ok := w.currentField()
 	if !ok || f.kind != "text" {
@@ -559,20 +640,18 @@ func (w *wizardScreen) enterField() (Screen, tea.Cmd) {
 	}
 	f, ok := w.currentField()
 	if !ok {
-		if w.nextStep() {
-			return w, nil
-		}
+		w.nextStep()
 		return w, nil
 	}
 	switch f.kind {
 	case "version":
 		w.pickingVer = true
+		w.verErr = ""
 		if len(w.versions) == 0 {
-			w.verLoading = true
-			return w, w.versionsCmd()
+			return w, w.loadVersions()
 		}
 	case "cycle":
-		w.cycle(1)
+		return w, w.cycle(1)
 	case "bool":
 		w.toggle()
 	default:
@@ -583,25 +662,25 @@ func (w *wizardScreen) enterField() (Screen, tea.Cmd) {
 	return w, nil
 }
 
-func (w *wizardScreen) cycle(d int) {
+// cycle cambia el valor del campo de ciclo enfocado. Al cambiar de motor
+// devuelve el Cmd de versiones (desde la caché si ya se pidió, RF-5).
+func (w *wizardScreen) cycle(d int) tea.Cmd {
 	f, ok := w.currentField()
 	if !ok || f.kind != "cycle" {
-		return
+		return nil
 	}
 	if f.key == "engine" {
 		w.engineIdx = (w.engineIdx + len(engines.Order) + d) % len(engines.Order)
 		w.engine = engines.Order[w.engineIdx]
 		f.value = w.engine.Name
-		// Cambio de motor: se recarga la lista de versiones y se elige la
-		// recomendada del nuevo motor (RF-5).
-		w.ensureVersions()
 		w.setField(f)
+		// El motor cambia el catálogo de versiones: se descarta la versión
+		// anterior y se elige la recomendada del nuevo motor (RF-5).
 		if v, ok := w.currentStep().findField("version"); ok {
 			v.value = ""
 			w.steps[w.step].fields = replaceField(w.steps[w.step].fields, v)
 		}
-		w.versionsCmd()
-		return
+		return w.loadVersions()
 	}
 	idx := 0
 	for i, o := range f.options {
@@ -613,6 +692,7 @@ func (w *wizardScreen) cycle(d int) {
 	idx = (idx + len(f.options) + d) % len(f.options)
 	f.value = f.options[idx]
 	w.setField(f)
+	return nil
 }
 
 func (w *wizardScreen) toggle() {
@@ -641,6 +721,7 @@ func (w *wizardScreen) nextStep() bool {
 	if w.step < len(w.steps)-1 {
 		w.step++
 		w.cur = 0
+		w.err = ""
 		w.syncInput()
 		return true
 	}
@@ -742,6 +823,7 @@ func (w *wizardScreen) create() tea.Cmd {
 		w.syncInput()
 		return nil
 	}
+	w.err = ""
 	ref := w.svc
 	cfg, wantIdle := w.idleConfig()
 	return tea.Batch(busyCmd(true), func() tea.Msg {
@@ -756,87 +838,228 @@ func (w *wizardScreen) create() tea.Cmd {
 		}
 		return wizardCreatedMsg{slug: slug}
 	})
+} // --- Vista (§5.12): todo dentro de paneles y ajustado a width×height ---
+
+// View pinta el asistente: el modo, el paso actual o la ayuda larga, siempre
+// dentro de paneles. El resultado ocupa exactamente height líneas de width
+// celdas como máximo (medido en celdas visuales, nunca con len()).
+func (w *wizardScreen) View(width, height int) string {
+	if width < 1 {
+		width = 1
+	}
+	if height < 1 {
+		height = 1
+	}
+	var out string
+	switch {
+	case w.mode < 0:
+		out = w.modeView(width, height)
+	case w.helpOpen:
+		out = w.helpView(width, height)
+	default:
+		out = w.stepView(width, height)
+	}
+	return fitBlock(out, width, height)
 }
 
-func (w *wizardScreen) View(width, height int) string {
-	if w.mode < 0 {
-		var b strings.Builder
-		b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.Accent)).Render("Nueva instancia"))
-		b.WriteString("\n\nElige cómo configurarla:\n\n")
-		b.WriteString(components.Button(components.Action{Verb: "Configuración", Object: "rápida (3 preguntas)", Key: "r", Hint: "Nombre, motor y memoria.", Kind: components.Primary}, true, w.pal))
-		b.WriteString("\n")
-		b.WriteString(components.Button(components.Action{Verb: "Configuración", Object: "avanzada (todas las opciones)", Key: "a", Hint: "Los 7 pasos, con ayuda por campo.", Kind: components.Secondary}, false, w.pal))
-		b.WriteString("\n\nLos valores recomendados aparecen en el resumen antes de crear.")
-		return b.String()
+// fitBlock ajusta un bloque a exactamente h líneas de w celdas: recorta con «…»
+// lo que sobra y rellena con líneas vacías lo que falta.
+func fitBlock(s string, w, h int) string {
+	lines := strings.Split(s, "\n")
+	if len(lines) > h {
+		lines = lines[:h]
 	}
-	var b strings.Builder
+	for i := range lines {
+		lines[i] = truncCells(lines[i], w)
+	}
+	for len(lines) < h {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
+}
+
+// truncCells recorta una línea a w celdas conservando las secuencias ANSI.
+func truncCells(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	if layout.Width(s) <= w {
+		return s
+	}
+	return ansi.Truncate(s, w, "…")
+}
+
+// modeView elige entre configuración rápida y avanzada dentro de un panel, con
+// las dos opciones como botones (RF-4).
+func (w *wizardScreen) modeView(width, height int) string {
+	quick := components.Action{ID: "wizard.quick", Verb: "Configuración", Object: "rápida (3 preguntas)", Key: "r", Hint: "Nombre, motor y memoria.", Kind: components.Primary}
+	adv := components.Action{ID: "wizard.advanced", Verb: "Configuración", Object: "avanzada (todas las opciones)", Key: "a", Hint: "Los 7 pasos, con ayuda por campo.", Kind: components.Secondary}
+	body := []string{
+		" Elige cómo configurarla:",
+		"",
+		" " + components.Button(quick, true, w.pal),
+		" " + components.Button(adv, false, w.pal),
+		"",
+		" Los valores recomendados aparecen en el resumen antes de crear.",
+		"",
+		" Pulsa [R] o [A] para empezar · [Esc] vuelve sin crear.",
+	}
+	return components.Panel("NUEVA INSTANCIA", "", strings.Join(body, "\n"), width, height, true, w.pal, w.ascii)
+}
+
+// stepView pinta el Stepper en una línea y, debajo, el panel del paso (o el
+// selector de versiones) con el panel AYUDA lateral cuando hay ancho (§5.12).
+func (w *wizardScreen) stepView(width, height int) string {
+	stepper := truncCells(components.Stepper(w.stepTitles(), w.step, w.pal), width)
+	panelH := height - 1
+	if panelH < 2 {
+		return stepper
+	}
+	title, right := w.panelHead()
+	formW, helpW, split := wizardSplit(width)
+	inner := width - 2
+	if split {
+		inner = formW - 2
+	}
+	panel := components.Panel(title, right, strings.Join(w.panelBody(inner, panelH-2, split), "\n"), formW, panelH, true, w.pal, w.ascii)
+	if !split {
+		return stepper + "\n" + panel
+	}
+	help := components.Panel("AYUDA", "", strings.Join(w.helpBody(helpW-2, panelH-2), "\n"), helpW, panelH, false, w.pal, w.ascii)
+	return stepper + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, panel, help)
+}
+
+// panelHead devuelve el título y el contador del panel activo: el selector de
+// versiones y el paso Revisar tienen su propio título (§5.12).
+func (w *wizardScreen) panelHead() (title, right string) {
+	switch {
+	case w.pickingVer:
+		return "VERSIONES", w.engine.Label
+	case w.step == len(w.steps)-1:
+		return "REVISAR", w.stepCounter()
+	}
+	title = "Instancia"
+	if st := w.currentStep(); st != nil {
+		title = st.title
+	}
+	return title, w.stepCounter()
+}
+
+// stepCounter es el contador «n/N» de pasos del borde del panel.
+func (w *wizardScreen) stepCounter() string {
+	return itoa(w.step+1) + "/" + itoa(len(w.steps))
+}
+
+// stepTitles son los títulos de los pasos para el Stepper.
+func (w *wizardScreen) stepTitles() []string {
 	titles := make([]string, len(w.steps))
 	for i, st := range w.steps {
 		titles[i] = st.title
 	}
-	b.WriteString(components.Stepper(titles, w.step, w.pal))
-	b.WriteString("\n\n")
-
-	wide := width >= 100
-	formW := width
-	if wide {
-		formW = width * 3 / 5
-	}
-	form := w.formView(formW)
-	if wide {
-		side := w.helpPanel(width - formW - 4)
-		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, form, "   ", side))
-	} else {
-		b.WriteString(form)
-	}
-	if w.helpOpen {
-		b.WriteString("\n\n" + w.longHelp())
-	}
-	if w.err != "" {
-		b.WriteString("\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Bad)).Render(components.Warn(w.ascii)+" "+w.err))
-	}
-	return b.String()
+	return titles
 }
 
-func (w *wizardScreen) formView(width int) string {
-	var b strings.Builder
-	if w.step == len(w.steps)-1 {
-		b.WriteString(w.reviewView())
-		return b.String()
+// panelBody compone el cuerpo del panel activo: formulario, versiones o resumen.
+func (w *wizardScreen) panelBody(inner, budget int, sideHelp bool) []string {
+	switch {
+	case w.pickingVer:
+		return w.pickerBody(inner, budget)
+	case w.step == len(w.steps)-1:
+		return w.reviewBody(inner, budget)
 	}
+	return w.formBody(inner, budget, sideHelp)
+}
+
+// wizardSplit reparte el ancho entre el panel del formulario y el de ayuda: en
+// terminales anchas hay panel lateral; en las estrechas el formulario ocupa todo
+// el ancho y la ayuda corta va bajo cada campo (§4.1).
+func wizardSplit(w int) (formW, helpW int, ok bool) {
+	if w < 100 {
+		return w, 0, false
+	}
+	helpW = w * 34 / 100
+	if helpW < 30 {
+		helpW = 30
+	}
+	if helpW > 56 {
+		helpW = 56
+	}
+	formW = w - helpW
+	if formW < 52 {
+		return w, 0, false
+	}
+	return formW, helpW, true
+}
+
+// formBody compone el formulario del paso en `budget` líneas: mantiene visible
+// el campo enfocado (etiqueta, valor y validación) y deja sitio, si el aviso
+// cabe entero, a los estados de error y riesgo (§8/UI-05).
+func (w *wizardScreen) formBody(inner, budget int, sideHelp bool) []string {
 	st := w.currentStep()
+	if st == nil || budget < 1 {
+		return nil
+	}
+	if inner < 4 {
+		inner = 4
+	}
+	lines := make([]string, 0, len(st.fields)*2)
+	focus := -1
 	for i, f := range st.fields {
-		h, _ := help.Get(f.key)
-		label := h.Title
-		if label == "" {
-			label = f.key
+		focused := i == w.cur
+		if focused {
+			focus = len(lines)
+			if w.edit {
+				// El campo enfocado ajusta su ancho al del panel: nada de anchos
+				// fijos desconectados del terminal. Se descuentan el prompt del
+				// input y una celda de holgura para el cursor.
+				avail := inner - layout.Width(w.fieldPrefix(f, true)) - layout.Width(w.input.Prompt) - 1
+				w.input.Width = max(1, avail)
+			}
 		}
-		marker, style := "  ", lipgloss.NewStyle()
-		if i == w.cur && !w.pickingVer {
-			marker = components.Pointer(w.ascii) + " "
-			style = style.Bold(true).Foreground(lipgloss.Color(w.pal.Accent))
-		}
-		val := w.fieldValue(f)
-		b.WriteString(marker + style.Render(label) + ": " + val + "\n")
-		if h.Short != "" {
-			b.WriteString("    " + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render(layout.Truncate(h.Short, maxi(width-4, 20))) + "\n")
+		lines = append(lines, truncCells(w.fieldPrefix(f, focused)+w.fieldValue(f), inner))
+		if h, ok := help.Get(f.key); ok && h.Short != "" {
+			lines = append(lines, truncCells(w.fieldHelpLine(h, sideHelp), inner))
 		}
 		if f.key == "port" {
 			if line := w.portStatusLine(); line != "" {
-				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(w.portColor())).Render(line) + "\n")
+				lines = append(lines, truncCells(lipgloss.NewStyle().Foreground(lipgloss.Color(w.portColor())).Render(line), inner))
 			}
 		}
 	}
-	// Aviso P-05: modo offline sin whitelist.
-	if w.offlineRisk() {
-		b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Warn)).Render(components.Warn(w.ascii)+" Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.") + "\n")
+	// El foco manda: los avisos se llevan como mucho la mitad del cuerpo.
+	maxTail := budget / 2
+	var tail []string
+	for _, blk := range w.statusBlocks(inner) {
+		if len(tail)+len(blk) > maxTail {
+			continue
+		}
+		tail = append(tail, blk...)
 	}
-	if w.pickingVer {
-		b.WriteString("\n" + w.versionPicker(width))
+	out := windowLines(lines, focus, budget-len(tail))
+	out = append(out, tail...)
+	if len(out) > budget {
+		out = out[:budget]
 	}
-	return b.String()
+	return out
 }
 
+// fieldPrefix compone el prefijo de un campo (puntero + etiqueta + «: »).
+func (w *wizardScreen) fieldPrefix(f wizField, focused bool) string {
+	label := f.key
+	if h, ok := help.Get(f.key); ok && h.Title != "" {
+		label = h.Title
+	}
+	marker := "  "
+	style := lipgloss.NewStyle()
+	if focused {
+		marker = components.Pointer(w.ascii) + " "
+		style = style.Bold(true).Foreground(lipgloss.Color(w.pal.Accent))
+	}
+	return marker + style.Render(label) + ": "
+}
+
+// fieldValue pinta el valor de un campo: el texto en edición, el valor guardado
+// o el estado explícito cuando aún no hay valor (nunca un hueco en blanco).
 func (w *wizardScreen) fieldValue(f wizField) string {
 	switch f.kind {
 	case "bool":
@@ -868,127 +1091,247 @@ func (w *wizardScreen) fieldValue(f wizField) string {
 	return f.value
 }
 
-// versionPicker pinta la lista de versiones del motor (RF-5).
-func (w *wizardScreen) versionPicker(width int) string {
-	var b strings.Builder
-	head := "Versiones de " + w.engine.Label
-	if w.showSNAPS {
-		head += " (con snapshots/beta)"
+// fieldHelpLine es la ayuda corta del campo. En terminal estrecha (sin panel de
+// ayuda lateral) añade el impacto, que si no quedaría oculto.
+func (w *wizardScreen) fieldHelpLine(h help.Help, sideHelp bool) string {
+	short := h.Short
+	if !sideHelp && len(h.Impact) > 0 {
+		short += " · " + impactText(h.Impact)
 	}
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.Accent)).Render(head) + "\n")
-	if w.verLoading {
-		return b.String() + "  ⟳ cargando catálogo…\n"
+	return "    " + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render(short)
+}
+
+// statusBlocks son los avisos de estado que acompañan al formulario, en orden de
+// prioridad y como bloques completos: error, versión incompatible y riesgo
+// offline (§8). Nunca se muestra media frase.
+func (w *wizardScreen) statusBlocks(inner int) [][]string {
+	var blocks [][]string
+	if w.err != "" {
+		blocks = append(blocks, blockLines(components.Cross(w.ascii), w.err, w.pal.Bad, inner))
 	}
-	if len(w.versions) == 0 {
-		return b.String() + "  (sin versiones; se usará el catálogo embebido)\n"
+	if issue := w.versionIssue(); issue != "" {
+		blocks = append(blocks, blockLines(components.Cross(w.ascii), issue, w.pal.Bad, inner))
 	}
-	shown := 0
+	if w.offlineRisk() {
+		blocks = append(blocks, blockLines(components.Warn(w.ascii),
+			"Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.",
+			w.pal.Warn, inner))
+	}
+	return blocks
+}
+
+// versionIssue avisa si la versión elegida está marcada como no utilizable.
+func (w *wizardScreen) versionIssue() string {
+	v := w.versionValue()
+	if v == "" {
+		return ""
+	}
+	for _, ver := range w.versions {
+		if ver.ID() == v && !ver.Compatible {
+			return "esa versión no se puede usar: " + ver.IncompatibleWhy
+		}
+	}
+	return ""
+}
+
+// versionValue es la versión elegida (en cualquier paso del asistente).
+func (w *wizardScreen) versionValue() string {
+	for _, st := range w.steps {
+		if f, ok := st.findField("version"); ok {
+			return strings.TrimSpace(f.value)
+		}
+	}
+	return ""
+}
+
+// pickerBody lista las versiones dentro del panel VERSIONES, con la ventana
+// centrada en el cursor y el pie de teclas siempre visible (RF-5).
+func (w *wizardScreen) pickerBody(inner, budget int) []string {
+	if budget < 1 {
+		return nil
+	}
+	if inner < 8 {
+		inner = 8
+	}
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted))
+	hint := truncCells(muted.Render("[S] "+snapToggle(w.showSNAPS)+" · [Enter] Elegir · [Esc] Cerrar"), inner)
+	switch {
+	case w.verLoading:
+		return []string{muted.Render("⟳ cargando catálogo…"), hint}
+	case len(w.versions) == 0:
+		return []string{muted.Render("(sin versiones; se usará el catálogo embebido)"), hint}
+	}
+	lines := make([]string, 0, len(w.versions))
 	for i, v := range w.versions {
-		if shown >= 8 {
-			break
-		}
-		shown++
-		star := "  "
-		if v.Recommended {
-			star = "★ "
-		}
-		detail := versionDetail(v)
-		line := star + v.ID() + "  " + detail
-		if i == w.verCursor {
-			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.AccentText)).Background(lipgloss.Color(w.pal.Accent)).Render(components.Pointer(w.ascii)+" "+layout.Truncate(line, width-3)) + "\n")
-		} else if !v.Compatible {
-			b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render("  "+layout.Truncate(line+"  ✖ "+v.IncompatibleWhy, width-3)) + "\n")
-		} else {
-			b.WriteString("  " + layout.Truncate(line, width-3) + "\n")
-		}
+		lines = append(lines, w.versionLine(v, i == w.verCursor, inner))
 	}
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render("  [S] " + snapToggle(w.showSNAPS) + " · [Enter] Elegir · [Esc] Cerrar"))
-	return b.String()
+	reserved := 1 // el pie de teclas
+	if w.verErr != "" {
+		reserved++
+	}
+	if reserved > budget {
+		reserved = budget
+	}
+	out := windowLines(lines, w.verCursor, budget-reserved)
+	if w.verErr != "" {
+		out = append(out, truncCells(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Bad)).Render(components.Cross(w.ascii)+" "+w.verErr), inner))
+	}
+	out = append(out, hint)
+	if len(out) > budget {
+		out = out[:budget]
+	}
+	return out
 }
 
-func versionDetail(v engines.Version) string {
-	parts := []string{}
-	if v.Channel != "" && v.Channel != engines.ChannelRelease {
-		parts = append(parts, string(v.Channel))
+// versionLine pinta una versión: ★ la recomendada, puntero si está enfocada y ✖
+// con el motivo si no se puede usar.
+func (w *wizardScreen) versionLine(v engines.Version, focused bool, inner int) string {
+	star := "  "
+	if v.Recommended {
+		star = "★ "
 	}
-	if v.JavaMajor > 0 {
-		parts = append(parts, "Java "+strconv.Itoa(v.JavaMajor))
+	line := star + v.ID()
+	if detail := versionDetail(v); detail != "" {
+		line += "  " + detail
 	}
-	if v.Build != "" {
-		parts = append(parts, "build "+v.Build)
+	switch {
+	case focused:
+		style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.AccentText)).Background(lipgloss.Color(w.pal.Accent))
+		return truncCells(style.Render(components.Pointer(w.ascii)+" "+line), inner)
+	case !v.Compatible:
+		why := ""
+		if v.IncompatibleWhy != "" {
+			why = "  " + components.Cross(w.ascii) + " " + v.IncompatibleWhy
+		}
+		return truncCells(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render("  "+line+why), inner)
 	}
-	if !v.ReleasedAt.IsZero() {
-		parts = append(parts, sinceText(v.ReleasedAt))
-	}
-	return strings.Join(parts, " · ")
+	return truncCells("  "+line, inner)
 }
 
-func snapToggle(on bool) string {
-	if on {
-		return "ocultar snapshots"
+// reviewBody resume la instancia a crear dentro del panel REVISAR, dejando
+// visibles el error (si lo hubo) y la tecla de creación (§8).
+func (w *wizardScreen) reviewBody(inner, budget int) []string {
+	if budget < 1 {
+		return nil
 	}
-	return "mostrar snapshots"
-}
-
-func (w *wizardScreen) reviewView() string {
-	var b strings.Builder
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Revisar y crear") + "\n\n")
+	if inner < 8 {
+		inner = 8
+	}
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted))
+	var lines []string
 	for _, st := range w.steps {
 		if st.title == "Revisar" {
 			continue
 		}
 		for _, f := range st.fields {
-			h, _ := help.Get(f.key)
-			label := h.Title
-			if label == "" {
-				label = f.key
+			label := f.key
+			if h, ok := help.Get(f.key); ok && h.Title != "" {
+				label = h.Title
 			}
-			b.WriteString("  " + label + ": " + w.reviewValue(f) + "\n")
+			lines = append(lines, truncCells("  "+label+": "+w.reviewValue(f), inner))
 		}
 	}
 	if !w.hasPortField() {
-		b.WriteString("  Puerto: automático (el primero libre)\n")
+		lines = append(lines, truncCells("  Puerto: automático (el primero libre)", inner))
 	}
 	if w.cap.NCPU > 0 {
-		b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render("Capacidad: "+strconv.Itoa(w.cap.NCPU)+" CPU · "+trimFloat(w.cap.MemTotalGiB())+" GiB RAM") + "\n")
+		lines = append(lines, truncCells(muted.Render("Capacidad: "+strconv.Itoa(w.cap.NCPU)+" CPU · "+trimFloat(w.cap.MemTotalGiB())+" GiB RAM"), inner))
 	}
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render("[Enter] Crear y arrancar · [Esc] Volver a editar"))
-	return b.String()
+	var tail []string
+	if w.err != "" {
+		tail = append(tail, truncCells(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Bad)).Render(components.Cross(w.ascii)+" "+w.err), inner))
+	}
+	if w.offlineRisk() {
+		// El resumen repite el riesgo antes de crear, como bloque completo (sin
+		// truncar), para que no se pierda el aviso visto en Jugadores (§8/P-05).
+		tail = append(tail, blockLines(components.Warn(w.ascii),
+			"Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. [W] activa la lista blanca.",
+			w.pal.Warn, inner)...)
+	}
+	tail = append(tail, truncCells(muted.Render("[Enter] Crear y arrancar · [Esc] Volver a editar"), inner))
+	avail := budget - len(tail)
+	if avail < 0 {
+		avail = 0
+	}
+	out := append([]string{}, lines[:min(len(lines), avail)]...)
+	out = append(out, tail...)
+	if len(out) > budget {
+		out = out[:budget]
+	}
+	return out
 }
 
-func (w *wizardScreen) helpPanel(width int) string {
-	str := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.Accent)).Render("¿Qué es esto?") + "\n\n"
+// helpBody compone el panel AYUDA con la explicación del campo enfocado.
+func (w *wizardScreen) helpBody(inner, budget int) []string {
+	if budget < 1 {
+		return nil
+	}
+	if inner < 8 {
+		inner = 8
+	}
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted))
 	f, ok := w.currentField()
 	if !ok {
-		return lipgloss.NewStyle().Width(maxi(width, 20)).Render(str)
+		return []string{muted.Render("Sin campo activo en este paso.")}
 	}
 	h, _ := help.Get(f.key)
+	warn := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Warn))
+	var lines []string
+	// Cada párrafo se envuelve por palabras: en paneles estrechos ni el ejemplo
+	// ni el impacto se recortan a mitad de frase.
+	para := func(text string, style lipgloss.Style) {
+		for _, l := range wrapWords(text, inner) {
+			lines = append(lines, style.Render(l))
+		}
+	}
 	if h.Long != "" {
-		str += wrapText(h.Long, maxi(width-2, 20))
+		para(h.Long, lipgloss.NewStyle())
 	}
 	if h.Example != "" {
-		str += "\n\nEjemplo: " + h.Example
+		lines = append(lines, "")
+		para("Ejemplo: "+h.Example, muted)
 	}
 	if h.Default != "" {
-		str += "\nPor defecto: " + h.Default
+		para("Por defecto: "+h.Default, muted)
 	}
 	if len(h.Impact) > 0 {
-		str += "\n\n" + impactText(h.Impact)
+		lines = append(lines, "")
+		para(impactText(h.Impact), warn)
 	}
-	return lipgloss.NewStyle().Border(components.Border(w.ascii)).BorderForeground(lipgloss.Color(w.pal.Border)).Padding(0, 1).Width(maxi(width-2, 18)).Render(str)
+	clipped := len(lines) > budget
+	out := lines[:min(len(lines), budget)]
+	for i := range out {
+		if clipped && i == len(out)-1 {
+			// Marca de recorte: se ve que hay más texto (F1 lo muestra entero).
+			out[i] = truncCells(out[i]+" …", inner)
+			continue
+		}
+		out[i] = truncCells(out[i], inner)
+	}
+	return out
 }
 
-func (w *wizardScreen) longHelp() string {
+// helpView es la ayuda larga (F1/?) en un panel modal: solo ella recibe teclas
+// hasta que Esc o Enter la cierren (§5).
+func (w *wizardScreen) helpView(width, height int) string {
+	inner, budget := width-2, height-2
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted))
 	f, ok := w.currentField()
 	if !ok {
-		return ""
+		return components.Panel("AYUDA", "Esc/F1", "Sin campo activo.", width, height, true, w.pal, w.ascii)
 	}
 	h, _ := help.Get(f.key)
-	box := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.Accent)).Render(h.Title) + "\n\n" + h.Long
-	return lipgloss.NewStyle().Border(components.Border(w.ascii)).BorderForeground(lipgloss.Color(w.pal.Border)).Padding(0, 1).Render(box)
-}
-
-// offlineRisk indica que se creará en modo offline sin lista blanca (P-05).
+	title := "AYUDA"
+	if h.Title != "" {
+		title = "AYUDA · " + h.Title
+	}
+	var body []string
+	if budget >= 1 {
+		body = w.helpBody(inner, budget-1)
+		body = append(body, truncCells(muted.Render("Pulsa Esc o F1 para volver al formulario."), inner))
+	}
+	return components.Panel(title, "Esc/F1", strings.Join(body, "\n"), width, height, true, w.pal, w.ascii)
+} // offlineRisk indica que se creará en modo offline sin lista blanca (P-05).
 func (w *wizardScreen) offlineRisk() bool {
 	var online, whitelist bool
 	seen := false
@@ -1046,8 +1389,23 @@ func (w *wizardScreen) Actions() []components.Action {
 			{ID: "wizard.cancel", Verb: "Volver", Object: "sin crear", Key: "esc", Hint: "Cancela el asistente.", Kind: components.Navigation},
 		}
 	}
-	out := []components.Action{
-		{ID: "wizard.next", Verb: "Siguiente:", Object: "Revisar", Key: "tab", Hint: "Avanza al siguiente paso.", Kind: components.Primary},
+	out := []components.Action{}
+	if w.step == len(w.steps)-1 {
+		out = append(out, components.Action{
+			ID: "wizard.create", Verb: "Crear", Object: "la instancia", Key: "enter",
+			Hint: "Crea la instancia con los valores revisados.", Kind: components.Primary,
+		})
+	} else {
+		out = append(out, components.Action{
+			ID: "wizard.next", Verb: "Siguiente", Object: "paso", Key: "tab",
+			Hint: "Avanza al siguiente paso del asistente.", Kind: components.Primary,
+		})
+	}
+	if w.offlineRisk() {
+		out = append(out, components.Action{
+			ID: "wizard.whitelist", Verb: "Activar", Object: "la lista blanca", Key: "w",
+			Hint: "Impide que entren nombres suplantados.", Kind: components.Secondary,
+		})
 	}
 	if w.portSuggest > 0 {
 		out = append(out, components.Action{
@@ -1063,13 +1421,13 @@ func (w *wizardScreen) Actions() []components.Action {
 func (w *wizardScreen) Invoke(id string) tea.Cmd {
 	switch id {
 	case "wizard.quick":
-		w.start(0)
-		return w.versionsCmd()
+		return w.start(0)
 	case "wizard.advanced":
-		w.start(1)
-		return w.versionsCmd()
+		return w.start(1)
 	case "wizard.next":
 		w.nextStep()
+	case "wizard.whitelist":
+		w.enableWhitelist()
 	case "wizard.useport":
 		if w.portSuggest > 0 {
 			w.setPortField(itoa(w.portSuggest))
@@ -1139,32 +1497,75 @@ func sinceText(t time.Time) string {
 	}
 }
 
-func wrapText(s string, width int) string {
-	if width < 10 {
-		width = 10
+func versionDetail(v engines.Version) string {
+	parts := []string{}
+	if v.Channel != "" && v.Channel != engines.ChannelRelease {
+		parts = append(parts, string(v.Channel))
 	}
-	words := strings.Fields(s)
-	var b strings.Builder
-	line := 0
-	for i, word := range words {
-		if line > 0 && line+1+len([]rune(word)) > width {
-			b.WriteString("\n")
-			line = 0
-		} else if i > 0 {
-			b.WriteString(" ")
-			line++
-		}
-		b.WriteString(word)
-		line += len([]rune(word))
+	if v.JavaMajor > 0 {
+		parts = append(parts, "Java "+strconv.Itoa(v.JavaMajor))
 	}
-	return b.String()
+	if v.Build != "" {
+		parts = append(parts, "build "+v.Build)
+	}
+	if !v.ReleasedAt.IsZero() {
+		parts = append(parts, sinceText(v.ReleasedAt))
+	}
+	return strings.Join(parts, " · ")
 }
 
-func maxi(a, b int) int {
-	if a > b {
-		return a
+func snapToggle(on bool) string {
+	if on {
+		return "ocultar snapshots"
 	}
-	return b
+	return "mostrar snapshots"
+}
+
+// windowLines recorta `lines` a `budget` líneas manteniendo visible la línea
+// enfocada, para que el campo activo nunca quede fuera del panel.
+func windowLines(lines []string, focus, budget int) []string {
+	if budget <= 0 {
+		return nil
+	}
+	if len(lines) <= budget {
+		return lines
+	}
+	if focus < 0 || focus < budget {
+		return lines[:budget]
+	}
+	start := focus - budget + 1
+	end := start + budget
+	if end > len(lines) {
+		end = len(lines)
+		start = end - budget
+	}
+	if start < 0 {
+		start = 0
+	}
+	return lines[start:end]
+}
+
+// blockLines compone un aviso como bloque completo: icono, texto envuelto por
+// palabras y continuación alineada bajo el texto (nunca a ras del borde).
+func blockLines(icon, text, color string, inner int) []string {
+	if inner < 8 {
+		inner = 8
+	}
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
+	prefix := ""
+	if icon != "" {
+		prefix = icon + " "
+	}
+	body := wrapWords(text, max(8, inner-layout.Width(prefix)))
+	out := make([]string, 0, len(body))
+	for i, l := range body {
+		if i == 0 {
+			out = append(out, style.Render(prefix+l))
+			continue
+		}
+		out = append(out, style.Render("  "+l))
+	}
+	return out
 }
 
 // findField busca un campo por clave dentro del paso.
