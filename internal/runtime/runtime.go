@@ -16,6 +16,7 @@ import (
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/execx"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/tailscale"
 )
 
@@ -200,8 +201,20 @@ func (r *Runtime) Start(ctx context.Context, spec *instance.Spec) error {
 	if err := os.WriteFile(r.ComposePath(r.Cfg.DataDir, spec.Slug), raw, 0o644); err != nil {
 		return err
 	}
-	_, err = r.compose(ctx, spec.Slug, "up", "-d")
-	return err
+	if res, uerr := r.compose(ctx, spec.Slug, "up", "-d"); uerr != nil {
+		msg := uerr.Error()
+		if res.Stderr != "" {
+			msg += "\n" + res.Stderr
+		}
+		if _, ok := ports.TranslateUpError(msg); ok {
+			return errx.Capacity(
+				fmt.Sprintf("el puerto %d está ocupado y Docker no pudo publicar la instancia", spec.Port),
+				"usa otro puerto libre o libera el que está ocupado",
+			).WithDetail("reason", "port_in_use").WithDetail("port", spec.Port)
+		}
+		return uerr
+	}
+	return nil
 }
 
 // Stop detiene el contenedor sin quitarlo.

@@ -20,8 +20,12 @@ import (
 	"github.com/MrZudro/badomens/internal/idle"
 )
 
-// Nombre del archivo de definición de la instancia.
+// SpecFile es el nombre del archivo de definición de la instancia.
 const SpecFile = "instance.yaml"
+
+// SchemaVersion es la versión actual del esquema del registro de instancias.
+// Se incrementa al añadir campos y `migrate` los rellena de forma idempotente.
+const SchemaVersion = 2
 
 var (
 	slugRe    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,23}$`)
@@ -31,7 +35,9 @@ var (
 
 // Spec es la definición completa de una instancia.
 type Spec struct {
-	Slug             string            `yaml:"slug" json:"slug"`
+	Slug string `yaml:"slug" json:"slug"`
+	// SchemaVersion es la versión del esquema con la que se guardó (migración).
+	SchemaVersion    int               `yaml:"schema_version,omitempty" json:"schema_version,omitempty"`
 	Name             string            `yaml:"name" json:"name"`
 	Engine           string            `yaml:"engine" json:"engine"`
 	Version          string            `yaml:"version" json:"version"`
@@ -145,11 +151,28 @@ func (m *Manager) Load(slug string) (*Spec, error) {
 	if err := yaml.Unmarshal(raw, &s); err != nil {
 		return nil, fmt.Errorf("instancia %q ilegible: %w", slug, err)
 	}
+	migrate(&s)
 	return &s, nil
+}
+
+// migrate sube una instancia de esquemas anteriores de forma idempotente. Las
+// instancias antiguas arrancan con idle deshabilitado (cero valor) y connection
+// se calcula en el primer start/inspect; aquí solo se normaliza y se marca la
+// versión.
+func migrate(s *Spec) {
+	if s.Idle == (idle.Config{}) {
+		s.Idle.Enabled = false
+	}
+	if s.SchemaVersion < SchemaVersion {
+		s.SchemaVersion = SchemaVersion
+	}
 }
 
 // Save escribe la definición de la instancia.
 func (m *Manager) Save(s *Spec) error {
+	if s.SchemaVersion == 0 {
+		s.SchemaVersion = SchemaVersion
+	}
 	if err := os.MkdirAll(m.Dir(s.Slug), 0o700); err != nil {
 		return err
 	}

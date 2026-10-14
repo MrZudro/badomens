@@ -12,16 +12,15 @@ import (
 type paletteScreen struct {
 	picker *components.Picker
 	pal    theme.Palette
-	chosen components.Action
-	has    bool
+	ascii  bool
 }
 
-func newPaletteScreen(actions []components.Action, pal theme.Palette) *paletteScreen {
+func newPaletteScreen(actions []components.Action, pal theme.Palette, ascii bool) *paletteScreen {
 	items := make([]components.PickerItem, 0, len(actions))
 	for _, a := range actions {
 		items = append(items, components.PickerItem{Label: a.Label(), Value: a.ID, Detail: a.Key})
 	}
-	return &paletteScreen{picker: components.NewPicker("Comandos", items), pal: pal}
+	return &paletteScreen{picker: components.NewPicker("Comandos", items), pal: pal, ascii: ascii}
 }
 
 func (p *paletteScreen) Init() tea.Cmd { return nil }
@@ -32,7 +31,7 @@ func (p *paletteScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		return p, nil
 	}
 	switch km.String() {
-	case "up", "k":
+	case "up", "k", "ctrl+p":
 		p.picker.Move(-1)
 	case "down", "j":
 		p.picker.Move(1)
@@ -40,8 +39,8 @@ func (p *paletteScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		p.picker.Backspace()
 	case "enter":
 		if it, ok := p.picker.Selected(); ok {
-			p.chosen = components.Action{ID: it.Value}
-			p.has = true
+			id := it.Value
+			return nil, func() tea.Msg { return paletteChosenMsg{id: id} }
 		}
 		return nil, nil
 	case "esc":
@@ -55,7 +54,7 @@ func (p *paletteScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 }
 
 func (p *paletteScreen) View(w, h int) string {
-	return components.Modal{Title: "Paleta de comandos", Body: p.picker.Render(w-6, h-4, p.pal)}.Render(w, p.pal)
+	return components.Modal{Title: "Paleta de comandos", Body: p.picker.Render(w-6, h-4, p.pal, p.ascii)}.Render(w, p.pal, p.ascii)
 }
 
 func (p *paletteScreen) Actions() []components.Action { return nil }

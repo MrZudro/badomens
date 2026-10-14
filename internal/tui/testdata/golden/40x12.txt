@@ -1,0 +1,8 @@
+┌ badomens                 ● Docker OK ┐
+INSTANCIAS (2/5 · 1/3 en marcha)
+▶ Survival  0/20  4G  pto 25565
+  Creativo  0/0  2G  pto 25566
+· Iniciar «survival» — Ya está en marcha
+[P] Detener «survival» (guarda el mundo)
+[R] Reiniciar «survival»  [M] Más…
+  ? Ayuda · Ctrl+P Comandos · Tab Panel…

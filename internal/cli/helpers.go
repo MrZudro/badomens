@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/instance"
@@ -16,6 +17,32 @@ import (
 	"github.com/MrZudro/badomens/internal/runtime"
 	"github.com/spf13/cobra"
 )
+
+// dockerDiagnosis devuelve el diagnóstico de Docker (RF-6).
+func (e *Env) dockerDiagnosis(ctx context.Context) dockerx.Diagnosis {
+	return dockerx.Diagnose(ctx, dockerx.DefaultEnv())
+}
+
+// dockerPreflight devuelve un error tipado si Docker no está listo (RF-6).
+func (e *Env) dockerPreflight(ctx context.Context) error {
+	diag := e.dockerDiagnosis(ctx)
+	if diag.State.Ready() {
+		return nil
+	}
+	return dockerx.ErrFor(diag)
+}
+
+// instanceArg resuelve la instancia desde el argumento posicional o desde el
+// flag global -i (la spec documenta `badomens -i <n> connect`).
+func (e *Env) instanceArg(args []string) (string, error) {
+	if len(args) == 1 && strings.TrimSpace(args[0]) != "" {
+		return args[0], nil
+	}
+	if e.instanceFlag != "" {
+		return e.instanceFlag, nil
+	}
+	return "", errx.Usage("falta la instancia", "indica la instancia con -i <slug> o como argumento")
+}
 
 // engineNames devuelve los nombres de motores en orden estable.
 func engineNames() []string {

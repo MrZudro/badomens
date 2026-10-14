@@ -66,3 +66,13 @@ func (l *Lock) Release() error {
 	}
 	return nil
 }
+
+// WatcherActive indica si hay un vigilante con latido reciente en la ruta del
+// pidfile (ni la TUI ni el demonio están corriendo si es false).
+func WatcherActive(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return time.Since(info.ModTime()) <= lockStaleAfter
+}

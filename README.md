@@ -216,7 +216,7 @@ badomens instance close survival
 | `badomens logs` · `badomens console <cmd>` | 📜 logs y consola de una instancia |
 | `badomens doctor tps` | 🩺 diagnóstico de TPS/MSPT |
 | `badomens metrics` | 📈 CPU/RAM/mundo/backups de una instancia |
-| `badomens tui` | 🖥️ panel interactivo multi-instancia (crea, opera, supervisa y avisa de requisitos) |
+| `badomens tui` | 🖥️ panel interactivo: Home con actividad, detalle por pestañas (consola, jugadores, backups, mundos, plugins, red, auto-apagado, ajustes), asistente con selector de versión, Salud (`H`) y paleta (`Ctrl+P`) |
 | `badomens mcp serve` | 🔌 servidor MCP por stdio |
 | `badomens doctor` · `capacity` · `update` · `resolve-ip` | 🧪 herramientas del entorno (el `update --apply` descarga y reemplaza) |
 | `badomens uninstall` | 🧹 desinstala el binario y la configuración (`--purge` borra también los datos) |

@@ -65,7 +65,7 @@ func TestModalDestructivoSeguroPorDefecto(t *testing.T) {
 	if !m.Enabled() {
 		t.Fatal("al escribir el nombre debe habilitarse")
 	}
-	out := m.Render(70, pal())
+	out := m.Render(70, pal(), false)
 	if !strings.Contains(out, "No, volver") || !strings.Contains(out, "para siempre") {
 		t.Fatalf("el modal debe tener botones inequívocos: %q", out)
 	}
@@ -84,7 +84,7 @@ func TestConnectCard(t *testing.T) {
 		AddressDNS: "maquina.tail.ts.net:25565", OnlineMode: false,
 		Warnings: []string{"MagicDNS desactivado"},
 	}
-	out := ConnectCard(info, 60, pal())
+	out := ConnectCard(info, 60, pal(), false)
 	for _, want := range []string{"Cómo conectarse", "100.64.1.7:25565", "offline", "MagicDNS desactivado"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("tarjeta de conexión sin %q:\n%s", want, out)
@@ -109,7 +109,7 @@ func TestPickerFiltraYSelecciona(t *testing.T) {
 	if !ok || sel.Value != "fabric" {
 		t.Fatalf("selección: %+v ok=%v", sel, ok)
 	}
-	if !strings.Contains(p.Render(40, 10, pal()), "Fabric") {
+	if !strings.Contains(p.Render(40, 10, pal(), false), "Fabric") {
 		t.Fatal("el render debe listar los elementos")
 	}
 }

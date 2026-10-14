@@ -36,7 +36,7 @@ func commandManifest() []commandEntry {
 		{Name: "doctor tps", Summary: "Diagnóstico de TPS/MSPT de las instancias"},
 		{Name: "docker status|ensure", Summary: "Diagnóstico y reparación de Docker (RF-6)"},
 		{Name: "tailscale status|ensure", Summary: "Estado y reparación de la red privada (RF-6)"},
-		{Name: "idle set|status|disable|daemon", Summary: "Auto-apagado por inactividad (RF-8)"},
+		{Name: "idle set|status|disable|daemon|install-service|uninstall-service", Summary: "Auto-apagado por inactividad (RF-8)"},
 		{Name: "update", Summary: "¿Hay una versión nueva? (con --apply la descarga y reemplaza)"},
 		{Name: "uninstall", Summary: "Desinstala el binario y la configuración (--purge borra los datos)"},
 		{Name: "capacity", Summary: "Capacidad del equipo"},

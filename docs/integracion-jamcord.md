@@ -26,6 +26,10 @@ Emiria (Jamcord)                        badomens
   `badomens_world_*`, `badomens_backup_*`, `badomens_whitelist_*`,
   `badomens_ops_*`, `badomens_plugin_*`, `badomens_doctor_tps`,
   `badomens_update_check`.
+- **Nuevas (TUI v2)**: `badomens_connection` (RF-2), `badomens_ports_check`
+  (RF-3), `badomens_engine_versions` (RF-5), `badomens_docker_status` (RF-6),
+  `badomens_tailscale_status` (RF-6) y `badomens_idle` (alias
+  `badomens_idle_status`, RF-8).
 - Las de solo lectura se marcan `ReadOnly` para el modo `mcp serve --read-only`.
 - Las acciones destructivas piden confirmación humana en Discord.
 

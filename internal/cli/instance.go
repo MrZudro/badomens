@@ -72,6 +72,14 @@ func newInstanceListCmd(e *Env) *cobra.Command {
 				})
 				human += fmt.Sprintf("\n  %-16s %-8s %-8s %-8s pto %-6d estado %-8s", s.Slug, s.Engine, s.Version, s.Memory, s.Port, state)
 			}
+			// RF-6: si Docker no está disponible, el estado de los contenedores es
+			// desconocido; se devuelve un aviso en lugar de silenciar el fallo.
+			// `data` sigue siendo la lista (contrato estable, solo aditivo).
+			diag := e.dockerDiagnosis(cmd.Context())
+			if !diag.State.Ready() {
+				human += "\n⚠ Docker no está disponible (" + diag.Message + "); el estado es desconocido."
+				return e.finish(result.Warn("instance list", "Docker no está disponible: "+diag.Message, out), human)
+			}
 			return e.finish(result.OK("instance list", "instancias registradas", out), human)
 		},
 	}
@@ -79,11 +87,15 @@ func newInstanceListCmd(e *Env) *cobra.Command {
 
 func newInstanceInspectCmd(e *Env) *cobra.Command {
 	return &cobra.Command{
-		Use:   "inspect <instancia>",
+		Use:   "inspect [instancia]",
 		Short: "Muestra la configuración completa de una instancia",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			spec, err := e.specFor(args[0])
+			slug, aerr := e.instanceArg(args)
+			if aerr != nil {
+				return e.finish(result.FromError("instance inspect", aerr), "")
+			}
+			spec, err := e.specFor(slug)
 			if err != nil {
 				return e.finish(result.FromError("instance inspect", err), "")
 			}
@@ -121,11 +133,14 @@ func newInstanceInspectCmd(e *Env) *cobra.Command {
 func newInstanceStartCmd(e *Env) *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
-		Use:   "start <instancia>",
+		Use:   "start [instancia]",
 		Short: "Arranca una instancia (respeta el límite de instancias en paralelo)",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			slug := args[0]
+			slug, aerr := e.instanceArg(args)
+			if aerr != nil {
+				return e.finish(result.FromError("instance start", aerr), "")
+			}
 			spec, err := e.specFor(slug)
 			if err != nil {
 				return e.finish(result.FromError("instance start", err), "")
@@ -143,6 +158,11 @@ func newInstanceStartCmd(e *Env) *cobra.Command {
 }
 
 func startInstance(cmd *cobra.Command, e *Env, spec *instance.Spec, maxParallel int, force bool) (*result.Result, error) {
+	// RF-6: preflight de Docker; si no está listo, error tipado y claro en
+	// lugar de un fallo crudo del daemon.
+	if perr := e.dockerPreflight(cmd.Context()); perr != nil {
+		return result.FromError("instance start", perr), perr
+	}
 	rt, err := e.runtime()
 	if err != nil {
 		return result.FromError("instance start", err), err

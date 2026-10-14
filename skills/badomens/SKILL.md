@@ -28,9 +28,21 @@ badomens --json connect --instance <slug>    # información de conexión (direcc
 badomens --json ports check 25565 # puerto libre (registro, docker, host, tailnet)
 badomens --json engine versions paper        # versiones del motor (RF-5)
 badomens --json docker status     # estado de Docker (daemon, compose, contexto)
+badomens --json docker ensure     # intenta reparar Docker y espera a que responda
 badomens --json tailscale status  # estado de la red privada
+badomens --json tailscale ensure  # intenta levantar la red privada
 badomens --json --instance <slug> idle status  # auto-apagado por inactividad
+badomens --json --instance <slug> idle set --timeout 30m   # configurar auto-apagado
+badomens --json idle install-service           # vigilante como servicio del SO
+badomens --json setup --explain memory         # ayuda larga de un campo
 ```
+
+## Herramientas MCP
+
+`badomens_version`, `badomens_capacity`, `badomens_doctor`, `badomens_update_check`,
+`badomens_connection`, `badomens_ports_check`, `badomens_engine_versions`,
+`badomens_docker_status`, `badomens_tailscale_status`, `badomens_idle` (alias
+`badomens_idle_status`).
 
 ## Reglas al ayudar al usuario
 
@@ -43,14 +55,20 @@ badomens --json --instance <slug> idle status  # auto-apagado por inactividad
 5. 🔒 No pongas IPs reales, seeds ni tokens en archivos versionados; usa
    ejemplos genéricos.
 
-> En F0 solo hay comandos de lectura. La gestión de instancias llega en F1 y la
-> integración con Emiria en F3.
+> La integración con Emiria/Jamcord es la F3. La F0 dejó listo el contrato y el
+> servidor MCP.
 
 ## TUI (humanos)
 
-`badomens tui` abre un panel interactivo (lista, detalle, logs, consola,
-backups, **creación** con `N` y aviso de **requisitos** con `R`). Es
-interactivo: los agentes deben seguir usando los comandos con `--json`. Para
-capturas y pruebas existe `--snapshot --view list|detail|logs|backups|help`.
+`badomens tui` abre un panel interactivo con Home (lista + detalle + actividad),
+detalle de instancia por pestañas (Resumen, Consola, Jugadores, Backups, Mundos,
+Plugins/Mods, Red, Auto-apagado, Ajustes), asistente de creación con selector de
+versión por motor, pantalla "Salud del sistema" (`H`) y paleta de comandos
+(`Ctrl+P`). Es interactivo: los agentes deben seguir usando los comandos con
+`--json`.
+
+Para capturas y pruebas existe:
+`--snapshot --view list|detail|logs|backups|players|net|idle|settings|health|wizard|palette|help`
+con `--width`/`--height`, y `--plain` para un resumen lineal (accesibilidad).
 La apertura comprueba actualizaciones (una vez cada 12 h) y pregunta antes de
 cambiar nada.

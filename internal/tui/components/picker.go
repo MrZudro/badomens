@@ -85,7 +85,7 @@ func (p *Picker) Backspace() {
 }
 
 // Render pinta el selector con scroll.
-func (p *Picker) Render(w, h int, pal theme.Palette) string {
+func (p *Picker) Render(w, h int, pal theme.Palette, ascii bool) string {
 	var b strings.Builder
 	title := p.Title
 	if p.Filter != "" {
@@ -118,7 +118,7 @@ func (p *Picker) Render(w, h int, pal theme.Palette) string {
 			line += "  " + lipgloss.NewStyle().Foreground(lipgloss.Color(pal.Muted)).Render(it.Detail)
 		}
 		if i == p.cursor {
-			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(pal.AccentText)).Background(lipgloss.Color(pal.Accent)).Render("▶ " + it.Label))
+			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(pal.AccentText)).Background(lipgloss.Color(pal.Accent)).Render(Pointer(ascii) + " " + it.Label))
 			if it.Detail != "" {
 				b.WriteString("  " + it.Detail)
 			}

@@ -41,7 +41,8 @@ func keyOr(k string) string {
 }
 
 // ActionBar pinta una barra de acciones por ancho w. En Compact solo caben 3
-// botones + "Más (m)". Devuelve el texto y las acciones que se han mostrado.
+// botones + "Más (m)". Si los botones no caben en una línea, se reparten en
+// varias líneas (nunca desbordan el ancho).
 func ActionBar(actions []Action, w int, focused int, p theme.Palette) string {
 	if len(actions) == 0 {
 		return ""
@@ -58,7 +59,34 @@ func ActionBar(actions []Action, w int, focused int, p theme.Palette) string {
 	if limit < len(actions) {
 		parts = append(parts, "[M] Más…")
 	}
-	return strings.Join(parts, "  ")
+	return wrapParts(parts, w, "  ")
+}
+
+// wrapParts reparte los fragmentos en líneas de ancho máximo w.
+func wrapParts(parts []string, w int, sep string) string {
+	if w <= 0 {
+		return strings.Join(parts, sep)
+	}
+	var lines []string
+	cur := ""
+	for _, part := range parts {
+		candidate := part
+		if cur != "" {
+			candidate = cur + sep + part
+		}
+		if layout.Truncate(part, w) != part || layout.Width(candidate) > w {
+			if cur != "" {
+				lines = append(lines, cur)
+			}
+			cur = layout.Truncate(part, w)
+			continue
+		}
+		cur = candidate
+	}
+	if cur != "" {
+		lines = append(lines, cur)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // Badge pinta una insignia de estado (icono + texto, nunca solo color).

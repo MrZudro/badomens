@@ -206,31 +206,14 @@ func buildRegistry(e *Env) (*tools.Registry, error) {
 			Description: "Estado de auto-apagado por inactividad de una instancia (RF-8).",
 			ReadOnly:    true,
 			Params:      []tools.Param{{Name: "instance", Type: tools.TypeString, Description: "slug de la instancia", Required: true}},
-			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
-				slug, err := args.String("instance")
-				if err != nil {
-					return nil, err
-				}
-				m, merr := e.manager()
-				if merr != nil {
-					return nil, merr
-				}
-				spec, lerr := m.Load(slug)
-				if lerr != nil {
-					return nil, lerr
-				}
-				rt, rerr := e.runtime()
-				if rerr != nil {
-					return nil, rerr
-				}
-				running := false
-				if st, serr := rt.State(ctx, slug); serr == nil {
-					running = st == "running"
-				}
-				data := idleData(spec.Idle)
-				data["running"] = running
-				return &tools.Result{Text: "idle de " + slug + ": " + enabledText(spec.Idle), Data: data}, nil
-			},
+			Handler:     idleStatusHandler(e),
+		},
+		{
+			Name:        "badomens_idle",
+			Description: "Estado de auto-apagado por inactividad de una instancia (alias de badomens_idle_status, RF-8).",
+			ReadOnly:    true,
+			Params:      []tools.Param{{Name: "instance", Type: tools.TypeString, Description: "slug de la instancia", Required: true}},
+			Handler:     idleStatusHandler(e),
 		},
 	}
 
@@ -240,4 +223,33 @@ func buildRegistry(e *Env) (*tools.Registry, error) {
 		}
 	}
 	return registry, nil
+}
+
+// idleStatusHandler construye el manejador compartido del estado de auto-apagado.
+func idleStatusHandler(e *Env) tools.Handler {
+	return func(ctx context.Context, args tools.Args) (*tools.Result, error) {
+		slug, err := args.String("instance")
+		if err != nil {
+			return nil, err
+		}
+		m, merr := e.manager()
+		if merr != nil {
+			return nil, merr
+		}
+		spec, lerr := m.Load(slug)
+		if lerr != nil {
+			return nil, lerr
+		}
+		rt, rerr := e.runtime()
+		if rerr != nil {
+			return nil, rerr
+		}
+		running := false
+		if st, serr := rt.State(ctx, slug); serr == nil {
+			running = st == "running"
+		}
+		data := idleData(spec.Idle)
+		data["running"] = running
+		return &tools.Result{Text: "idle de " + slug + ": " + enabledText(spec.Idle), Data: data}, nil
+	}
 }

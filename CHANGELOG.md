@@ -4,13 +4,67 @@ Todas las novedades relevantes de **badomens** se documentan aquí ✨.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [semántico](https://semver.org/lang/es/).
 
-## [Unreleased] — TUI v2 (dominio, paridad CLI/MCP y cimientos)
+## [1.0.0] — 2026-10-13
+
+> 🎉 **Primera versión estable de badomens.** Cierra el plan F0–F5 y completa la
+> TUI v2 (`SPEC-tui-v2.md`): las pantallas consumen el dominio (conexión,
+> puertos, versiones, auto-apagado), el modo ASCII es completo y el layout
+> respeta el tamaño (con guarda global). Sustituye a las pre-releases
+> `v0.1.0-rc.*`.
+
+### ➕ Añadido
+
+- **Home rediseñado (§5.1)**: columnas con jugadores/máx, RAM usada/asignada,
+  `ip:puerto`, cuenta atrás de auto-apagado y límites (`n/5 · r/3`); en `Wide`
+  tres zonas (lista · detalle · **actividad** en vivo); estado vacío con
+  requisitos Docker/Tailscale y su botón de reparación.
+- **Detalle de instancia (§5.2)**: 9 pestañas (Resumen, Consola, Jugadores,
+  Backups, Mundos, Plugins/Mods, Red, Auto-apagado, Ajustes). Consola con
+  filtro (`/`), seguir (`f`), pausa (`p`), autocompletado (`Tab`), historial
+  (↑↓) y confirmación de comandos peligrosos. Backups con crear/restaurar
+  (backup previo) y podar. Red con comprobación del puerto. Auto-apagado con
+  presets. Ajustes editables con ayuda y marca "Requiere reiniciar".
+- **Asistente (§5.3, RF-4/RF-5)**: rápido/avanzado con 7 pasos y stepper,
+  descripción corta por campo y larga bajo demanda, **selector de versión** por
+  motor (recomendada ★, incompatibles atenuadas con motivo, `s` snapshots),
+  aviso **P-05** (offline sin whitelist) y wiring con el registro `help`.
+- **Salud del sistema (P-01)**: filas de Docker, Compose, Tailscale, puertos,
+  disco (<10/2 GB), RAM asignada, actualización y plan, con reparación por fila.
+- **Paleta de comandos (P-02)**: ahora **ejecuta** la acción elegida (antes no
+  hacía nada); cubre acciones de pantalla y globales.
+- **Modo ASCII completo (§4.2)**: bordes `+-|`, cursor `>`, iconos `[OK]/[!!]/
+  [..]/[XX]` en cabecera, tarjetas, modales, listas y pantalla de salud.
+- **Layout con guarda global (§4.1)**: App recorta cada línea al ancho real
+  (`x/ansi`) y el total al alto; `layout.ClassifyWidth` evita que las pantallas
+  cambien de número de paneles por el alto del cuerpo.
+- **Toasts con vida útil** (4 s / 8 s en error, descarte con `Esc`), pista de la
+  acción enfocada en la barra inferior, ratón (rueda = navegación) y confirmación
+  al salir con operación en curso.
+- **Guarda de prerrequisitos (RF-6)**: banner fijo si Docker cae, acciones
+  dependientes deshabilitadas con motivo y reparación con espera activa.
+- **CLI**: `docker ensure` corrige el timeout desde `docker.ensure_timeout`;
+  `instance list` avisa (exit 1) si Docker no está disponible; `instance start`
+  hace *preflight* y devuelve `error_dependency_missing` con `details.reason`;
+  `connect`/`instance inspect`/`instance start` aceptan `-i <slug>` además del
+  posicional; `engine versions` añade `warnings` cuando usa caché/embebido.
+- **Dominio**: catálogo **embebido** de versiones (`go:embed` + `make
+  gen-versions`), respaldo de peers de la tailnet cacheado 30 s, `docker compose
+  ls`, traducción de *"port already allocated"*, `idle install-service`/
+  `uninstall-service` (systemd/launchd/schtasks), RCON de respaldo en el
+  vigilante, `WatcherActive`, claves `idle.default_timeout`/`versions.cache_ttl`/
+  `docker.ensure_timeout` con override por entorno, versión de esquema del
+  registro + migración, y tool MCP `badomens_idle`.
+- **Tests**: `TestSnapshotRespetaElTamano` (ancho/alto), lint de botones sobre
+  las acciones **reales**, cobertura de campos del asistente, claves i18n usadas
+  y contrato JSON (`result/contract_test.go`); goldens de Home regenerados.
+
+### 🧱 Base: dominio, paridad CLI/MCP y cimientos
 
 > 🧱 Primera entrega de la `SPEC-tui-v2.md` (Fases 0–4 parciales): paquetes de
 > dominio nuevos (puertos, conexión, Docker, auto-apagado, eventos), paridad
 > CLI/MCP para todo lo nuevo y el catálogo de ayudas del asistente.
 
-### ➕ Añadido
+#### ➕ Añadido
 
 - **`internal/ports` (RF-3)**: detección de puertos ocupados en 4 fuentes
   (registro, Docker, bind local, peers de la tailnet), rango configurable
@@ -55,11 +109,6 @@ versionado es [semántico](https://semver.org/lang/es/).
   diagnóstico) y `instance start` **revalida el puerto** antes de arrancar (si
   está ocupado devuelve `error_capacity_exceeded` con `details.reason=port_in_use`
   y el puerto sugerido).
-
-### 🧹 Pendiente
-
-- Rediseño de la TUI (`theme`, `layout`, `anim`, `components`, `screens`,
-  `i18n`) y las fases 1–6 de la spec: la TUI actual queda intacta y funcional.
 
 ## [v0.1.0-rc.2] — 2026-10-13
 
@@ -179,6 +228,7 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ---
 
+[1.0.0]: https://github.com/MrZudro/badomens/releases/tag/v1.0.0
 [v0.1.0-rc.2]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.2
 [v0.1.0-rc.1]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.1
 [v0.1.0-rc.0]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.0

@@ -102,7 +102,7 @@ Valores estables de `details.reason`:
 | `-i <n> connect [--copy]` | `connect` | `connection` (objeto RF-2), `player_steps`, `invitation` |
 | `ports check <puerto>` | `ports check` | `ports`, `free`, `suggested`, `conflicts[]` (RF-3) |
 | `ports list` | `ports list` | `instances[]`, `reservations[]` |
-| `engine versions <motor> [--all]` | `engine versions` | `engine`, `stale`, `versions[]` (RF-5) |
+| `engine versions <motor> [--all]` | `engine versions` | `engine`, `stale`, `versions[]`, `warnings[]` (RF-5) |
 | `docker status` | `docker status` | `state`, `reason`, `message`, `detail`, `platform`, `server_version`, `compose_version`, `context` (RF-6) |
 | `docker ensure [--wait N] [--print-script]` | `docker ensure` | `ready`, `state`, `reason`, `attempts[]`, `pending[]`; con `--print-script` → `script` |
 | `tailscale status` | `tailscale status` | `self`, `peers[]`, `peers_online` (RF-6) |
@@ -111,7 +111,21 @@ Valores estables de `details.reason`:
 | `-i <n> idle status` | `idle status` | `idle`, `running` |
 | `-i <n> idle disable` | `idle disable` | `idle` |
 | `idle daemon` | `idle daemon` | — |
+| `idle install-service [--dry-run]` | `idle install-service` | `os`, `exe`, `path`, `unit` |
+| `idle uninstall-service` | `idle uninstall-service` | `path` |
 | `setup --explain <campo>` | `setup explain` | `field` (RF-4) |
+
+> `connect`, `instance inspect` y `instance start` aceptan la instancia como
+> argumento posicional **o** con el flag global `-i <slug>`.
+
+### `instance list` con Docker caído
+
+Si el daemon no está disponible, `instance list` devuelve `exit_code: 1`
+(aviso) con `error.code: warn` y `state` vacío en cada instancia, en lugar de
+silenciar el fallo. `instance start` hace un *preflight* y devuelve
+`error_dependency_missing` con `details.reason` (`docker_daemon_down`,
+`docker_not_installed`, …); si el puerto está ocupado usa
+`error_capacity_exceeded` con `details.reason: port_in_use`.
 
 ### `instance inspect`, `instance start` y `setup`
 
@@ -123,4 +137,5 @@ Valores estables de `details.reason`:
 ### Herramientas MCP nuevas
 
 `badomens_connection`, `badomens_ports_check`, `badomens_engine_versions`,
-`badomens_docker_status`, `badomens_tailscale_status`, `badomens_idle_status`.
+`badomens_docker_status`, `badomens_tailscale_status`, `badomens_idle_status` y
+`badomens_idle` (alias de la anterior).

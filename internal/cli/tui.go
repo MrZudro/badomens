@@ -15,6 +15,7 @@ func newTUICmd(e *Env) *cobra.Command {
 	var force, snapshot, noPreflight bool
 	var view, themeName string
 	var noAnimations, ascii, plain bool
+	var snapW, snapH int
 	cmd := &cobra.Command{
 		Use:   "tui",
 		Short: "Panel interactivo multi-instancia en el terminal",
@@ -44,7 +45,7 @@ func newTUICmd(e *Env) *cobra.Command {
 				if view == "" {
 					view = "list"
 				}
-				out, serr := tui.RenderSnapshot(cfg, e.instanceFlag, view)
+				out, serr := tui.RenderSnapshot(cfg, e.instanceFlag, view, snapW, snapH)
 				if serr != nil {
 					return e.finish(result.FromError("tui", serr), "")
 				}
@@ -76,6 +77,8 @@ func newTUICmd(e *Env) *cobra.Command {
 	cmd.Flags().BoolVar(&noAnimations, "no-animations", false, "movimiento reducido: sin pulso, transiciones ni spinners animados")
 	cmd.Flags().BoolVar(&ascii, "ascii", false, "iconos y bordes solo ASCII")
 	cmd.Flags().BoolVar(&plain, "plain", false, "salida lineal sin cajas ni animación (accesibilidad/lector de pantalla)")
+	cmd.Flags().IntVar(&snapW, "width", 110, "ancho del snapshot (con --snapshot)")
+	cmd.Flags().IntVar(&snapH, "height", 30, "alto del snapshot (con --snapshot)")
 	return cmd
 }
 

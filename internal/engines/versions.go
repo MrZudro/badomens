@@ -92,6 +92,9 @@ func (c *Cache) Versions(ctx context.Context, engine string, opts VersionOpts) (
 		if doc != nil {
 			return filter(doc.Versions, opts), true, nil
 		}
+		if emb, ok := EmbeddedVersions(engine); ok {
+			return filter(emb, opts), true, nil
+		}
 		return nil, false, perr
 	}
 	var list []Version
@@ -104,9 +107,13 @@ func (c *Cache) Versions(ctx context.Context, engine string, opts VersionOpts) (
 		if doc != nil {
 			return filter(doc.Versions, opts), true, nil
 		}
+		if emb, ok := EmbeddedVersions(engine); ok {
+			return filter(emb, opts), true, nil
+		}
 		return nil, false, err
 	}
 	enriched := Enrich(provider.Engine().Name, list)
+	sortByDate(enriched)
 	_ = c.writeCache(c.path(engine), engine, enriched)
 	return filter(enriched, opts), false, nil
 }

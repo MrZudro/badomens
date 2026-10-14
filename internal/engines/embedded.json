@@ -1,0 +1,39 @@
+{
+  "paper": [
+    {"version": "1.20.1", "stable": true, "released_at": "2023-06-12T00:00:00Z"},
+    {"version": "1.20.4", "stable": true, "released_at": "2023-12-07T00:00:00Z"},
+    {"version": "1.20.6", "stable": true, "released_at": "2024-04-29T00:00:00Z"},
+    {"version": "1.21", "stable": true, "released_at": "2024-06-13T00:00:00Z"},
+    {"version": "1.21.1", "stable": true, "released_at": "2024-08-08T00:00:00Z"},
+    {"version": "1.21.3", "stable": true, "released_at": "2024-10-23T00:00:00Z"},
+    {"version": "1.21.4", "stable": true, "released_at": "2024-12-03T00:00:00Z"}
+  ],
+  "vanilla": [
+    {"version": "1.20.1", "stable": true, "channel": "release", "released_at": "2023-06-12T00:00:00Z"},
+    {"version": "1.20.4", "stable": true, "channel": "release", "released_at": "2023-12-07T00:00:00Z"},
+    {"version": "1.20.6", "stable": true, "channel": "release", "released_at": "2024-04-29T00:00:00Z"},
+    {"version": "1.21", "stable": true, "channel": "release", "released_at": "2024-06-13T00:00:00Z"},
+    {"version": "1.21.1", "stable": true, "channel": "release", "released_at": "2024-08-08T00:00:00Z"},
+    {"version": "1.21.3", "stable": true, "channel": "release", "released_at": "2024-10-23T00:00:00Z"},
+    {"version": "1.21.4", "stable": true, "channel": "release", "released_at": "2024-12-03T00:00:00Z"}
+  ],
+  "fabric": [
+    {"version": "1.20.1", "stable": true, "released_at": "2023-06-12T00:00:00Z"},
+    {"version": "1.20.4", "stable": true, "released_at": "2023-12-07T00:00:00Z"},
+    {"version": "1.20.6", "stable": true, "released_at": "2024-04-29T00:00:00Z"},
+    {"version": "1.21", "stable": true, "released_at": "2024-06-13T00:00:00Z"},
+    {"version": "1.21.1", "stable": true, "released_at": "2024-08-08T00:00:00Z"},
+    {"version": "1.21.3", "stable": true, "released_at": "2024-10-23T00:00:00Z"},
+    {"version": "1.21.4", "stable": true, "released_at": "2024-12-03T00:00:00Z"}
+  ],
+  "forge": [
+    {"version": "1.20.1", "stable": true, "build": "47.3.0", "released_at": "2024-04-23T00:00:00Z"},
+    {"version": "1.20.4", "stable": true, "build": "49.0.50", "released_at": "2024-06-20T00:00:00Z"},
+    {"version": "1.21.1", "stable": true, "build": "52.0.5", "released_at": "2024-12-08T00:00:00Z"}
+  ],
+  "neoforge": [
+    {"version": "1.20.4", "stable": true, "build": "20.4.237", "released_at": "2024-06-28T00:00:00Z"},
+    {"version": "1.21", "stable": true, "build": "21.0.167", "released_at": "2024-08-16T00:00:00Z"},
+    {"version": "1.21.1", "stable": true, "build": "21.1.99", "released_at": "2024-12-06T00:00:00Z"}
+  ]
+}

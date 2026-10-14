@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gnet "github.com/shirou/gopsutil/v4/net"
@@ -23,6 +24,14 @@ type RealProber struct {
 	RegistryFn func(ctx context.Context) ([]RegistryPort, error)
 	// Timeout es el timeout de las sondas TCP (por defecto 400 ms).
 	Timeout time.Duration
+	// PeerTTL es cuánto se cachea la lista de peers (por defecto 30 s).
+	PeerTTL time.Duration
+	// Now permite inyectar reloj en pruebas.
+	Now func() time.Time
+
+	peerMu   sync.Mutex
+	peerList []Peer
+	peerAt   time.Time
 }
 
 // NewRealProber construye un prober con el registro indicado.
@@ -70,6 +79,33 @@ func (p *RealProber) DockerPorts(ctx context.Context) ([]DockerPort, error) {
 				continue
 			}
 			out = append(out, DockerPort{Container: row.Names, Project: project, Port: port})
+		}
+	}
+	return out, nil
+}
+
+// composeLSLine es una línea de `docker compose ls --format json`.
+type composeLSLine struct {
+	Name        string `json:"Name"`
+	Status      string `json:"Status"`
+	ConfigFiles string `json:"ConfigFiles"`
+}
+
+// ComposeProjects lista los proyectos de Docker Compose del host (propios y
+// ajenos a badomens) para enriquecer la detección de puertos publicados.
+func (p *RealProber) ComposeProjects(ctx context.Context) ([]string, error) {
+	res, err := execx.Run(ctx, "docker", "compose", "ls", "--format", "json")
+	if err != nil {
+		return nil, err
+	}
+	var rows []composeLSLine
+	if json.Unmarshal([]byte(strings.TrimSpace(res.Stdout)), &rows) != nil {
+		return nil, nil
+	}
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		if r.Name != "" {
+			out = append(out, r.Name)
 		}
 	}
 	return out, nil
@@ -137,8 +173,13 @@ type tailscaleNode struct {
 	Online       bool     `json:"Online"`
 }
 
-// Peers devuelve los peers del tailnet (incluido el propio nodo).
+// Peers devuelve los peers del tailnet (incluido el propio nodo). El resultado
+// se cachea PeerTTL (30 s por defecto) para no repetir `tailscale status` en
+// cada comprobación de puerto.
 func (p *RealProber) Peers(ctx context.Context) ([]Peer, error) {
+	if cached, ok := p.cachedPeers(); ok {
+		return cached, nil
+	}
 	res, err := execx.Run(ctx, "tailscale", "status", "--json")
 	if err != nil {
 		return nil, err
@@ -166,7 +207,40 @@ func (p *RealProber) Peers(ctx context.Context) ([]Peer, error) {
 	for _, n := range st.Peer {
 		add(n)
 	}
+	p.storePeers(out)
 	return out, nil
+}
+
+func (p *RealProber) now() time.Time {
+	if p.Now != nil {
+		return p.Now()
+	}
+	return time.Now()
+}
+
+func (p *RealProber) peerTTL() time.Duration {
+	if p.PeerTTL > 0 {
+		return p.PeerTTL
+	}
+	return 30 * time.Second
+}
+
+func (p *RealProber) cachedPeers() ([]Peer, bool) {
+	p.peerMu.Lock()
+	defer p.peerMu.Unlock()
+	if p.peerList == nil || p.now().Sub(p.peerAt) > p.peerTTL() {
+		return nil, false
+	}
+	out := make([]Peer, len(p.peerList))
+	copy(out, p.peerList)
+	return out, true
+}
+
+func (p *RealProber) storePeers(list []Peer) {
+	p.peerMu.Lock()
+	defer p.peerMu.Unlock()
+	p.peerList = list
+	p.peerAt = p.now()
 }
 
 // PingPeer comprueba si un peer acepta conexión TCP en el puerto.

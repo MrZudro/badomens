@@ -26,6 +26,9 @@ const (
 	EnvASCII         = "BADOMENS_ASCII"
 	EnvPortsRange    = "BADOMENS_PORTS_RANGE"
 	EnvTailnetScan   = "BADOMENS_TAILNET_SCAN"
+	EnvIdleTimeout   = "BADOMENS_IDLE_TIMEOUT"
+	EnvEnsureTimeout = "BADOMENS_DOCKER_ENSURE_TIMEOUT"
+	EnvVersionsTTL   = "BADOMENS_VERSIONS_CACHE_TTL"
 )
 
 // UI agrupa la configuración de la interfaz (tema, animaciones, iconos).
@@ -58,6 +61,13 @@ type Versions struct {
 	CacheTTL string `yaml:"cache_ttl" json:"cache_ttl"`
 }
 
+// Idle agrupa los valores por defecto del auto-apagado (RF-8).
+type Idle struct {
+	// DefaultTimeout es el tiempo sin jugadores que dispara el apagado ("15m").
+	// Cada instancia puede sobreescribirlo en su registro.
+	DefaultTimeout string `yaml:"default_timeout" json:"default_timeout"`
+}
+
 // Tailscale agrupa la configuración de red privada.
 type Tailscale struct {
 	// Enabled indica si las instancias se publican solo en la IP del tailnet.
@@ -88,6 +98,8 @@ type Config struct {
 	Docker Docker `yaml:"docker"`
 	// Versions agrupa la caché de versiones.
 	Versions Versions `yaml:"versions"`
+	// Idle agrupa los valores por defecto del auto-apagado.
+	Idle Idle `yaml:"idle"`
 	// Repo es el slug owner/repo usado por update --check.
 	Repo string `yaml:"repo"`
 	// UpdateCheck comprueba si hay una versión nueva al abrir la TUI
@@ -107,6 +119,7 @@ func Default() *Config {
 		Ports:         Ports{Range: "25565-25664", TailnetScan: "warn"},
 		Docker:        Docker{EnsureTimeout: "120s"},
 		Versions:      Versions{CacheTTL: "6h"},
+		Idle:          Idle{DefaultTimeout: "15m"},
 		Repo:          "MrZudro/badomens",
 		UpdateCheck:   true,
 	}
@@ -213,6 +226,15 @@ func applyEnv(c *Config) {
 	if v := os.Getenv(EnvTailnetScan); v != "" {
 		c.Ports.TailnetScan = v
 	}
+	if v := os.Getenv(EnvIdleTimeout); v != "" {
+		c.Idle.DefaultTimeout = v
+	}
+	if v := os.Getenv(EnvEnsureTimeout); v != "" {
+		c.Docker.EnsureTimeout = v
+	}
+	if v := os.Getenv(EnvVersionsTTL); v != "" {
+		c.Versions.CacheTTL = v
+	}
 }
 
 func parseBool(v string) bool {
@@ -264,6 +286,9 @@ func (c *Config) normalize() {
 	}
 	if c.Versions.CacheTTL == "" {
 		c.Versions.CacheTTL = "6h"
+	}
+	if c.Idle.DefaultTimeout == "" {
+		c.Idle.DefaultTimeout = "15m"
 	}
 }
 

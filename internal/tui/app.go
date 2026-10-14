@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/tui/layout"
 	"github.com/MrZudro/badomens/internal/tui/svc"
 	"github.com/MrZudro/badomens/internal/tui/theme"
 )
@@ -37,60 +38,95 @@ func Run(cfg *config.Config, opts Options) error {
 
 // RenderSnapshot construye el panel fuera de bubbletea, carga los datos una vez
 // y devuelve el frame renderizado de la pantalla indicada (list, detail, logs,
-// backups o help). Sirve para pruebas, capturas y documentación sin terminal
-// interactiva. slug solo aplica a detail/logs/backups.
-func RenderSnapshot(cfg *config.Config, slug, view string) (string, error) {
-	b, err := newBackend(cfg)
+// backups, health o help). Sirve para pruebas, capturas y documentación sin
+// terminal interactiva. slug solo aplica a detail/logs/backups.
+func RenderSnapshot(cfg *config.Config, slug, view string, w, h int) (string, error) {
+	services, err := svc.New(cfg)
 	if err != nil {
 		return "", err
 	}
-	m, err := NewModel(b)
-	if err != nil {
-		return "", err
+	pal := theme.Parse(cfg.UI.Theme)
+	app := NewApp(services, AppOptions{
+		Theme:         pal,
+		ReducedMotion: cfg.UI.ReducedMotion,
+		ASCII:         cfg.UI.ASCII,
+	})
+	if w <= 0 {
+		w = 110
 	}
-	m.width, m.height = 84, 26
+	if h <= 0 {
+		h = 30
+	}
+	app.size = layout.Size{W: w, H: h, Class: layout.Classify(w, h)}
 	ctx := context.Background()
-	rows, running, err := b.ListRows(ctx)
+
+	rows, err := services.Instances.Rows(ctx)
 	if err != nil {
 		return "", err
 	}
-	mm, _ := m.Update(rowsMsg{rows: rows, running: running})
-	m = mm.(Model)
+	app.Update(pollRowsMsg{rows: rows})
+	if slug == "" && len(rows) > 0 {
+		slug = rows[0].Slug
+	}
+
+	// Estado inicial de la pantalla raíz (requisitos de la home, etc.).
+	app.Update(ejecutaDirecto(app.router.Top().Init()))
+
+	if slug != "" {
+		if d, derr := services.Instances.Detail(ctx, slug); derr == nil {
+			app.Update(homeDetailMsg{d: d})
+		}
+		if hs, ok := app.router.Top().(*homeScreen); ok {
+			app.Update(ejecutaDirecto(hs.logsCmd()))
+		}
+	}
+
+	openDetail := func(tab int) {
+		if slug == "" {
+			return
+		}
+		is := newInstanceScreen(services, theme.For(pal), cfg.UI.ASCII, slug)
+		is.tab = tab
+		if d, derr := services.Instances.Detail(ctx, slug); derr == nil {
+			is.detail = d
+		}
+		app.router.Push(is)
+	}
 
 	switch view {
 	case "detail":
-		d, derr := b.Detail(ctx, slug)
-		if derr != nil {
-			return "", derr
-		}
-		m.detail = d
-		m.mode = modeDetail
+		openDetail(0)
 	case "logs":
-		if slug == "" {
-			slug, _ = m.selectedSlug()
-		}
-		m.mode = modeLogs
-		m.logSlug = slug
-		text, lerr := b.Logs(ctx, slug, 60)
-		if lerr != nil {
-			return "", lerr
-		}
-		mm, _ = m.Update(logsMsg{slug: slug, text: text})
-		m = mm.(Model)
+		openDetail(1)
 	case "backups":
-		if slug == "" {
-			slug, _ = m.selectedSlug()
-		}
-		m.mode = modeBackups
-		m.backupsSlug = slug
-		items, berr := b.Backups(ctx, slug)
-		if berr != nil {
-			return "", berr
-		}
-		mm, _ = m.Update(backupsMsg{slug: slug, items: items})
-		m = mm.(Model)
+		openDetail(3)
+	case "players":
+		openDetail(2)
+	case "net":
+		openDetail(6)
+	case "idle":
+		openDetail(7)
+	case "settings":
+		openDetail(8)
+	case "health":
+		app.router.Push(newHealthScreen(services, theme.For(pal), cfg.UI.ASCII))
+	case "wizard":
+		app.router.Push(newWizardScreen(services, theme.For(pal), cfg.UI.ASCII))
+	case "palette":
+		app.router.SetOverlay(newPaletteScreen(app.actions(), theme.For(pal), cfg.UI.ASCII))
 	case "help":
-		m.mode = modeHelp
+		app.router.SetOverlay(newHelpScreen(DefaultKeys, theme.For(pal), cfg.UI.ASCII))
 	}
-	return m.View(), nil
+	if view != "" && view != "list" {
+		app.Update(ejecutaDirecto(app.router.Active().Init()))
+	}
+	return stripANSI(app.View()), nil
+}
+
+// ejecutaDirecto ejecuta un tea.Cmd y devuelve su mensaje (nil si no hay).
+func ejecutaDirecto(cmd tea.Cmd) tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	return cmd()
 }

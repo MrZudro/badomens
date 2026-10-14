@@ -29,6 +29,8 @@ func newIdleCmd(e *Env) *cobra.Command {
 		newIdleStatusCmd(e),
 		newIdleDisableCmd(e),
 		newIdleDaemonCmd(e),
+		newIdleInstallServiceCmd(e),
+		newIdleUninstallServiceCmd(e),
 	)
 	return cmd
 }
@@ -233,29 +235,40 @@ func newIdleWatcher(e *Env) *idle.Watcher {
 		}
 		return out, nil
 	}
-	w.Counter = &idle.SLPCounter{
-		Endpoint: func(slug string) (string, int, bool) {
-			m, merr := e.manager()
-			if merr != nil {
-				return "", 0, false
-			}
-			spec, lerr := m.Load(slug)
-			if lerr != nil || spec.Port == 0 {
-				return "", 0, false
-			}
-			ip := ""
-			if spec.Connection != nil {
-				ip = spec.Connection.Host
-			}
-			if ip == "" {
-				ip, _ = tailscale.ResolveIPv4(context.Background())
-			}
-			if ip == "" {
-				return "", 0, false
-			}
-			return ip, spec.Port, true
+	w.Counter = idle.ChainCounter{
+		&idle.SLPCounter{
+			Endpoint: func(slug string) (string, int, bool) {
+				m, merr := e.manager()
+				if merr != nil {
+					return "", 0, false
+				}
+				spec, lerr := m.Load(slug)
+				if lerr != nil || spec.Port == 0 {
+					return "", 0, false
+				}
+				ip := ""
+				if spec.Connection != nil {
+					ip = spec.Connection.Host
+				}
+				if ip == "" {
+					ip, _ = tailscale.ResolveIPv4(context.Background())
+				}
+				if ip == "" {
+					return "", 0, false
+				}
+				return ip, spec.Port, true
+			},
+			Timeout: 2 * time.Second,
 		},
-		Timeout: 2 * time.Second,
+		// Respaldo: `docker exec … rcon-cli list` si el SLP no responde.
+		&idle.DockerCounter{
+			Container: func(slug string) string {
+				if rt == nil {
+					return ""
+				}
+				return rt.ContainerName(slug)
+			},
+		},
 	}
 	be := &backup.Backend{DataDir: cfg.DataDir}
 	w.Controller = &runtimeIdleController{rt: rt, be: be}
@@ -298,6 +311,9 @@ func (c *runtimeIdleController) Stop(ctx context.Context, slug string) error {
 	if c.rt == nil {
 		return nil
 	}
+	// Parada limpia: "stop" por consola (guarda el mundo y cierra Java) y luego
+	// compose stop con el stop_grace_period del compose (≥ 60 s).
+	_ = c.rt.Console(ctx, slug, "stop")
 	return c.rt.Stop(ctx, slug)
 }
 

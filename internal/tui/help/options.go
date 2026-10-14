@@ -70,6 +70,9 @@ var Entries = []Help{
 	{Key: "allow_flight", Title: "Permitir volar", Short: "Evita expulsar a quien vuela con mods o elytra; desactivarlo frena las trampas.", Long: "Minecraft expulsa por \"vuelo no permitido\" a los jugadores que vuelan sin permiso (con elytra, mods o por lag). Actívalo si usas mods que permiten volar; desactívalo para frenar trampas.", Impact: []Tag{TagAffectsSecurity}},
 	{Key: "command_blocks", Title: "Bloques de comandos", Short: "Permite usar bloques de comandos en el mundo.", Long: "Activa los bloques de comandos, necesarios para mapas de aventuras y redstone avanzada. No afecta a jugadores normales.", Impact: nil},
 	{Key: "spawn_protection", Title: "Protección del spawn", Short: "Radio alrededor del spawn donde solo los operadores pueden construir.", Long: "Radio en bloques alrededor del punto de aparición donde los no-operadores no pueden construir ni destruir. Reduce a 0 para mapas creativos.", Example: "16", Impact: nil},
+	{Key: "idle_enabled", Title: "Auto-apagado", Short: "Apaga el servidor si nadie entra durante el tiempo elegido.", Long: "Activa o desactiva el apagado automático por inactividad. Mientras haya al menos un jugador dentro, el contador no corre. Ahorra CPU y RAM cuando no se juega.", Impact: nil, Default: "desactivado"},
+	{Key: "idle_timeout", Title: "Tiempo de inactividad", Short: "Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máximo 24 h.", Long: "Espera este tiempo sin jugadores conectados antes de apagar. Cualquier entrada reinicia el contador. Valores típicos: 15 min para un servidor casual, 1 h para uno con amigos.", Example: "15m", Impact: nil},
+	{Key: "start", Title: "Arrancar al crear", Short: "Inicia el servidor en cuanto termina la creación.", Long: "Si está activo, badomens crea la instancia y la arranca en el mismo paso (comprobando el límite de servidores en paralelo). Desactívalo para revisar la configuración antes.", Impact: nil},
 }
 
 var byKey map[string]Help

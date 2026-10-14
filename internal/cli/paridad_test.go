@@ -30,14 +30,14 @@ var paridad = map[string]string{
 	"doctor.tps":                                 "health",
 	"docker.status|ensure":                       "health+reparar-docker",
 	"tailscale.status|ensure":                    "health+reparar-tailscale",
-	"idle.set|status|disable|daemon":             "instance/auto-apagado",
-	"update":                                     "health",
-	"uninstall":                                  "solo-cli",
-	"capacity":                                   "health+wizard",
-	"config":                                     "settings",
-	"mcp":                                        "solo-cli",
-	"tui":                                        "tui",
-	"version":                                    "solo-cli",
+	"idle.set|status|disable|daemon|install-service|uninstall-service": "instance/auto-apagado",
+	"update":    "health",
+	"uninstall": "solo-cli",
+	"capacity":  "health+wizard",
+	"config":    "settings",
+	"mcp":       "solo-cli",
+	"tui":       "tui",
+	"version":   "solo-cli",
 }
 
 // TestParidadCLITUI (RF-1): ningún subcomando del manifiesto puede quedar sin

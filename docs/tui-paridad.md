@@ -13,28 +13,28 @@ Leyenda de la columna **TUI**:
 | Comando CLI | Pantalla/acción TUI |
 |---|---|
 | `setup` | `wizard` (asistente rápido/avanzado, Fase 3) |
-| `instance list` | `home` (lista de instancias; ya en la TUI actual) |
-| `instance inspect` | `screens/instance` (pestañas, Fase 5) |
+| `instance list` | `home` (lista de instancias con jugadores/RAM/ip:puerto y límites) |
+| `instance inspect` | `instance` (pestaña Resumen + tarjeta de conexión) |
 | `instance create` | `wizard` → crear (mismo núcleo `provision`) |
-| `instance start\|stop\|restart` | `home`/`instance` (botones del ciclo de vida) |
-| `instance close` | `instance` (apagado con cuidado) |
+| `instance start\|stop\|restart` | `home`/`instance` (botones y teclas `s`/`p`/`r`) |
+| `instance close` | `instance` (acción "Detener" que guarda el mundo) |
 | `instance remove` | `instance` (modal destructivo con confirmación, Fase 5) |
-| `connect` | `connectcard` (tarjeta "Cómo conectarse") |
-| `ports check\|list` | `wizard` (validación en vivo) + `screens/health` |
-| `engine list\|current\|use\|versions` | `wizard` (picker de motor/versión, Fase 3) + `instance/ajustes` |
-| `world list\|save\|use\|export\|import` | `instance/mundos` (Fase 5) |
-| `backup create\|list\|restore\|prune` | `instance/backups` (Fase 5) |
-| `access whitelist-add\|remove\|ops-add\|remove` | `instance/jugadores` (Fase 5) |
-| `plugin add\|list\|remove` | `instance/plugins` (Fase 5) |
-| `logs` | `instance/consola` (logs con filtros, Fase 5) |
-| `console` | `instance/consola` (línea de comandos con autocompletado, Fase 5) |
+| `connect` | `connectcard` (tarjeta "Cómo conectarse", tecla `c` copia) |
+| `ports check\|list` | `wizard` + `instance/Red` (comprobación del puerto) |
+| `engine list\|current\|use\|versions` | `wizard` (picker de motor/versión) + `instance/Ajustes` |
+| `world list\|save\|use\|export\|import` | `instance/Mundos` (resumen + CLI enlazado) |
+| `backup create\|list\|restore\|prune` | `instance/Backups` (`b` crea, `x` restaura, `X` poda) |
+| `access whitelist-add\|remove\|ops-add\|remove` | `instance/Jugadores` (`a` añade, `o` op) |
+| `plugin add\|list\|remove` | `instance/Plugins/Mods` (resumen + CLI enlazado) |
+| `logs` | `instance/Consola` (logs con filtro `/` y seguir `f`) |
+| `console` | `instance/Consola` (autocompletado `Tab`, historial ↑↓, aviso de peligro) |
 | `metrics` | `sparkline` en `home`/`instance` (Fase 5) |
 | `resolve-ip` | `connectcard` + `screens/health` |
-| `doctor` | `screens/health` (Salud del sistema, `H`) |
-| `doctor tps` | `screens/health` + sparklines de TPS |
-| `docker status\|ensure` | `screens/health` + modal de reparación de Docker (Fase 1) |
-| `tailscale status\|ensure` | `screens/health` + modal de reparación de Tailscale (Fase 1) |
-| `idle set\|status\|disable\|daemon` | `instance/auto-apagado` + banner de vigilante (Fase 4) |
+| `doctor` | `health` (Salud del sistema, `H`) |
+| `doctor tps` | `health` + sparklines de TPS |
+| `docker status\|ensure` | `health` + reparación de Docker (`H` → `D`) |
+| `tailscale status\|ensure` | `health` + reparación de Tailscale (`H` → `T`) |
+| `idle set\|status\|disable\|daemon\|install-service\|uninstall-service` | `instance/Auto-apagado` + banner de vigilante |
 | `update` | pantalla Salud (fila "actualización") |
 | `uninstall` | `solo-cli` (destructivo; la TUI solo lo enlaza con `--dry-run`) |
 | `capacity` | `screens/health` (fila de capacidad) + `wizard` (recomendaciones) |

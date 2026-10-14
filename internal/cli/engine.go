@@ -73,6 +73,9 @@ func newEngineVersionsCmd(e *Env) *cobra.Command {
 				human += "\n(lista usada de caché; sin conexión con el catálogo)"
 			}
 			data := map[string]any{"engine": args[0], "stale": stale, "versions": out}
+			if stale {
+				data["warnings"] = []string{"lista usada de caché o del catálogo embebido; puede no estar al día"}
+			}
 			return e.finish(result.OK("engine versions", fmt.Sprintf("%d versiones de %s", len(versions), label), data), human)
 		},
 	}

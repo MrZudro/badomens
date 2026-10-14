@@ -47,7 +47,7 @@ func (m Modal) Enabled() bool {
 }
 
 // Render pinta el modal centrado en el ancho w.
-func (m Modal) Render(w int, p theme.Palette) string {
+func (m Modal) Render(w int, p theme.Palette, ascii bool) string {
 	boxW := w - 4
 	if boxW > 60 {
 		boxW = 60
@@ -82,7 +82,7 @@ func (m Modal) Render(w int, p theme.Palette) string {
 	}
 	b.WriteString(ActionBar(actions, boxW, m.Focused, p))
 	box := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(Border(ascii)).
 		BorderForeground(lipgloss.Color(p.Border)).
 		Padding(0, 1).
 		Width(boxW).
@@ -121,7 +121,7 @@ func (pr Progress) Render(p theme.Palette) string {
 }
 
 // ConnectCard pinta la tarjeta "Cómo conectarse" (RF-2).
-func ConnectCard(info connection.Info, w int, p theme.Palette) string {
+func ConnectCard(info connection.Info, w int, p theme.Palette, ascii bool) string {
 	var b strings.Builder
 	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.Accent)).Render("Cómo conectarse"))
 	if info.Address != "" {
@@ -137,14 +137,14 @@ func ConnectCard(info connection.Info, w int, p theme.Palette) string {
 		b.WriteString("\nLoader:     " + info.Loader)
 	}
 	for _, warn := range info.Warnings {
-		b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(p.Warn)).Render("⚠ "+warn))
+		b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(p.Warn)).Render(Warn(ascii)+" "+warn))
 	}
 	boxW := w
 	if boxW <= 0 {
 		boxW = 60
 	}
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(Border(ascii)).
 		BorderForeground(lipgloss.Color(p.Border)).
 		Padding(0, 1).
 		Width(boxW - 2).

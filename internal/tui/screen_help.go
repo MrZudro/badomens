@@ -12,12 +12,13 @@ import (
 
 // helpScreen es la hoja de atajos de la pantalla actual (tecla ?).
 type helpScreen struct {
-	keys KeyMap
-	pal  theme.Palette
+	keys  KeyMap
+	pal   theme.Palette
+	ascii bool
 }
 
-func newHelpScreen(keys KeyMap, pal theme.Palette) *helpScreen {
-	return &helpScreen{keys: keys, pal: pal}
+func newHelpScreen(keys KeyMap, pal theme.Palette, ascii bool) *helpScreen {
+	return &helpScreen{keys: keys, pal: pal, ascii: ascii}
 }
 
 func (h *helpScreen) Init() tea.Cmd { return nil }
@@ -42,7 +43,7 @@ func (h *helpScreen) View(w, hgt int) string {
 		Title:   "Ayuda",
 		Body:    b.String(),
 		Actions: nil,
-	}.Render(w, h.pal)
+	}.Render(w, h.pal, h.ascii)
 }
 
 func (h *helpScreen) Actions() []components.Action { return nil }

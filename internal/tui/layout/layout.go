@@ -55,6 +55,22 @@ func Classify(w, h int) Class {
 	return Wide
 }
 
+// ClassifyWidth calcula la clase por ancho, sin exigir el alto mínimo. Las
+// pantallas lo usan para decidir el número de paneles; el alto se respeta
+// recortando el contenido (la clase de la terminal ya la validó App).
+func ClassifyWidth(w int) Class {
+	if w < 40 {
+		return TooSmall
+	}
+	switch {
+	case w < 70:
+		return Compact
+	case w < 110:
+		return Normal
+	}
+	return Wide
+}
+
 // TooSmall indica que la terminal no puede pintar nada.
 func (s Size) TooSmall() bool { return s.Class == TooSmall }
 
@@ -78,3 +94,6 @@ func Truncate(s string, w int) string {
 	}
 	return ell
 }
+
+// Width devuelve el ancho real en pantalla de una cadena (sin contar ANSI).
+func Width(s string) int { return ansi.StringWidth(s) }

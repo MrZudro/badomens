@@ -22,6 +22,30 @@ func testApp() *App {
 
 func press(r string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(r)} }
 
+// ejecutaCmd ejecuta un comando (o un lote) y devuelve el mensaje relevante.
+func ejecutaCmd(cmd tea.Cmd) tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, c := range batch {
+			if c == nil {
+				continue
+			}
+			m := c()
+			if m == nil {
+				continue
+			}
+			if _, busy := m.(busyMsg); busy {
+				continue
+			}
+			return m
+		}
+	}
+	return msg
+}
+
 func resize(a *App, w, h int) { a.Update(tea.WindowSizeMsg{Width: w, Height: h}) }
 
 // TestAppResizeSinPanico (RF-1): la secuencia grande → pequeño → TooSmall →
@@ -94,12 +118,15 @@ func TestAppWizardCreaInstancia(t *testing.T) {
 	for _, r := range "mi-servidor" {
 		a.Update(press(string(r)))
 	}
-	a.Update(tea.KeyMsg{Type: tea.KeyEnter})           // a revisión
-	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter}) // crear
+	wz, _ := a.router.Top().(*wizardScreen)
+	for i := 0; i < 20 && wz != nil && wz.step != len(wz.steps)-1; i++ {
+		a.Update(tea.KeyMsg{Type: tea.KeyTab})
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter}) // crear en "Revisar"
 	if cmd == nil {
 		t.Fatal("enter en revisión debe lanzar la creación")
 	}
-	msg := cmd()
+	msg := ejecutaCmd(cmd)
 	created, ok := msg.(wizardCreatedMsg)
 	if !ok {
 		t.Fatalf("mensaje inesperado: %T", msg)

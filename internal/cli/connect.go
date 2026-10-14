@@ -18,11 +18,15 @@ import (
 func newConnectCmd(e *Env) *cobra.Command {
 	var copyFlag bool
 	cmd := &cobra.Command{
-		Use:   "connect <instancia>",
+		Use:   "connect [instancia]",
 		Short: "Información de conexión de una instancia (RF-2)",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			spec, err := e.specFor(args[0])
+			slug, aerr := e.instanceArg(args)
+			if aerr != nil {
+				return e.finish(result.FromError("connect", aerr), "")
+			}
+			spec, err := e.specFor(slug)
 			if err != nil {
 				return e.finish(result.FromError("connect", err), "")
 			}
