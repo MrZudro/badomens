@@ -181,8 +181,11 @@ func normalizeWorldName(raw string) string {
 }
 
 // worldNameFromArchive deriva el nombre del mundo del nombre base del archivo.
+// Acepta tanto «/» como «\»: una ruta elegida en Windows lleva barras invertidas
+// y el mismo texto debe normalizarse igual en cualquier sistema operativo.
 func worldNameFromArchive(archive string) string {
-	base := filepath.Base(strings.TrimSpace(archive))
+	clean := strings.ReplaceAll(strings.TrimSpace(archive), `\`, "/")
+	base := filepath.Base(clean)
 	return normalizeWorldName(strings.TrimSuffix(base, filepath.Ext(base)))
 }
 

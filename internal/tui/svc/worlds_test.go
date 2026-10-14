@@ -209,8 +209,12 @@ func TestNormalizeWorldName(t *testing.T) {
 			t.Errorf("normalizeWorldName(%q) = %q, quiero %q", in, got, want)
 		}
 	}
-	if got := worldNameFromArchive(`C:\datos\mi mundo.zip`); got != "mi-mundo" {
-		t.Errorf("worldNameFromArchive = %q, quiero mi-mundo", got)
+	// La derivación del nombre debe ser portable: da igual el separador de ruta
+	// (Windows «\» o POSIX «/»), el nombre resultante es el mismo.
+	for _, in := range []string{`C:\datos\mi mundo.zip`, "/datos/mi mundo.zip", "mi mundo.zip"} {
+		if got := worldNameFromArchive(in); got != "mi-mundo" {
+			t.Errorf("worldNameFromArchive(%q) = %q, quiero mi-mundo", in, got)
+		}
 	}
 }
 
