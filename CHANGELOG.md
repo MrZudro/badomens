@@ -6,7 +6,9 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
-> 🧭 Rediseño de la TUI guiado por `docs/TUI_REDESIGN.md` y
+## [1.2] - 2026-10-14
+
+> 🧭 Rediseño completo de la TUI guiado por `docs/TUI_REDESIGN.md` y
 > `docs/TUI_ACCEPTANCE_TESTS.md`, con la skill `skills/tui-engineering`.
 
 ### ➕ Añadido
@@ -381,6 +383,7 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ---
 
+[1.2]: https://github.com/MrZudro/badomens/releases/tag/v1.2
 [1.0.1]: https://github.com/MrZudro/badomens/releases/tag/v1.0.1
 [1.0.0]: https://github.com/MrZudro/badomens/releases/tag/v1.0.0
 [v0.1.0-rc.2]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.2
