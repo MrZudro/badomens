@@ -60,6 +60,14 @@ versionado es [semántico](https://semver.org/lang/es/).
   las listas con estado vacío accionable. Una lectura solo se marca como
   verificada si hubo **estado en vivo**; con configuración guardada ya no se
   afirma verificación. Pruebas `ACL-02/03/05/09` y `UI-06`.
+- **Resto de pestañas en paneles (§5.3/§5.6–§5.11)**: Resumen en dos columnas
+  (datos + conexión) con estado de caída; Backups con lista (nombre/tamaño/checksum),
+  selección y estados vacío/cargando/creando-restaurando/error; Mundos y
+  Plugins/Mods informativos con estado vacío accionable; Red con paneles CONEXIÓN |
+  PUERTO y estados comprobando/libre/ocupado (+sugerido)/error; Auto-apagado con
+  presets, backup y **cuenta atrás desde el bus de eventos**; Ajustes con estados
+  editando/guardando/guardado/error y sin mutar el `Spec` antes de persistir. La
+  franja de pestañas muestra siempre completa la pestaña activa (ventana `…`).
 
 ### 🔧 Cambiado
 

@@ -2,11 +2,11 @@
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ Survival  [Resumen]  1/9  ←/→        │
-│ Motor:      paper 1.21.4             │
-│ Memoria:    4G                       │
-│ Puerto:     25565                    │
-│ Jugadores:  —                        │
-│ Dificultad: normal · modo survival   │
-│ Estado:     ● En línea               │
+│ ╭─ RESUMEN ────────────────────────╮ │
+│ │Estado:       ● En línea          │ │
+│ │Motor:        paper 1.21.4        │ │
+│ │Puerto:       25565               │ │
+│ │Jugadores:    —                   │ │
+│ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

@@ -1,0 +1,20 @@
+┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                 │
+├────────────────────────────────────────────────────────────────────┤
+│ Survival  [Mundos]  5/9  ←/→                                       │
+│ ╭─ MUNDO ────────────────────────────────────────────────────────╮ │
+│ │Semilla: 42                                                     │ │
+│ │                                                                │ │
+│ │Biblioteca de mundos (CLI)                                      │ │
+│ │Guardar, importar o cambiar el mundo se hace desde el CLI:      │ │
+│ │badomens world list                                             │ │
+│ │badomens -i survival world save <nombre>                        │ │
+│ │badomens -i survival world use <nombre>                         │ │
+│ │badomens -i survival world export [nombre]                      │ │
+│ │badomens world import <zip> <nombre>                            │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
+│ Instancia survival                                                 │
+└─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

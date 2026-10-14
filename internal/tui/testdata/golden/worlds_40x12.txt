@@ -1,0 +1,12 @@
+┌─ badomens ──── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda   │
+├──────────────────────────────────────┤
+│ Survival  [Mundos]  5/9  ←/→         │
+│ ╭─ MUNDO ──────────────────────────╮ │
+│ │Semilla: 42                       │ │
+│ │                                  │ │
+│ │Biblioteca de mundos (CLI)        │ │
+│ │Guardar, importar o cambiar el    │ │
+│ ╰──────────────────────────────────╯ │
+│ Instancia survival                   │
+└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

@@ -1,0 +1,20 @@
+┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                 │
+├────────────────────────────────────────────────────────────────────┤
+│ Survival  [Plugins/Mods]  6/9  ←/→                                 │
+│ ╭─ PLUGINS/MODS ─────────────────────────────────── 1 instalado ─╮ │
+│ │  ▶ LuckPerms                                                   │ │
+│ │                                                                │ │
+│ │Gestionar (CLI)                                                 │ │
+│ │badomens -i survival plugin list                                │ │
+│ │badomens -i survival plugin add <archivo-o-url>                 │ │
+│ │badomens -i survival plugin remove <nombre>                     │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
+│ Instancia survival                                                 │
+└─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

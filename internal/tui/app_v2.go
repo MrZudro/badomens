@@ -161,7 +161,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.tsIP, a.tsOK, a.tsSeen = msg.tsIP, msg.tsOK, true
 		return a, a.router.Update(msg)
 	case idleEventMsg:
-		return a, tea.Batch(a.handleIdleEvent(msg.ev), a.waitIdleEvent())
+		// El aviso global (toast) va al App y el evento se reenvía a la pantalla
+		// activa para que la pestaña Auto-apagado refleje la cuenta atrás (§5.10).
+		return a, tea.Batch(a.handleIdleEvent(msg.ev), a.waitIdleEvent(), a.router.Update(msg))
 	case idleWatchDoneMsg:
 		if a.watchCancel != nil {
 			a.watchCancel()
@@ -195,6 +197,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case toastMsg:
 		a.busy = false
 		return a, a.pushToast(msg.Text, msg.Kind)
+	case instanceOpMsg:
+		// Resultado de una operación del detalle: se libera siempre el estado
+		// ocupado y se avisa aunque la pantalla que la pidió ya no esté activa.
+		a.busy = false
+		cmd := a.router.Update(msg)
+		return a, tea.Batch(cmd, a.pushToast(msg.text(), msg.kind()))
 	case toastExpireMsg:
 		a.expireToast(msg.seq)
 		return a, nil

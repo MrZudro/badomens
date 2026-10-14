@@ -1,0 +1,30 @@
+┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Survival  …  Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   [Auto-apagado]   Ajustes        │
+│ ╭─ AUTO-APAGADO ────────────────────────────────────────────────────────────────────────────── activado ─╮ │
+│ │Estado: activado · se apaga tras 15 min sin jugadores                                                   │ │
+│ │Backup antes de apagar: sí                                                                              │ │
+│ │                                                                                                        │ │
+│ │Apagar tras inactividad                                                                                 │ │
+│ │▶ 5 min                                                                                                 │ │
+│ │  10 min                                                                                                │ │
+│ │  15 min  (actual)                                                                                      │ │
+│ │  30 min                                                                                                │ │
+│ │  1 h                                                                                                   │ │
+│ │  2 h                                                                                                   │ │
+│ │  Nunca                                                                                                 │ │
+│ │  Desactivar                                                                                            │ │
+│ │                                                                                                        │ │
+│ │El tiempo no cuenta mientras haya alguien dentro.                                                       │ │
+│ │[Enter] Aplicar · [B] Alternar backup · [T] Probar detección ahora                                      │ │
+│ │                                                                                                        │ │
+│ │                                                                                                        │ │
+│ │                                                                                                        │ │
+│ │                                                                                                        │ │
+│ │                                                                                                        │ │
+│ │                                                                                                        │ │
+│ │                                                                                                        │ │
+│ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
+│ Instancia survival                                                                                         │
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [E] Escribir  [C]…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

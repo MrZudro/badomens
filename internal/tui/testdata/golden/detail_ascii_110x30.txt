@@ -1,30 +1,30 @@
 +- badomens 0.0.0-dev ----------------------------------------------------------- [..] Docker sin comprobar -+
 | Inicio  [Instancias]  Salud  Ayuda                                                                         |
 +------------------------------------------------------------------------------------------------------------+
-| Survival   [Resumen]   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado   Ajust… |
-| Motor:      paper 1.21.4                                                                                   |
-| Memoria:    4G                                                                                             |
-| Puerto:     25565                                                                                          |
-| Jugadores:  —                                                                                              |
-| Dificultad: normal · modo survival                                                                         |
-| Estado:     [OK] En línea                                                                                  |
-|                                                                                                            |
-| +--------------------------------------------------------------+                                           |
-| | Cómo conectarse                                              |                                           |
-| | Dirección:  100.64.0.1:25565   (c = copiar)                  |                                           |
-| | Versión: Minecraft 1.21.4 · Modo online (cuenta oficial)     |                                           |
-| | [!!] MagicDNS desactivado: falta el nombre de conexión; usa  |                                           |
-| | la dirección IP                                              |                                           |
-| +--------------------------------------------------------------+                                           |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
+| Survival   [Resumen]   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado  …       |
+| +- RESUMEN --------------------------------------------------------++- CÓMO CONECTARSE ------------------+ |
+| |Motor:     paper 1.21.4         Dificultad:   normal · survival   ||Dirección:  100.64.0.1:25565        | |
+| |Memoria:   4G                   Estado:       [OK] En línea       ||(c = copiar)                        | |
+| |Puerto:    25565                Auto-apagado: sí · 15 min         ||Versión: Minecraft 1.21.4 · Modo    | |
+| |Jugadores: —                    CPU/RAM:      (sin métricas)      ||online (cuenta oficial)             | |
+| |                                                                  ||[!!] MagicDNS desactivado: falta el | |
+| |                                                                  ||nombre de conexión; usa la dirección| |
+| |                                                                  ||IP                                  | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| |                                                                  ||                                    | |
+| +------------------------------------------------------------------++------------------------------------+ |
 | Instancia survival                                                                                         |
 +- [S] Iniciar  [P] Detener  [R] Reiniciar  [E] Escribir  [C]…   F1 Ayuda | Ctrl+P | F2 Salud | Ctrl+Q Salir +

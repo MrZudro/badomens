@@ -1,0 +1,20 @@
+┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
+│ Inicio  [Instancias]  Salud  Ayuda                                 │
+├────────────────────────────────────────────────────────────────────┤
+│ Survival  [Red]  7/9  ←/→                                          │
+│ ╭─ CONEXIÓN ─────────────────────────────────────────────────────╮ │
+│ │Dirección:  100.64.0.1:25565   (c = copiar)                     │ │
+│ │Versión: Minecraft 1.21.4 · Modo online (cuenta oficial)        │ │
+│ │⚠ MagicDNS desactivado: falta el nombre de conexión; usa la     │ │
+│ │dirección IP                                                    │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
+│ ╭─ PUERTO ─────────────────────────────────────────────── libre ─╮ │
+│ │✓ Puerto 25565 · libre                                          │ │
+│ │Nadie lo está usando: la instancia puede publicarlo.            │ │
+│ │                                                                │ │
+│ │[R] Comprobar de nuevo · [C] Copiar dirección                   │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
+│ Instancia survival                                                 │
+└─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

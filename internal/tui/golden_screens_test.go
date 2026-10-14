@@ -9,11 +9,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/MrZudro/badomens/internal/backup"
 	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/host"
 	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/tui/svc"
 	"github.com/MrZudro/badomens/internal/tui/theme"
 )
@@ -54,6 +56,10 @@ func gDetail(tab int) func() *App {
 			inst.status = ""
 			inst.idleCfg = idle.Config{Enabled: true, Timeout: 15 * time.Minute, BackupBeforeStop: true}
 			inst.idleLoaded = true
+			// Métricas del contenedor deterministas (llegan por el sondeo): así la
+			// minigráfica de CPU/RAM se captura igual en cada ejecución.
+			inst.memHist = []float64{180, 210, 260, 240, 300, 280, 320, 300}
+			inst.memUsedMB, inst.memLimitMB = 512, 4096
 			if tab == 2 {
 				inst.access = svc.AccessState{
 					WhitelistEnabled: true,
@@ -62,6 +68,19 @@ func gDetail(tab int) func() *App {
 					Source:           svc.AccessLive,
 				}
 				inst.accessLoaded = true
+			}
+			if tab == 3 {
+				// Lista de backups determinista: ya cargada, con tres copias.
+				inst.backupsLoaded = true
+				inst.backups = []backup.Info{
+					{Name: "20260114T101500", Size: 128*1024*1024 + 512*1024, Sha256: strings.Repeat("ab", 32)},
+					{Name: "20260113T220000", Size: 96 * 1024 * 1024, Sha256: strings.Repeat("cd", 32)},
+					{Name: "manual-antes-de-actualizar", Size: 3*1024*1024 + 200*1024, Sha256: strings.Repeat("ef", 32)},
+				}
+			}
+			if tab == 6 {
+				// Resultado de puerto determinista (libre) para la captura de Red.
+				inst.portRes = &ports.Result{Port: 25565, Free: true}
 			}
 			inst.tab = tab
 		}
@@ -149,6 +168,12 @@ func goldenScreenCases() []gcase {
 		out = append(out,
 			gcase{name: span("detail", w, h), w: w, h: h, build: gDetail(0)},
 			gcase{name: span("players", w, h), w: w, h: h, build: gDetail(2)},
+			gcase{name: span("backups", w, h), w: w, h: h, build: gDetail(3)},
+			gcase{name: span("settings", w, h), w: w, h: h, build: gDetail(8)},
+			gcase{name: span("worlds", w, h), w: w, h: h, build: gDetail(4)},
+			gcase{name: span("plugins", w, h), w: w, h: h, build: gDetail(5)},
+			gcase{name: span("net", w, h), w: w, h: h, build: gDetail(6)},
+			gcase{name: span("idle", w, h), w: w, h: h, build: gDetail(7)},
 			gcase{name: span("console", w, h), w: w, h: h, build: gConsole},
 			gcase{name: span("health", w, h), w: w, h: h, build: gHealth},
 			gcase{name: span("help", w, h), w: w, h: h, build: gHelp},
@@ -177,6 +202,8 @@ func asciiCases() []gcase {
 			if inst, ok := a.router.Top().(*instanceScreen); ok {
 				inst.detail = &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}
 				inst.status = ""
+				inst.idleCfg = idle.Config{Enabled: true, Timeout: 15 * time.Minute, BackupBeforeStop: true}
+				inst.idleLoaded = true
 			}
 			return a
 		}},

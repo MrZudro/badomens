@@ -5,11 +5,15 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/MrZudro/badomens/internal/backup"
 	"github.com/MrZudro/badomens/internal/dockerx"
+	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/tui/components"
 	"github.com/MrZudro/badomens/internal/tui/layout"
 	"github.com/MrZudro/badomens/internal/tui/svc"
@@ -785,5 +789,574 @@ func TestPlayersPanelesPorAncho(t *testing.T) {
 		if layout.Width(ln) > 60 {
 			t.Fatalf("compacto desborda 60 celdas: %q", ln)
 		}
+	}
+}
+
+// --- Fase E: Resumen, Backups y Ajustes en paneles (§5.3/§5.6/§5.11) ---
+
+// UI-02: las nueve pestañas del detalle en los tamaños de referencia. Cada vista
+// ocupa exactamente el alto del terminal, no desborda el ancho, marca la pestaña
+// activa (completa, sin truncarla a ciegas) y en medio/ancho deja reconocibles las
+// demás por texto; ninguna pestaña revienta.
+func TestUI02NuevePestanasDetalle(t *testing.T) {
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}, {132, 40}} {
+		w, h := sz[0], sz[1]
+		inner := w - 4
+		for tab := 0; tab < len(instanceTabs); tab++ {
+			a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+			resize(a, w, h)
+			inst := openInstance(t, a, "survival")
+			inst.tab = tab
+			out := stripANSI(a.View())
+			lines := strings.Split(out, "\n")
+			if len(lines) != h {
+				t.Fatalf("%dx%d pestaña %q: la vista debe ocupar %d líneas, tengo %d", w, h, instanceTabs[tab], h, len(lines))
+			}
+			for i, ln := range lines {
+				if layout.Width(ln) > w {
+					t.Fatalf("%dx%d pestaña %q: la línea %d mide %d celdas: %q", w, h, instanceTabs[tab], i+1, layout.Width(ln), ln)
+				}
+			}
+			chrome := stripANSI(inst.Chrome(inner))
+			if !strings.Contains(chrome, "["+instanceTabs[tab]+"]") {
+				t.Fatalf("%dx%d: la pestaña activa %q debe verse marcada y completa:\n%s", w, h, instanceTabs[tab], chrome)
+			}
+			if layout.ClassifyWidth(inner) == layout.Compact {
+				if !strings.Contains(chrome, itoa(tab+1)+"/"+itoa(len(instanceTabs))) {
+					t.Fatalf("%dx%d: en compacto debe verse el indicador %d/%d:\n%s", w, h, tab+1, len(instanceTabs), chrome)
+				}
+				continue
+			}
+			others := 0
+			for i, name := range instanceTabs {
+				if i != tab && strings.Contains(chrome, name) {
+					others++
+				}
+			}
+			if others == 0 {
+				t.Fatalf("%dx%d: con la pestaña %q activa no queda ninguna otra reconocible por texto:\n%s", w, h, instanceTabs[tab], chrome)
+			}
+		}
+	}
+}
+
+// §5.3: el Resumen usa dos paneles contiguos (RESUMEN y CÓMO CONECTARSE) cuyos
+// anchos suman el ancho interior, con los datos en dos columnas etiqueta/valor; en
+// compacto, un solo panel a ancho completo con las líneas de conexión debajo. Sin
+// desbordes en los tamaños de referencia.
+func TestResumenPanelesYColumnas(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 0
+	inst.playersOnline, inst.playersKnown = 3, true
+	inst.memHist = []float64{100, 200, 300, 400}
+	inst.memUsedMB, inst.memLimitMB = 512, 4096
+	inst.idleCfg = idle.Config{Enabled: true, Timeout: 15 * time.Minute}
+	inst.idleLoaded = true
+
+	ancho := stripANSI(inst.summaryView(106, 24))
+	lines := strings.Split(ancho, "\n")
+	if len(lines) != 24 {
+		t.Fatalf("el Resumen en ancho debe ocupar 24 líneas, tengo %d", len(lines))
+	}
+	for i, ln := range lines {
+		if layout.Width(ln) != 106 {
+			t.Fatalf("línea %d mide %d celdas, quiero 106: %q", i+1, layout.Width(ln), ln)
+		}
+	}
+	for _, want := range []string{
+		"RESUMEN", "CÓMO CONECTARSE", "Motor", "Memoria", "Puerto", "Jugadores",
+		"Dificultad", "Estado", "Auto-apagado", "CPU/RAM",
+	} {
+		if !strings.Contains(ancho, want) {
+			t.Fatalf("el Resumen en ancho debe contener %q:\n%s", want, ancho)
+		}
+	}
+	for _, want := range []string{"paper 1.21.4", "3/20", "100.64.0.1:25565", "15 min"} {
+		if !strings.Contains(ancho, want) {
+			t.Fatalf("el Resumen debe mostrar %q:\n%s", want, ancho)
+		}
+	}
+	if strings.Contains(ancho, "Cómo conectarse") {
+		t.Fatalf("el encabezado de conexión no debe repetirse dentro del panel:\n%s", ancho)
+	}
+
+	compacto := stripANSI(inst.summaryView(64, 14))
+	cl := strings.Split(compacto, "\n")
+	if len(cl) > 14 {
+		t.Fatalf("el Resumen compacto excede 14 líneas: %d", len(cl))
+	}
+	if !strings.Contains(compacto, "RESUMEN") || strings.Contains(compacto, "CÓMO CONECTARSE") {
+		t.Fatalf("en compacto debe haber un solo panel RESUMEN:\n%s", compacto)
+	}
+	if !strings.Contains(compacto, "Dirección:") {
+		t.Fatalf("en compacto deben verse las líneas de conexión debajo del panel:\n%s", compacto)
+	}
+	for i, ln := range cl {
+		if layout.Width(ln) > 64 {
+			t.Fatalf("compacto: la línea %d mide %d celdas: %q", i+1, layout.Width(ln), ln)
+		}
+	}
+
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}, {132, 40}} {
+		resize(a, sz[0], sz[1])
+		assertWithinSize(t, stripANSI(a.View()), sz[0], sz[1])
+	}
+}
+
+// §5.3/P-08: la caída detectada se avisa en el Resumen con su causa probable y,
+// cuando hubo bucle (tres caídas en diez minutos), con el aviso correspondiente.
+func TestResumenCaidaDetectada(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 0
+	inst.detail.State = "exited"
+	inst.crash = true
+	inst.crashCause = "falta memoria (OutOfMemoryError): sube la RAM"
+
+	ancho := stripANSI(inst.summaryView(106, 24))
+	for _, want := range []string{"se cayó inesperadamente", "Causa probable", "falta memoria"} {
+		if !strings.Contains(ancho, want) {
+			t.Fatalf("el aviso de caída debe incluir %q:\n%s", want, ancho)
+		}
+	}
+	if strings.Contains(ancho, "3 veces en 10 min") {
+		t.Fatalf("sin bucle de caídas no debe aparecer el aviso de 3 caídas:\n%s", ancho)
+	}
+	inst.crashLoop = true
+	ancho = stripANSI(inst.summaryView(106, 24))
+	if !strings.Contains(ancho, "3 veces en 10 min") {
+		t.Fatalf("con bucle debe avisarse de 3 caídas en 10 min:\n%s", ancho)
+	}
+	if n := len(strings.Split(ancho, "\n")); n != 24 {
+		t.Fatalf("el panel con aviso debe ocupar 24 líneas, tengo %d", n)
+	}
+
+	for _, w := range []int{64, 36} {
+		out := stripANSI(inst.summaryView(w, 12))
+		if !strings.Contains(out, "se cayó") {
+			t.Fatalf("compacto %d: falta el aviso de caída:\n%s", w, out)
+		}
+		for i, ln := range strings.Split(out, "\n") {
+			if layout.Width(ln) > w {
+				t.Fatalf("compacto %d: la línea %d desborda: %q", w, i+1, ln)
+			}
+		}
+	}
+}
+
+// §5.6: la pestaña Backups dentro de un panel distingue cargando, vacío, lista y
+// operación en curso, y muestra nombre, tamaño y checksum corto con puntero en la
+// fila seleccionada.
+func TestBackupsEstadosYFilas(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 3
+
+	cargando := stripANSI(inst.backupsView(106, 24))
+	if !strings.Contains(cargando, "BACKUPS") || !strings.Contains(cargando, "cargando…") {
+		t.Fatalf("el estado de carga debe estar etiquetado:\n%s", cargando)
+	}
+
+	a.Update(instanceBackupsMsg{items: nil})
+	if !inst.backupsLoaded {
+		t.Fatal("la respuesta de la lista debe marcar backupsLoaded")
+	}
+	vacio := stripANSI(inst.backupsView(106, 24))
+	if !strings.Contains(vacio, "(sin backups todavía)") || !strings.Contains(vacio, "[B] Crear ahora") {
+		t.Fatalf("el estado vacío debe decir qué falta y con qué tecla se resuelve:\n%s", vacio)
+	}
+
+	a.Update(instanceBackupsMsg{items: []backup.Info{
+		{Name: "20260114T101500", Size: 2 << 20, Sha256: strings.Repeat("ab", 32)},
+		{Name: "20260113T220000", Size: 1 << 20, Sha256: strings.Repeat("cd", 32)},
+	}})
+	lista := stripANSI(inst.backupsView(106, 24))
+	for _, want := range []string{
+		"20260114T101500", "2.0 MB", strings.Repeat("ab", 6), "20260113T220000",
+		"[B] Crear backup ahora", "[X] Restaurar", "[Shift+X] Podar",
+	} {
+		if !strings.Contains(lista, want) {
+			t.Fatalf("la lista debe mostrar %q:\n%s", want, lista)
+		}
+	}
+	if !strings.Contains(lista, components.Pointer(false)) {
+		t.Fatalf("la fila seleccionada debe llevar puntero:\n%s", lista)
+	}
+	if n := len(strings.Split(lista, "\n")); n != 24 {
+		t.Fatalf("el panel de backups debe ocupar 24 líneas, tengo %d", n)
+	}
+
+	a.Update(instanceBackupsMsg{err: errors.New("docker no responde")})
+	errVista := stripANSI(inst.backupsView(106, 24))
+	if !strings.Contains(errVista, "no se pudieron leer los backups") {
+		t.Fatalf("el error de lectura debe explicarse en el panel:\n%s", errVista)
+	}
+	a.Update(instanceBackupsMsg{items: inst.backups})
+
+	_, cmd := a.Update(press("b"))
+	if cmd == nil {
+		t.Fatal("B debe lanzar la creación del backup")
+	}
+	if inst.bkBusy == "" {
+		t.Fatal("crear un backup debe marcar la operación en curso")
+	}
+	enCurso := stripANSI(inst.backupsView(106, 24))
+	if !strings.Contains(enCurso, "creando backup") {
+		t.Fatalf("la operación en curso debe verse con texto claro:\n%s", enCurso)
+	}
+	a.Update(ejecutaCmd(cmd))
+	if inst.bkBusy != "" {
+		t.Fatalf("el resultado debe limpiar el estado ocupado, tengo %q", inst.bkBusy)
+	}
+	assertWithinSize(t, stripANSI(a.View()), 120, 40)
+}
+
+// §5.11: ←/→ ciclan el valor del campo enfocado y el cambio se persiste al
+// guardar, anunciando el estado (guardando → guardado) sin mutar el Spec antes.
+func TestAjustesCicloYGuardado(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 8
+	inst.setCursor = 1 // Dificultad: campo de ciclo
+	antes := inst.detail.Spec.Difficulty
+
+	_, cmd := a.Update(press("right"))
+	if cmd == nil {
+		t.Fatal("→ en un campo de ciclo debe pedir el guardado")
+	}
+	// El Spec persistido no se muta antes de que el guardado se confirme (§5.11).
+	if inst.detail.Spec.Difficulty != antes {
+		t.Fatalf("el Spec no debe mutarse antes de persistir, tengo %q", inst.detail.Spec.Difficulty)
+	}
+	if inst.pendingSave == nil {
+		t.Fatal("el cambio debe quedar preparado en pendingSave")
+	}
+	nuevo := inst.pendingSave.Difficulty
+	if nuevo == antes {
+		t.Fatalf("el ciclo debe cambiar el valor preparado (sigue en %q)", antes)
+	}
+	if inst.status != "guardando…" {
+		t.Fatalf("el estado debe indicar el guardado, tengo %q", inst.status)
+	}
+	vista := stripANSI(inst.settingsView(106, 24))
+	if !strings.Contains(vista, "guardando…") {
+		t.Fatalf("el panel debe mostrar el estado de guardado:\n%s", vista)
+	}
+	if !strings.Contains(vista, "Requiere reiniciar") {
+		t.Fatalf("el aviso de reinicio debe seguir visible:\n%s", vista)
+	}
+	if !strings.Contains(vista, nuevo) {
+		t.Fatalf("el panel debe mostrar el valor preparado %q:\n%s", nuevo, vista)
+	}
+
+	msg := ejecutaCmd(cmd)
+	sm, ok := msg.(instanceSavedMsg)
+	if !ok {
+		t.Fatalf("se esperaba instanceSavedMsg, tengo %T", msg)
+	}
+	if sm.err != nil {
+		t.Fatalf("guardar: %v", sm.err)
+	}
+	a.Update(sm)
+	if inst.status == "guardando…" {
+		t.Fatal("el resultado debe cerrar el estado de guardado")
+	}
+	if inst.pendingSave != nil {
+		t.Fatal("el guardado confirmado no debe dejar cambios pendientes")
+	}
+	if inst.detail.Spec.Difficulty != nuevo {
+		t.Fatalf("tras confirmar debe adoptarse el Spec guardado, tengo %q", inst.detail.Spec.Difficulty)
+	}
+	guardado := stripANSI(inst.settingsView(106, 24))
+	if !strings.Contains(guardado, "guardado") {
+		t.Fatalf("tras guardar debe verse el estado guardado:\n%s", guardado)
+	}
+	d, err := a.svc.Instances.Detail(context.Background(), "survival")
+	if err != nil {
+		t.Fatalf("detalle tras guardar: %v", err)
+	}
+	if d.Spec.Difficulty != nuevo {
+		t.Fatalf("la dificultad persistida debe ser %q, tengo %q", nuevo, d.Spec.Difficulty)
+	}
+
+	// Un fallo de guardado se queda visible en el panel.
+	a.Update(instanceSavedMsg{err: errors.New("disco lleno")})
+	if out := stripANSI(inst.settingsView(106, 24)); !strings.Contains(out, "no se pudo guardar") {
+		t.Fatalf("el error de guardado debe verse en el panel:\n%s", out)
+	}
+}
+
+// §4.2: en modo ASCII el Resumen no dibuja bloques Unicode (la minigráfica de
+// CPU/RAM se sustituye por las cifras), para que los terminales de respaldo y las
+// capturas ASCII sigan siendo legibles.
+func TestResumenAsciiSinBloquesUnicode(t *testing.T) {
+	opts := darkOpts()
+	opts.ASCII = true
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), opts)
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 0
+	inst.memHist = []float64{100, 200, 300, 400}
+	inst.memUsedMB, inst.memLimitMB = 512, 4096
+
+	out := inst.summaryView(106, 24)
+	for _, r := range out {
+		if (r >= 0x2500 && r <= 0x257F) || (r >= 0x2580 && r <= 0x259F) {
+			t.Fatalf("el Resumen en ASCII no debe dibujar el carácter Unicode %q:\n%s", r, stripANSI(out))
+		}
+	}
+	if plano := stripANSI(out); !strings.Contains(plano, "512/4096") {
+		t.Fatalf("en ASCII deben verse las cifras de CPU/RAM:\n%s", plano)
+	}
+}
+
+// --- Fase E: Mundos, Plugins/Mods, Red y Auto-apagado (§5.7–§5.10) ---
+
+// §5.7: la pestaña Mundos muestra la semilla del Spec y las instrucciones del CLI
+// (list/save/use/export/import), con estado de carga cuando el detalle aún no
+// llegó y sin desbordar en los tamaños de referencia.
+func TestMundosSemillaEInstrucciones(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 4
+
+	inst.detail = nil
+	cargando := stripANSI(inst.worldsView(106, 24))
+	if !strings.Contains(cargando, "MUNDO") || !strings.Contains(cargando, "cargando…") {
+		t.Fatalf("el estado de carga debe estar etiquetado:\n%s", cargando)
+	}
+
+	inst.detail = &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}
+	conSemilla := stripANSI(inst.worldsView(106, 24))
+	for _, want := range []string{"MUNDO", "Semilla: 42", "badomens world list", "world save", "world use", "world export", "world import"} {
+		if !strings.Contains(conSemilla, want) {
+			t.Fatalf("la vista de mundos debe contener %q:\n%s", want, conSemilla)
+		}
+	}
+	if n := len(strings.Split(conSemilla, "\n")); n != 24 {
+		t.Fatalf("el panel de mundos debe ocupar 24 líneas, tengo %d", n)
+	}
+
+	// Estado vacío: sin semilla se explica que el mundo se genera aleatorio y se
+	// mantienen las instrucciones.
+	inst.detail.Spec.Seed = ""
+	vacio := stripANSI(inst.worldsView(106, 24))
+	if !strings.Contains(vacio, "sin semilla") || !strings.Contains(vacio, "world list") {
+		t.Fatalf("sin semilla debe verse el aviso y las instrucciones:\n%s", vacio)
+	}
+	if !strings.Contains(vacio, "Semilla: —") {
+		t.Fatalf("la semilla vacía debe mostrarse como —:\n%s", vacio)
+	}
+
+	inst.detail.Spec.Seed = "42"
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}} {
+		resize(a, sz[0], sz[1])
+		inst.tab = 4
+		assertWithinSize(t, stripANSI(a.View()), sz[0], sz[1])
+	}
+}
+
+// §5.8: la pestaña Plugins/Mods lista spec.Plugins con su contador; vacía dice qué
+// falta y con qué comando se resuelve; sin desbordes en los tamaños de referencia.
+func TestPluginsVacioYLista(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 5
+
+	lista := stripANSI(inst.pluginsView(106, 24))
+	for _, want := range []string{"PLUGINS/MODS", "LuckPerms", "1 instalado", "plugin list", "plugin add", "plugin remove"} {
+		if !strings.Contains(lista, want) {
+			t.Fatalf("la lista de plugins debe contener %q:\n%s", want, lista)
+		}
+	}
+	if n := len(strings.Split(lista, "\n")); n != 24 {
+		t.Fatalf("el panel de plugins debe ocupar 24 líneas, tengo %d", n)
+	}
+
+	inst.detail.Spec.Plugins = nil
+	vacio := stripANSI(inst.pluginsView(106, 24))
+	if !strings.Contains(vacio, "(ninguno instalado)") || !strings.Contains(vacio, "plugin add") {
+		t.Fatalf("el estado vacío debe explicar qué falta y cómo añadir:\n%s", vacio)
+	}
+	if strings.Contains(vacio, "1 instalado") {
+		t.Fatalf("sin plugins no debe mostrarse contador:\n%s", vacio)
+	}
+
+	inst.detail.Spec.Plugins = []string{"LuckPerms", "EssentialsX"}
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}} {
+		resize(a, sz[0], sz[1])
+		inst.tab = 5
+		assertWithinSize(t, stripANSI(a.View()), sz[0], sz[1])
+	}
+}
+
+// §5.9: la pestaña Red en medio/ancho reparte dos paneles (CONEXIÓN y PUERTO) y
+// en compacto apila una columna. Distingue los cuatro estados del puerto
+// (comprobando, libre, ocupado con conflictos/sugerido y error) y expone [R]/[C].
+func TestRedEstadosPuerto(t *testing.T) {
+	s := svc.NewFakeWith([]*instance.Spec{goldenSpec()}, svc.FakeOptions{
+		PortResult: &ports.Result{Port: 25565, Free: true},
+	})
+	a := NewApp(s, darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 6
+
+	// Sin resultado todavía: comprobando. El panel CONEXIÓN usa ConnectLines.
+	inst.portRes = nil
+	inst.portErr = ""
+	comprobando := stripANSI(inst.netView(106, 24))
+	if !strings.Contains(comprobando, "CONEXIÓN") || !strings.Contains(comprobando, "PUERTO") {
+		t.Fatalf("en ancho deben verse los dos paneles:\n%s", comprobando)
+	}
+	if !strings.Contains(comprobando, "Comprobando el puerto") {
+		t.Fatalf("sin resultado debe indicarse que se está comprobando:\n%s", comprobando)
+	}
+	if !strings.Contains(comprobando, "100.64.0.1:25565") {
+		t.Fatalf("el panel de conexión debe mostrar la dirección:\n%s", comprobando)
+	}
+	for i, ln := range strings.Split(comprobando, "\n") {
+		if layout.Width(ln) != 106 {
+			t.Fatalf("línea %d mide %d celdas, quiero 106: %q", i+1, layout.Width(ln), ln)
+		}
+	}
+
+	// Libre: ✓ y "libre", con el resultado que llega por instancePortMsg.
+	a.Update(instancePortMsg{res: ports.Result{Port: 25565, Free: true}})
+	outLibre := stripANSI(inst.netView(106, 24))
+	if !strings.Contains(outLibre, "✓ Puerto 25565") || !strings.Contains(outLibre, "libre") {
+		t.Fatalf("el puerto libre debe mostrarse con ✓:\n%s", outLibre)
+	}
+
+	// Ocupado: ✖, conflictos y puerto sugerido.
+	inst.portRes = &ports.Result{
+		Port: 25565, Free: false,
+		Conflicts: []ports.Conflict{{
+			Port: 25565, Severity: ports.SeverityBlock,
+			Owner: ports.Owner{Kind: ports.OwnerHostProcess, Detail: "java (pid 4321)"},
+		}},
+		Suggested: 25566,
+	}
+	outOcupado := stripANSI(inst.netView(106, 24))
+	if !strings.Contains(outOcupado, "✖ Puerto 25565") {
+		t.Fatalf("el puerto ocupado debe mostrarse con ✖:\n%s", outOcupado)
+	}
+	if !strings.Contains(outOcupado, "java (pid 4321)") {
+		t.Fatalf("debe listarse el conflicto:\n%s", outOcupado)
+	}
+	if !strings.Contains(outOcupado, "Puerto sugerido: 25566") {
+		t.Fatalf("debe sugerirse un puerto libre:\n%s", outOcupado)
+	}
+
+	// Error de comprobación.
+	inst.portRes = nil
+	inst.portErr = "docker no responde"
+	outErr := stripANSI(inst.netView(106, 24))
+	if !strings.Contains(outErr, "No se pudo comprobar el puerto") || !strings.Contains(outErr, "docker no responde") {
+		t.Fatalf("el error de comprobación debe verse:\n%s", outErr)
+	}
+	inst.portErr = ""
+
+	// La pista de atajos y las teclas [R]/[C] de la pestaña Red.
+	if !strings.Contains(stripANSI(inst.netView(106, 24)), "[R] Comprobar de nuevo · [C] Copiar dirección") {
+		t.Fatal("la pista de atajos [R]/[C] debe verse en el panel de puerto")
+	}
+	if _, cmd := a.Update(press("R")); cmd == nil {
+		t.Fatal("R debe pedir una nueva comprobación del puerto")
+	}
+	if _, cmd := a.Update(press("C")); cmd == nil {
+		t.Fatal("C debe copiar la dirección de conexión")
+	}
+
+	// Compacto: una sola columna (paneles apilados), sin desborde.
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}} {
+		resize(a, sz[0], sz[1])
+		inst.tab = 6
+		assertWithinSize(t, stripANSI(a.View()), sz[0], sz[1])
+	}
+}
+
+// §5.10: la pestaña Auto-apagado muestra el estado, el backup y los presets con
+// puntero; Enter aplica el preset (Idle.Set) y B alterna el backup.
+func TestAutoApagadoPresetsYAplicar(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 7
+	inst.idleCfg = idle.Config{Enabled: true, Timeout: 15 * time.Minute, BackupBeforeStop: true}
+	inst.idleLoaded = true
+	inst.idleCursor = 0
+
+	vista := stripANSI(inst.idleView(106, 24))
+	for _, want := range []string{
+		"AUTO-APAGADO", "activado", "se apaga tras 15 min", "Backup antes de apagar: sí",
+		"5 min", "10 min", "15 min", "30 min", "1 h", "2 h", "Nunca", "Desactivar",
+		"[Enter] Aplicar", "[B] Alternar backup", "[T] Probar detección ahora",
+	} {
+		if !strings.Contains(vista, want) {
+			t.Fatalf("la vista de auto-apagado debe contener %q:\n%s", want, vista)
+		}
+	}
+	if !strings.Contains(vista, components.Pointer(false)) {
+		t.Fatalf("el preset seleccionado debe llevar puntero:\n%s", vista)
+	}
+	if n := len(strings.Split(vista, "\n")); n != 24 {
+		t.Fatalf("el panel de auto-apagado debe ocupar 24 líneas, tengo %d", n)
+	}
+
+	// Enter aplica el preset seleccionado (llama a Idle.Set).
+	inst.idleCursor = 2 // 15 min
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter debe aplicar el preset de auto-apagado")
+	}
+	sm, ok := ejecutaCmd(cmd).(instanceIdleSetMsg)
+	if !ok {
+		t.Fatalf("se esperaba instanceIdleSetMsg, tengo %T", ejecutaCmd(cmd))
+	}
+	if sm.err != nil {
+		t.Fatalf("aplicar auto-apagado: %v", sm.err)
+	}
+	a.Update(sm)
+	cfg, err := a.svc.Idle.Config(context.Background(), "survival")
+	if err != nil {
+		t.Fatalf("leer auto-apagado: %v", err)
+	}
+	if !cfg.Enabled || cfg.Timeout != 15*time.Minute {
+		t.Fatalf("el auto-apagado debe quedar activado a 15 min, tengo %+v", cfg)
+	}
+
+	// B alterna el backup antes de apagar.
+	antes := cfg.BackupBeforeStop
+	_, cmd = a.Update(press("b"))
+	if cmd == nil {
+		t.Fatal("B debe alternar el backup")
+	}
+	a.Update(ejecutaCmd(cmd))
+	cfg2, _ := a.svc.Idle.Config(context.Background(), "survival")
+	if cfg2.BackupBeforeStop == antes {
+		t.Fatalf("B debe alternar BackupBeforeStop (sigue en %v)", cfg2.BackupBeforeStop)
+	}
+	if inst.idleCfg.BackupBeforeStop != cfg2.BackupBeforeStop {
+		t.Fatal("la vista debe reflejar el backup alternado")
+	}
+
+	// Estado desactivado.
+	inst.idleCfg.Enabled = false
+	off := stripANSI(inst.idleView(106, 24))
+	if !strings.Contains(off, "desactivado") {
+		t.Fatalf("sin auto-apagado debe verse desactivado:\n%s", off)
+	}
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}} {
+		resize(a, sz[0], sz[1])
+		inst.tab = 7
+		assertWithinSize(t, stripANSI(a.View()), sz[0], sz[1])
 	}
 }
