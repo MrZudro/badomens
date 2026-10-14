@@ -109,7 +109,7 @@ Criterios automáticos:
 
 ### Fase 6 — Prueba visual con modelo de visión
 
-Cuando haya capturas, enviar imágenes reales de los tamaños de referencia a un modelo de visión/subagente y pedir revisión con esta rúbrica:
+Cuando haya capturas, enviar imágenes reales de los tamaños de referencia (ver la skill `terminal-capture` para generarlas desde una terminal en ejecución) a un modelo de visión/subagente y pedir revisión con esta rúbrica:
 
 1. ¿Se corta, solapa o envuelve de manera imprevista algún contenido?
 2. ¿El título, la pestaña activa, el estado y los atajos se distinguen inmediatamente?

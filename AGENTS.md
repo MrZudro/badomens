@@ -90,6 +90,9 @@ y el contrato de rediseño en `docs/TUI_REDESIGN.md` / `docs/TUI_ACCEPTANCE_TEST
   `go test ./...` (y `-race` si el entorno lo permite). Actualiza los snapshots
   con `make golden` **tras revisar el diff**, nunca a ciegas. Hay benchmarks de
   render en `perf_test.go` (`go test -bench BenchmarkView ./internal/tui/`).
+- **Revisión visual**: usa la skill `skills/terminal-capture` (captura PTY→PNG
+  con `mss`/`pyautogui`) y pasa las imágenes al subagente `visual-qa` antes de dar
+  una pantalla por buena.
 
 ## Reglas
 
