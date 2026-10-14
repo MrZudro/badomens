@@ -15,7 +15,10 @@ LDFLAGS  := -X github.com/MrZudro/badomens/internal/version.Version=$(VERSION) \
 # (-ldflags=-w) cambia el hash del binario y evita el bloqueo.
 TEST_FLAGS := $(shell if [ "$$(go env GOOS)" = "windows" ]; then echo "-ldflags=-w"; fi)
 
-.PHONY: build test test-race lint lint-fix run doctor check fmt vet
+.PHONY: build test test-race lint lint-fix run doctor check fmt vet golden
+
+golden:
+	go test $(TEST_FLAGS) ./internal/tui/ -update
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/badomens

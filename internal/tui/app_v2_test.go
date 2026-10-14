@@ -57,7 +57,7 @@ func TestAppHomeMuestraFilasYConectar(t *testing.T) {
 	if !strings.Contains(out, "Survival") {
 		t.Fatalf("la home debe listar la instancia:\n%s", out)
 	}
-	if !strings.Contains(out, "Conectarse") {
+	if !strings.Contains(out, "Cómo conectarse") {
 		t.Fatalf("la home debe mostrar la tarjeta de conexión:\n%s", out)
 	}
 }

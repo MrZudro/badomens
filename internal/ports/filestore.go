@@ -168,9 +168,14 @@ func (s *FileStore) write(data map[string]Reservation) error {
 // lock crea el archivo de bloqueo con O_EXCL, reintentando hasta el timeout. Si
 // el bloqueo existente es más viejo que StaleAfter, se considera huérfano y se
 // retira. Devuelve la función de liberación.
+//
+// En Windows, crear/borrar el lock en carrera puede devolver "Acceso denegado"
+// de forma transitoria; por eso cualquier error que no sea de directorio se
+// reintenta hasta el timeout.
 func (s *FileStore) lock(ctx context.Context) (func(), error) {
 	lockPath := s.Path + ".lock"
 	deadline := time.Now().Add(s.lockTimeout())
+	var lastErr error
 	for {
 		f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 		if err == nil {
@@ -178,20 +183,21 @@ func (s *FileStore) lock(ctx context.Context) (func(), error) {
 			_ = f.Close()
 			return func() { _ = os.Remove(lockPath) }, nil
 		}
-		if !errors.Is(err, fs.ErrExist) {
-			// El directorio puede no existir todavía.
-			if mkErr := os.MkdirAll(filepath.Dir(lockPath), 0o700); mkErr == nil {
-				if _, statErr := os.Stat(lockPath); errors.Is(statErr, fs.ErrNotExist) {
-					continue
-				}
+		if errors.Is(err, fs.ErrExist) {
+			if info, serr := os.Stat(lockPath); serr == nil && time.Since(info.ModTime()) > s.staleAfter() {
+				_ = os.Remove(lockPath)
+				continue
 			}
-			return nil, err
-		}
-		if info, serr := os.Stat(lockPath); serr == nil && time.Since(info.ModTime()) > s.staleAfter() {
-			_ = os.Remove(lockPath)
-			continue
+		} else {
+			// Puede ser el directorio inexistente o un acceso denegado
+			// transitorio (Windows): se asegura el directorio y se reintenta.
+			_ = os.MkdirAll(filepath.Dir(lockPath), 0o700)
+			lastErr = err
 		}
 		if time.Now().After(deadline) {
+			if lastErr != nil {
+				return nil, fmt.Errorf("no se pudo obtener el bloqueo de puertos (%s): %w", lockPath, lastErr)
+			}
 			return nil, fmt.Errorf("no se pudo obtener el bloqueo de puertos (%s); otro proceso lo retiene", lockPath)
 		}
 		select {
