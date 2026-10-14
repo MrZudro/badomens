@@ -6,6 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/tui/svc"
+	"github.com/MrZudro/badomens/internal/tui/theme"
 )
 
 // Options controla la apertura del panel.
@@ -18,16 +20,17 @@ type Options struct {
 // y devuelve nil al salir. Requiere una terminal; el comando CLI lo comprueba
 // antes con isTTY.
 func Run(cfg *config.Config, opts Options) error {
-	b, err := newBackend(cfg)
+	services, err := svc.New(cfg)
 	if err != nil {
 		return err
 	}
-	model, err := NewModel(b)
-	if err != nil {
-		return err
-	}
-	model.noPreflight = !opts.Preflight
-	p := tea.NewProgram(model, tea.WithAltScreen())
+	app := NewApp(services, AppOptions{
+		Preflight:     opts.Preflight,
+		Theme:         theme.Parse(cfg.UI.Theme),
+		ReducedMotion: cfg.UI.ReducedMotion,
+		ASCII:         cfg.UI.ASCII,
+	})
+	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, err = p.Run()
 	return err
 }

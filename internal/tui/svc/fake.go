@@ -8,8 +8,10 @@ import (
 
 	"github.com/MrZudro/badomens/internal/backup"
 	"github.com/MrZudro/badomens/internal/dockerx"
+	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/ports"
+	"github.com/MrZudro/badomens/internal/provision"
 )
 
 // fakeInstances es un adaptador en memoria.
@@ -44,6 +46,12 @@ func (f *fakeInstances) Detail(ctx context.Context, slug string) (*Detail, error
 	}
 	return &Detail{Spec: s, State: f.state[slug]}, nil
 }
+
+func (f *fakeInstances) Logs(context.Context, string, int) (string, error) {
+	return "línea 1\nlínea 2", nil
+}
+
+func (f *fakeInstances) Console(context.Context, string, string) error { return nil }
 
 // fakeLifecycle registra las llamadas sin ejecutar nada.
 type fakeLifecycle struct {
@@ -96,6 +104,23 @@ func (*fakeDocker) Status(context.Context) (dockerx.Diagnosis, error) {
 	return dockerx.Diagnosis{State: dockerx.StateOK}, nil
 }
 
+// fakeCreator registra las peticiones de creación.
+type fakeCreator struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (f *fakeCreator) Create(_ context.Context, req provision.Request) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	slug, err := instance.NormalizeSlug(req.Name)
+	if err != nil {
+		return "", err
+	}
+	return slug, nil
+}
+
 // NewFake construye una fachada falsa para los tests de la TUI.
 func NewFake(specs []*instance.Spec) *Services {
 	m := map[string]*instance.Spec{}
@@ -106,10 +131,12 @@ func NewFake(specs []*instance.Spec) *Services {
 	return &Services{
 		MaxParallel:  3,
 		MaxInstances: 5,
+		Engines:      engines.Order,
 		Instances:    &fakeInstances{specs: m, state: state},
 		Lifecycle:    &fakeLifecycle{},
 		Backups:      &fakeBackups{},
 		Ports:        &fakePorts{},
 		DockerState:  &fakeDocker{},
+		Creator:      &fakeCreator{},
 	}
 }

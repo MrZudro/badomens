@@ -14,6 +14,7 @@ import (
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/ports"
+	"github.com/MrZudro/badomens/internal/provision"
 	"github.com/MrZudro/badomens/internal/runtime"
 )
 
@@ -25,10 +26,12 @@ func engineNames() []string {
 	return names
 }
 
-// Instances lista y detalla las instancias.
+// Instances lista, detalla y opera sobre las instancias (lectura + consola).
 type Instances interface {
 	Rows(ctx context.Context) ([]Row, error)
 	Detail(ctx context.Context, slug string) (*Detail, error)
+	Logs(ctx context.Context, slug string, lines int) (string, error)
+	Console(ctx context.Context, slug, command string) error
 }
 
 // Row resume una instancia para las listas.
@@ -74,15 +77,22 @@ type DockerState interface {
 	Status(ctx context.Context) (dockerx.Diagnosis, error)
 }
 
+// Creator crea instancias con el núcleo compartido (provision).
+type Creator interface {
+	Create(ctx context.Context, req provision.Request) (slug string, err error)
+}
+
 // Services es la fachada que la TUI conoce.
 type Services struct {
 	MaxParallel  int
 	MaxInstances int
+	Engines      []engines.Engine
 	Instances    Instances
 	Lifecycle    Lifecycle
 	Backups      Backups
 	Ports        Ports
 	DockerState  DockerState
+	Creator      Creator
 }
 
 // New construye los adaptadores reales sobre los paquetes de dominio.
@@ -93,6 +103,7 @@ func New(cfg *config.Config) (*Services, error) {
 	m := instance.New(cfg.DataDir, engineNames())
 	rt := runtime.New(cfg)
 	be := &backup.Backend{DataDir: cfg.DataDir}
+	resolver := engines.NewRegistry(engines.DefaultClient())
 
 	rng, err := ports.ParseRange(cfg.Ports.Range)
 	if err != nil {
@@ -117,15 +128,41 @@ func New(cfg *config.Config) (*Services, error) {
 		TailnetScan: mode,
 	}
 
+	alloc := ports.NewAllocator(cfg.DataDir, checker, rng)
+
 	return &Services{
 		MaxParallel:  cfg.MaxParallel,
 		MaxInstances: cfg.MaxInstances,
+		Engines:      engines.Order,
 		Instances:    &realInstances{m: m, rt: rt},
 		Lifecycle:    &realLifecycle{rt: rt, m: m},
 		Backups:      &realBackups{be: be},
-		Ports:        &allocPorts{a: ports.NewAllocator(cfg.DataDir, checker, rng)},
+		Ports:        &allocPorts{a: alloc},
 		DockerState:  &realDocker{},
+		Creator:      &realCreator{cfg: cfg, m: m, rt: rt, resolver: resolver, alloc: alloc},
 	}, nil
+}
+
+// realCreator crea instancias con el núcleo compartido.
+type realCreator struct {
+	cfg      *config.Config
+	m        *instance.Manager
+	rt       *runtime.Runtime
+	resolver provision.Resolver
+	alloc    *ports.Allocator
+}
+
+func (c *realCreator) Create(ctx context.Context, req provision.Request) (string, error) {
+	res, err := provision.Create(ctx, provision.Deps{
+		Cfg: c.cfg, Manager: c.m, Resolver: c.resolver, Runtime: c.rt, Ports: c.alloc,
+	}, req)
+	if err != nil {
+		if res != nil && res.Spec != nil {
+			return res.Spec.Slug, err
+		}
+		return "", err
+	}
+	return res.Spec.Slug, nil
 }
 
 type realInstances struct {
@@ -158,6 +195,14 @@ func (r *realInstances) Detail(ctx context.Context, slug string) (*Detail, error
 	}
 	state, _ := r.rt.State(ctx, slug)
 	return &Detail{Spec: spec, State: state}, nil
+}
+
+func (r *realInstances) Logs(ctx context.Context, slug string, lines int) (string, error) {
+	return r.rt.Logs(ctx, slug, lines)
+}
+
+func (r *realInstances) Console(ctx context.Context, slug, command string) error {
+	return r.rt.Console(ctx, slug, command)
 }
 
 type realLifecycle struct {
