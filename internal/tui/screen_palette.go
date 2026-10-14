@@ -60,3 +60,6 @@ func (p *paletteScreen) View(w, h int) string {
 func (p *paletteScreen) Actions() []components.Action { return nil }
 func (p *paletteScreen) Title() string                { return "Comandos" }
 func (p *paletteScreen) ID() string                   { return "palette" }
+
+// CapturesInput: la paleta filtra por texto, así que captura las teclas.
+func (p *paletteScreen) CapturesInput() bool { return true }

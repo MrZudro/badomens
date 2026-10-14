@@ -1,0 +1,14 @@
+┌ badomens                                                                                                                                                                        Docker sin comprobar ┐
+1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar
+
+▶ Auto-apagado: no                                                                                                        ╭──────────────────────────────────────────────────────────────────────────╮
+    Apaga el servidor si nadie entra durante el tiempo elegido.                                                           │ ¿Qué es esto?                                                            │
+  Tiempo de inactividad: 15m                                                                                              │                                                                          │
+    Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máximo 24 h.                                                   │ Activa o desactiva el apagado automático por inactividad. Mientras haya  │
+  Arrancar al crear: sí                                                                                                   │ al                                                                       │
+    Inicia el servidor en cuanto termina la creación.                                                                     │ menos un jugador dentro, el contador no corre. Ahorra CPU y RAM cuando   │
+                                                                                                                          │ no                                                                       │
+⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.   │ se juega.                                                                │
+                                                                                                                          │ Por defecto: desactivado                                                 │
+                                                                                                                          ╰──────────────────────────────────────────────────────────────────────────╯
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS

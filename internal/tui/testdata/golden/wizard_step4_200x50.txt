@@ -1,0 +1,16 @@
+┌ badomens                                                                                                                                                                        Docker sin comprobar ┐
+1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar
+
+▶ Puerto: (automático)                                                                                                    ╭──────────────────────────────────────────────────────────────────────────╮
+    Número por el que se conectan los jugadores. Lo elegimos libre y lo comprobamos por ti.                               │ ¿Qué es esto?                                                            │
+  Mensaje del servidor (MOTD):                                                                                            │                                                                          │
+    Texto que ven los jugadores en la lista de servidores.                                                                │ El puerto es la dirección numérica de conexión (por defecto 25565).      │
+                                                                                                                          │ badomens comprueba que esté libre en tu equipo, en Docker y en la        │
+⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.   │ tailnet                                                                  │
+                                                                                                                          │ y propone el primero libre si no lo está. Cambiarlo requiere reiniciar.  │
+                                                                                                                          │                                                                          │
+                                                                                                                          │ Ejemplo: 25565                                                           │
+                                                                                                                          │                                                                          │
+                                                                                                                          │ Requiere reiniciar                                                       │
+                                                                                                                          ╰──────────────────────────────────────────────────────────────────────────╯
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS

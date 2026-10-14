@@ -27,6 +27,7 @@ type Request struct {
 	Version          string
 	Memory           string
 	CPU              int
+	Port             int
 	Difficulty       string
 	Gamemode         string
 	MaxPlayers       int
@@ -138,7 +139,11 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 	port := 0
 	var releaseReservation func()
 	if d.Ports != nil {
-		res, perr := d.Ports.Reserve(ctx, slug, 25565)
+		preferred := req.Port
+		if preferred <= 0 {
+			preferred = 25565
+		}
+		res, perr := d.Ports.Reserve(ctx, slug, preferred)
 		if perr != nil {
 			return nil, perr
 		}
@@ -146,8 +151,12 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 		releaseReservation = func() { _ = d.Ports.Release(ctx, slug) }
 		defer releaseReservation()
 	} else {
+		base := req.Port
+		if base <= 0 {
+			base = 25565
+		}
 		var nerr error
-		port, nerr = d.Manager.NextPort(25565)
+		port, nerr = d.Manager.NextPort(base)
 		if nerr != nil {
 			return nil, nerr
 		}

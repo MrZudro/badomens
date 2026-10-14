@@ -1,0 +1,12 @@
+┌ badomens        Docker sin comprobar ┐
+Survival   Resumen   Consola   Jugadore…
+
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+[22:10:19 INFO]: Done (1.234s)! For help
+, type "help"
+seguir=sí  pausa=no  filtro=—
+> comando para la consola (ej. say hola)
+  ? Ayuda · Ctrl+P Comandos · Tab Panel…

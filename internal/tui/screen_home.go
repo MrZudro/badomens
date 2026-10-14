@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	zone "github.com/lrstanley/bubblezone"
 
 	"github.com/MrZudro/badomens/internal/connection"
 	"github.com/MrZudro/badomens/internal/instance"
@@ -19,8 +20,10 @@ import (
 )
 
 type homeDetailMsg struct {
-	d   *svc.Detail
-	err error
+	d    *svc.Detail
+	err  error
+	slug string
+	gen  int
 }
 
 type homeLogsMsg struct {
@@ -56,6 +59,8 @@ type homeScreen struct {
 	memHist   map[string][]float64
 	logs      string
 	logSlug   string
+	// detailGen identifica la selección vigente para descartar respuestas tardías.
+	detailGen int
 }
 
 func newHomeScreen(sv *svc.Services, pal theme.Palette, ascii bool) *homeScreen {
@@ -128,8 +133,13 @@ func (s *homeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 			return s, nil
 		}
 		s.status = ""
-		return s, tea.Batch(s.detailCmd(), s.logsCmd())
+		s.detailGen++
+		return s, s.detailCmd()
 	case homeDetailMsg:
+		// Descarta respuestas de otra instancia o de una selección ya cambiada.
+		if msg.slug != "" && (msg.slug != s.selected() || msg.gen != s.detailGen) {
+			return s, nil
+		}
 		if msg.err == nil {
 			s.detail = msg.d
 		}
@@ -217,7 +227,8 @@ func (s *homeScreen) move(d int) (Screen, tea.Cmd) {
 	if s.cursor >= len(s.rows) {
 		s.cursor = len(s.rows) - 1
 	}
-	return s, tea.Batch(s.detailCmd(), s.logsCmd())
+	s.detailGen++
+	return s, s.detailCmd()
 }
 
 func (s *homeScreen) selectedSlug() (string, bool) {
@@ -237,12 +248,13 @@ func (s *homeScreen) detailCmd() tea.Cmd {
 	if slug == "" {
 		return nil
 	}
+	gen := s.detailGen
 	ref := s.svc
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		d, err := ref.Instances.Detail(ctx, slug)
-		return homeDetailMsg{d: d, err: err}
+		return homeDetailMsg{d: d, err: err, slug: slug, gen: gen}
 	}
 }
 
@@ -354,36 +366,57 @@ func (s *homeScreen) View(w, h int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
 }
 
-// activityView muestra las últimas líneas de log de la instancia seleccionada.
+// homeActivity es una línea derivada del estado (nunca logs crudos) para la
+// zona de actividad de Inicio (UI-09).
+type homeActivity struct {
+	text string
+	pal  string
+}
+
+// activityLines resume el estado operativo sin mostrar el stream de consola.
+func (s *homeScreen) activityLines() []homeActivity {
+	var out []homeActivity
+	for _, r := range s.rows {
+		if r.State == "running" {
+			line := "● " + r.Name
+			if r.PlayersOnline >= 0 {
+				line += "  " + itoa(r.PlayersOnline) + "/" + itoa(r.MaxPlayers) + " jug."
+			}
+			if r.MemLimitMB > 0 {
+				line += "  " + itoa(int(r.MemUsedMB)) + "M"
+			}
+			out = append(out, homeActivity{text: line, pal: s.pal.Good})
+		}
+		if r.IdleEnabled {
+			out = append(out, homeActivity{text: "☾ " + r.Name + " · " + s.idleLabel(r), pal: s.pal.Warn})
+		} else if r.StoppedBy == "idle" {
+			out = append(out, homeActivity{text: "☾ " + r.Name + " apagado por inactividad", pal: s.pal.Muted})
+		}
+	}
+	if len(out) == 0 {
+		out = append(out, homeActivity{text: "Sin novedades", pal: s.pal.Muted})
+	}
+	return out
+}
+
+// activityView muestra el resumen operativo derivado (no logs crudos, §UI-09).
 func (s *homeScreen) activityView(w, h int) string {
 	var b strings.Builder
 	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render("ACTIVIDAD"))
 	b.WriteString("\n")
-	text := s.logs
-	if s.logSlug == "" || s.logSlug != s.selected() {
-		text = ""
-	}
-	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
-	max := h - 2
+	lines := s.activityLines()
+	max := h - 1
 	if max < 1 {
 		max = 1
 	}
 	if len(lines) > max {
-		lines = lines[len(lines)-max:]
+		lines = lines[:max]
 	}
-	printed := 0
 	for _, l := range lines {
-		if l == "" {
-			continue
-		}
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(logColor(l, s.pal))).Render(layout.Truncate(l, w)))
+		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(l.pal)).Render(layout.Truncate(l.text, w)))
 		b.WriteString("\n")
-		printed++
 	}
-	if printed == 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("Sin actividad"))
-	}
-	// Ancho fijo para que la zona reserva su sitio aunque no haya líneas.
+	// Ancho fijo para que la zona reserve su sitio aunque no haya líneas.
 	return lipgloss.NewStyle().Width(w).Render(strings.TrimRight(b.String(), "\n"))
 }
 
@@ -392,12 +425,12 @@ func (s *homeScreen) emptyView(w int, class layout.Class) string {
 	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render("Todavía no hay instancias"))
 	b.WriteString("\n\n")
 	b.WriteString("Crea tu primer servidor y badomens te dirá cómo conectarte.\n\n")
-	b.WriteString(components.Button(components.Action{Verb: "Crear", Object: "mi primer servidor", Key: "n", Kind: components.Primary, Hint: "Abre el asistente."}, true, s.pal))
+	b.WriteString(components.Button(components.Action{ID: "global.new", Verb: "Crear", Object: "mi primer servidor", Key: "n", Kind: components.Primary, Hint: "Abre el asistente."}, true, s.pal))
 	b.WriteString("\n\n")
 	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Requisitos"))
 	b.WriteString("\n")
 	if s.reqs {
-		s.reqRow(&b, "Docker", s.dockerOK, "instalado y en marcha", "instálalo o arráncalo", "D")
+		s.reqRow(&b, "Docker", s.dockerOK, "instalado y en marcha", "instálalo o arráncalo", "Ctrl+R")
 		s.reqRow(&b, "Tailscale", s.tsOK, "IP "+s.tsIP, "sin IP del tailnet ('tailscale up')", "H")
 	} else {
 		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("comprobando Docker y Tailscale…"))
@@ -439,11 +472,13 @@ func (s *homeScreen) listView(w, h int, class layout.Class) string {
 		}
 		shown++
 		line := s.rowLine(r, width-3)
+		var rendered string
 		if i == s.cursor {
-			b.WriteString(lipgloss.NewStyle().Background(lipgloss.Color(s.pal.Accent)).Foreground(lipgloss.Color(s.pal.AccentText)).Render(components.Pointer(s.ascii) + " " + line))
+			rendered = lipgloss.NewStyle().Background(lipgloss.Color(s.pal.Accent)).Foreground(lipgloss.Color(s.pal.AccentText)).Render(components.Pointer(s.ascii) + " " + line)
 		} else {
-			b.WriteString("  " + line)
+			rendered = "  " + line
 		}
+		b.WriteString(zone.Mark("row:"+r.Slug, rendered))
 		b.WriteString("\n")
 	}
 	if max > 0 && len(s.rows) > shown {
@@ -555,6 +590,17 @@ func (s *homeScreen) Actions() []components.Action {
 
 func (s *homeScreen) Title() string { return "Instancias" }
 func (s *homeScreen) ID() string    { return "home" }
+
+// Click abre el detalle de la fila pulsada con el ratón (§4.1).
+func (s *homeScreen) Click(m tea.MouseMsg) tea.Cmd {
+	for _, r := range s.rows {
+		if z := zone.Get("row:" + r.Slug); z != nil && z.InBounds(m) {
+			slug := r.Slug
+			return func() tea.Msg { return openInstanceMsg{slug: slug} }
+		}
+	}
+	return nil
+}
 
 // stateKey traduce el estado crudo de Docker a una clave de insignia.
 func stateKey(state string) string {

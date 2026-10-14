@@ -23,6 +23,7 @@ type createOpts struct {
 	version          string
 	memory           string
 	cpu              int
+	port             int
 	difficulty       string
 	gamemode         string
 	maxPlayers       int
@@ -129,6 +130,7 @@ func addCreateFlags(cmd *cobra.Command, o *createOpts) {
 	f.StringVar(&o.version, "version", "", "versión de Minecraft (vacía = última)")
 	f.StringVar(&o.memory, "memory", "", "RAM JVM (ej. 4G)")
 	f.IntVar(&o.cpu, "cpu", 0, "límite de CPU (0 = sin límite)")
+	f.IntVar(&o.port, "port", 0, "puerto preferido (0 = el primero libre)")
 	f.StringVar(&o.difficulty, "difficulty", "", "peaceful|easy|normal|hard")
 	f.StringVar(&o.gamemode, "gamemode", "", "survival|creative|adventure|spectator")
 	f.IntVar(&o.maxPlayers, "max-players", 0, "máximo de jugadores (0 = recomendado)")
@@ -172,6 +174,7 @@ func runSetup(cmd *cobra.Command, e *Env, o *createOpts, interactive bool) (*res
 		Version:          o.version,
 		Memory:           o.memory,
 		CPU:              o.cpu,
+		Port:             o.port,
 		Difficulty:       o.difficulty,
 		Gamemode:         o.gamemode,
 		MaxPlayers:       o.maxPlayers,

@@ -4,6 +4,74 @@ Todas las novedades relevantes de **badomens** se documentan aquí ✨.
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y el
 versionado es [semántico](https://semver.org/lang/es/).
 
+## [Unreleased]
+
+> 🧭 Rediseño de la TUI guiado por `docs/TUI_REDESIGN.md` y
+> `docs/TUI_ACCEPTANCE_TESTS.md`, con la skill `skills/tui-engineering`.
+
+### ➕ Añadido
+
+- **Servicio de acceso verificable (`svc.Access`)**: la pestaña Jugadores lee
+  whitelist y operadores con fuente explícita (`live`, `saved`, `unavailable`) y
+  hace **read-back** tras cada mutación; nunca presenta configuración guardada
+  como estado en vivo ni afirma éxito por haber enviado un comando.
+- **Captura de teclado por foco (§5)**: modal → campo de texto → control →
+  pantalla → global. Las letras imprimibles ya no disparan atajos globales
+  mientras un formulario tiene el foco (p. ej. escribir `n` en la consola).
+- **Capturas doradas de Consola y Jugadores/Acceso** en 40×12, 70×20, 110×30 y
+  200×50, incluida una línea de log de 240 caracteres.
+- **Tests de aceptación `KEY-*`, `ACL-*`, `UI-*`** sobre la ruta de producción
+  (`acceptance_test.go`).
+
+### 🔧 Cambiado
+
+- **Atajos globales explícitos**: crear instancia pasa a `Ctrl+N` (en Inicio
+  sigue valiendo `n`), reparar Docker a `Ctrl+R` y cambiar de tema a `Ctrl+T`;
+  así `d`, `t` y `T` dejan de chocar con las teclas de las pantallas.
+- **Layout con alturas reservadas**: la cabecera y la barra de atajos nunca se
+  desplazan por banners, toasts o logs; el cuerpo recibe `alto − reservas`.
+- **Consola**: envuelve las líneas al ancho visual (sin desbordar ni desplazar
+  el footer) y el input sigue el ancho del terminal.
+- **Inicio**: la zona de actividad muestra estado derivado, no logs crudos.
+- **Respuestas tardías**: el detalle del Home lleva `slug` y generación y se
+  descartan las respuestas de una selección ya cambiada.
+
+## [1.0.1] — 2026-10-14
+
+> 🔧 Ajuste fino de la TUI v2: el auto-apagado corre **dentro** de la TUI, los
+> puertos se validan en vivo, la app se recupera de caídas y se amplía la
+> cobertura dorada a todas las pantallas, temas y modo ASCII.
+
+### ➕ Añadido
+
+- **Auto-apagado dentro de la TUI (RF-8 §6)**: la TUI arranca su propio vigilante
+  (bloqueo compartido con `badomens idle daemon`), se suscribe al bus de eventos
+  del dominio y convierte `IdleCountdownStarted/Cancelled` e `IdleStopped` en
+  avisos; sigue avisando cuando nadie vigila.
+- **Validación de puerto en vivo con debounce (RF-3)**: el asistente (modo
+  avanzado) incluye un campo de puerto con estados `⟳ Comprobando…`, `✓ Libre`,
+  `✖ Ocupado … sugerimos N` y `⚠ Responde en la tailnet`, con botón
+  `[P] usar el puerto sugerido`. `setup --port` y `provision.Request.Port`
+  respetan el puerto elegido (reserva el preferido).
+- **Recuperación ante caídas (P-08)**: detección de apagado inesperado
+  (`running → exited` sin acción del usuario), causa probable a partir de los
+  logs (OutOfMemoryError, puerto ocupado, Java incorrecto, EULA) y política de
+  *crash-loop* (3 caídas en 10 min deshabilitan «Reiniciar» con motivo).
+- **Confirmación destructiva en la TUI (P-03)**: eliminar una instancia exige
+  **escribir su nombre**; cambiar de versión crea un **backup previo** y pide
+  confirmación explícita (avisa de que bajar de versión puede corromper el mundo).
+- **Clic de ratón con `bubblezone` (§4.1)**: los botones (`components.Button`) y
+  las filas del Home son clicables, además de la rueda de scroll.
+- **Java real por versión (RF-5)**: la imagen de `itzg/minecraft-server` se elige
+  según el Java que requiere la versión de Minecraft (`java8/16/17/21…`) con
+  `engines.JavaImageFor`; si la versión no se reconoce se conserva la imagen de
+  `config.Image`.
+- **i18n**: catálogo ampliado y **carcasa de la app** (cabecera, banners, toasts,
+  salida y modales) migrada al catálogo; el lint de i18n ahora recorre las
+  subcarpetas y se añade un test de cableado de la carcasa.
+- **Capturas doradas (§10.2)**: Detalle, Asistente (cada paso), Salud, Ayuda y
+  Paleta en 40×12, 70×20, 110×30 y 200×50, más variantes ASCII.
+
 ## [1.0.0] — 2026-10-13
 
 > 🎉 **Primera versión estable de badomens.** Cierra el plan F0–F5 y completa la
@@ -228,6 +296,7 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ---
 
+[1.0.1]: https://github.com/MrZudro/badomens/releases/tag/v1.0.1
 [1.0.0]: https://github.com/MrZudro/badomens/releases/tag/v1.0.0
 [v0.1.0-rc.2]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.2
 [v0.1.0-rc.1]: https://github.com/MrZudro/badomens/releases/tag/v0.1.0-rc.1

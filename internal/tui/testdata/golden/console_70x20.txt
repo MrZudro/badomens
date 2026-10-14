@@ -1,0 +1,13 @@
+┌ badomens                                      Docker sin comprobar ┐
+Survival   Resumen   Consola   Jugadores   Backups   Mundos   Plugins…
+
+[22:10:03 INFO]: Alex joined the game
+[22:10:10 INFO]: There are 3 of a max of 20 players online
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+[22:10:19 INFO]: Done (1.234s)! For help, type "help"
+seguir=sí  pausa=no  filtro=—
+> comando para la consola (ej. say hola)                              
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTAN…

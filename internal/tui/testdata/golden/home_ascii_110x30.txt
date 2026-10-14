@@ -1,0 +1,10 @@
++ badomens                                                                         [..] Docker sin comprobar +
+Todavía no hay instancias
+
+Crea tu primer servidor y badomens te dirá cómo conectarte.
+
+ [N] Crear mi primer servidor 
+
+Requisitos
+  comprobando Docker y Tailscale…
+  ? Ayuda | Ctrl+P Comandos | Tab Panel | H Salud | Q Salir    INSTANCIAS

@@ -1,0 +1,18 @@
+┌ badomens                                      Docker sin comprobar ┐
+╭────────────────────────────────────────────────────────────╮
+│ Paleta de comandos                                         │
+│ Comandos                                                   │
+│ ▶ Iniciar «survival»  s                                    │
+│   Detener «survival» (guarda el mundo)  p                  │
+│   Reiniciar «survival»  r                                  │
+│   Crear backup ahora  b                                    │
+│   Copiar dirección de conexión  c                          │
+│   Ver detalle de «survival»  enter                         │
+│   Abrir Salud del sistema  H                               │
+│   Crear una instancia nueva  ctrl+n                        │
+│   Ver la ayuda de esta pantalla  ?                         │
+│                                                            │
+│                                                            │
+│                                                            │
+╰────────────────────────────────────────────────────────────╯
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTAN…

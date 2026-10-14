@@ -6,6 +6,7 @@ package engines
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -79,16 +80,60 @@ func (v Version) ID() string { return v.Version }
 // JavaMajorFor calcula (de forma aproximada) el Java que necesita una versión
 // de Minecraft. Es orientativo para la etiqueta de imagen de itzg.
 func JavaMajorFor(mc string) int {
-	mc = strings.ToLower(mc)
-	switch {
-	case strings.HasPrefix(mc, "1.20.5") || strings.HasPrefix(mc, "1.21") || strings.HasPrefix(mc, "1.22"):
-		return 21
-	case strings.HasPrefix(mc, "1.17"):
-		return 16
-	case strings.HasPrefix(mc, "1.18") || strings.HasPrefix(mc, "1.19") || strings.HasPrefix(mc, "1.20"):
-		return 17
+	if major, ok := javaMajorKnown(mc); ok {
+		return major
 	}
 	return 8
+}
+
+// javaMajorKnown reconoce el Java mayor de una versión de Minecraft. El segundo
+// valor es false cuando la versión no es reconocible (no se debe asumir Java).
+func javaMajorKnown(mc string) (int, bool) {
+	mc = strings.ToLower(strings.TrimSpace(mc))
+	switch {
+	case strings.HasPrefix(mc, "1.20.5"), strings.HasPrefix(mc, "1.21"), strings.HasPrefix(mc, "1.22"):
+		return 21, true
+	case strings.HasPrefix(mc, "1.17"):
+		return 16, true
+	case strings.HasPrefix(mc, "1.18"), strings.HasPrefix(mc, "1.19"), strings.HasPrefix(mc, "1.20"):
+		return 17, true
+	case strings.HasPrefix(mc, "1.12"), strings.HasPrefix(mc, "1.13"), strings.HasPrefix(mc, "1.14"),
+		strings.HasPrefix(mc, "1.15"), strings.HasPrefix(mc, "1.16"):
+		return 8, true
+	}
+	return 0, false
+}
+
+// JavaTag devuelve la etiqueta de imagen de itzg para un Java mayor ("java17"),
+// o "" si no hay una etiqueta conocida.
+func JavaTag(major int) string {
+	switch major {
+	case 8, 11, 16, 17, 21, 22:
+		return "java" + strconv.Itoa(major)
+	}
+	return ""
+}
+
+// JavaImageFor adapta la imagen base al Java que requiere una versión de
+// Minecraft (RF-5): conserva el repositorio de `fallback` y elige la etiqueta
+// `javaN`. Si la versión no es reconocible, devuelve `fallback` sin cambios.
+func JavaImageFor(mc, fallback string) string {
+	major, ok := javaMajorKnown(mc)
+	if !ok {
+		return fallback
+	}
+	tag := JavaTag(major)
+	if tag == "" {
+		return fallback
+	}
+	repo := "itzg/minecraft-server"
+	if fallback != "" {
+		repo = fallback
+		if i := strings.Index(repo, ":"); i >= 0 {
+			repo = repo[:i]
+		}
+	}
+	return repo + ":" + tag
 }
 
 // Resolved es el resultado de resolver un motor+versión a pines finales.

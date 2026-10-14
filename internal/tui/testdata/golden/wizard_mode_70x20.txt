@@ -1,0 +1,10 @@
+┌ badomens                                      Docker sin comprobar ┐
+Nueva instancia
+
+Elige cómo configurarla:
+
+ [R] Configuración rápida (3 preguntas) 
+[A] Configuración avanzada (todas las opciones)
+
+Los valores recomendados aparecen en el resumen antes de crear.
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTAN…

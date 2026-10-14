@@ -1,0 +1,14 @@
++ badomens                                                                         [..] Docker sin comprobar +
+Salud del sistema
+
+  [OK] Docker  Docker está listo.  OK
+  [OK] Docker Compose    v2.30.1
+  [OK] Tailscale  100.64.0.1 | maquina.tail1234.ts.net  IP/MagicDNS
+  [OK] Puertos  sin conflictos  rango libre
+  [OK] Disco  120 GB libres de 500 GB  ok
+  [OK] RAM  8 CPU | 16 GiB RAM | 4 GiB asignados  runtime
+  [OK] Actualización  repositorio MrZudro/badomens  al día
+  [OK] Plan  3 en paralelo · 5 registradas  límites
+
+  [D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nuevo
+  ? Ayuda | Ctrl+P Comandos | Tab Panel | H Salud | Q Salir    INSTANCIAS

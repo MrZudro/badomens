@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	zone "github.com/lrstanley/bubblezone"
 
 	"github.com/MrZudro/badomens/internal/tui/layout"
 	"github.com/MrZudro/badomens/internal/tui/theme"
@@ -12,8 +13,12 @@ import (
 
 // Button pinta una acción como "[S] Iniciar «Survival»". Si está deshabilitada,
 // muestra el motivo (regla "deshabilitado ≠ oculto", RF-7). Si focused, la
-// resalta.
+// resalta. El botón queda envuelto en una zona de ratón clicable (§4.1).
 func Button(a Action, focused bool, p theme.Palette) string {
+	return zone.Mark("action:"+a.ID, buttonRender(a, focused, p))
+}
+
+func buttonRender(a Action, focused bool, p theme.Palette) string {
 	label := "[" + keyOr(a.Key) + "] " + a.Label()
 	switch {
 	case a.Disabled:

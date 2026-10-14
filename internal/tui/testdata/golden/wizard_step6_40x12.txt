@@ -1,0 +1,12 @@
+┌ badomens        Docker sin comprobar ┐
+1 Básico › 2 Mundo › 3 Jugadores › 4 Re…
+
+Revisar y crear
+
+  Nombre: (auto)
+  Motor: paper
+  Versión de Minecraft: 1.21.4
+  Semilla: (auto)
+  Jugadores máximos: 20
+  Dificultad: normal
+  ? Ayuda · Ctrl+P Comandos · Tab Panel…

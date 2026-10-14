@@ -151,8 +151,25 @@ func (h *healthScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		return h, h.refreshCmd()
 	case pollDockerMsg:
 		h.docker = msg.diag
+	case tea.KeyMsg:
+		if cmd := h.handleKey(msg); cmd != nil {
+			return h, cmd
+		}
 	}
 	return h, nil
+}
+
+// handleKey atiende los atajos propios de la pantalla de Salud (no globales).
+func (h *healthScreen) handleKey(msg tea.KeyMsg) tea.Cmd {
+	switch msg.String() {
+	case "R":
+		return h.Invoke("health.retry")
+	case "D":
+		return h.Invoke("health.repair")
+	case "T":
+		return h.Invoke("health.tailscale")
+	}
+	return nil
 }
 
 func (h *healthScreen) View(w, hgt int) string {
@@ -199,10 +216,14 @@ func (h *healthScreen) View(w, hgt int) string {
 	}
 	row("Docker Compose", compose, "", h.docker.ComposeVersion != "", dockerKnown)
 
+	sep := " · "
+	if h.ascii {
+		sep = " | "
+	}
 	tsOK := h.ip != ""
 	tsDetail := h.ip
 	if h.magic != "" {
-		tsDetail += " · " + h.magic
+		tsDetail += sep + h.magic
 	}
 	if !tsOK {
 		tsDetail = "sin IPv4 del tailnet"
@@ -229,7 +250,7 @@ func (h *healthScreen) View(w, hgt int) string {
 	}
 
 	assigned := h.assignedRAM()
-	capDetail := itoa(h.capacity.NCPU) + " CPU · " + trimFloat(h.capacity.MemTotalGiB()) + " GiB RAM · " + trimFloat(assigned) + " GiB asignados"
+	capDetail := itoa(h.capacity.NCPU) + " CPU" + sep + trimFloat(h.capacity.MemTotalGiB()) + " GiB RAM" + sep + trimFloat(assigned) + " GiB asignados"
 	row("RAM", h.capacity.Source, capDetail, true, h.capacity.NCPU > 0)
 
 	upStatus, upOK := "no comprobado", true

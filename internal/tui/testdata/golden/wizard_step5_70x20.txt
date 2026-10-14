@@ -1,0 +1,13 @@
+┌ badomens                                      Docker sin comprobar ┐
+1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatizac…
+
+▶ Auto-apagado: no
+    Apaga el servidor si nadie entra durante el tiempo elegido.
+  Tiempo de inactividad: 15m
+    Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máximo 24 …
+  Arrancar al crear: sí
+    Inicia el servidor en cuanto termina la creación.
+
+⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualqui…
+
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTAN…

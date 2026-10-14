@@ -2,14 +2,18 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	zone "github.com/lrstanley/bubblezone"
 
 	"github.com/MrZudro/badomens/internal/dockerx"
+	"github.com/MrZudro/badomens/internal/events"
+	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/tui/anim"
 	"github.com/MrZudro/badomens/internal/tui/components"
 	"github.com/MrZudro/badomens/internal/tui/i18n"
@@ -60,6 +64,13 @@ type App struct {
 	idleWarned bool
 	dockerSeen bool
 	quitting   bool
+
+	// Vigilante de auto-apagado en el proceso de la TUI (RF-8 §6).
+	idleEvents   chan events.Event
+	watchCtx     context.Context
+	watchCancel  context.CancelFunc
+	watchStarted bool
+	idleStandby  bool
 }
 
 // toastEntry es un toast con su caducidad.
@@ -72,16 +83,18 @@ type toastEntry struct {
 
 // NewApp construye la app sobre la fachada de servicios.
 func NewApp(sv *svc.Services, opts AppOptions) *App {
+	zone.NewGlobal()
 	pal := theme.For(opts.Theme)
 	home := newHomeScreen(sv, pal, opts.ASCII)
 	a := &App{
-		svc:     sv,
-		pal:     pal,
-		keys:    DefaultKeys,
-		cat:     i18n.Es(),
-		ascii:   opts.ASCII,
-		reduced: opts.ReducedMotion,
-		anim:    anim.New(opts.ReducedMotion),
+		svc:        sv,
+		pal:        pal,
+		keys:       DefaultKeys,
+		cat:        i18n.Es(),
+		ascii:      opts.ASCII,
+		reduced:    opts.ReducedMotion,
+		anim:       anim.New(opts.ReducedMotion),
+		idleEvents: make(chan events.Event, 64),
 	}
 	a.router = NewRouter(home)
 	a.poller = &Poller{Svc: sv}
@@ -123,10 +136,29 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case pollTickMsg:
 		return a, tea.Batch(a.poller.Schedule(), a.poller.Cmds(msg.At, a.needsState(), a.needsDocker()))
 	case pollRowsMsg:
+		var cmds []tea.Cmd
 		if msg.err == nil {
-			a.noteIdleBanner()
+			a.noteIdleBanner(msg.rows)
+			if c := a.maybeStartIdleWatch(msg.rows); c != nil {
+				cmds = append(cmds, c)
+			}
 		}
-		return a, a.router.Update(msg)
+		cmds = append(cmds, a.router.Update(msg))
+		return a, tea.Batch(cmds...)
+	case idleEventMsg:
+		return a, tea.Batch(a.handleIdleEvent(msg.ev), a.waitIdleEvent())
+	case idleWatchDoneMsg:
+		if a.watchCancel != nil {
+			a.watchCancel()
+			a.watchCancel = nil
+		}
+		if errors.Is(msg.err, idle.ErrStandby) {
+			// Hay un demonio vigilando: la TUI no necesita correr el suyo.
+			a.idleStandby = true
+			return a, nil
+		}
+		a.watchStarted = false
+		return a, nil
 	case pollDockerMsg:
 		wasReady := a.docker.State.Ready()
 		wasSeen := a.dockerSeen
@@ -136,10 +168,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.poller.NoteDockerResult(msg.diag.State.Ready())
 			if !msg.diag.State.Ready() {
 				if wasReady {
-					a.pushToast("✖ Docker se detuvo — tus servidores no responden. [H] Reparar", components.Destructive)
+					a.pushToast(a.cat.T("app.toast.docker_down"), components.Destructive)
 				}
 			} else if wasSeen && !wasReady {
-				a.pushToast("✓ Docker volvió")
+				a.pushToast(a.cat.T("app.toast.docker_up"))
 			}
 		} else {
 			a.poller.NoteDockerResult(false)
@@ -166,14 +198,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case dockerRepairMsg:
 		a.repairing = false
 		if msg.err != nil {
-			a.pushToast("✖ No se pudo reparar Docker: "+msg.err.Error(), components.Destructive)
+			a.pushToast(a.cat.Tf("app.toast.docker_repair_fail", map[string]string{"cause": msg.err.Error()}), components.Destructive)
 			return a, nil
 		}
 		a.docker = msg.diag
 		if msg.diag.State.Ready() {
-			a.pushToast("✓ Docker está listo")
+			a.pushToast(a.cat.T("app.toast.docker_ready"))
 		} else {
-			a.pushToast("⚠ Docker sigue sin responder: "+msg.diag.Message, components.Destructive)
+			a.pushToast(a.cat.Tf("app.toast.docker_still", map[string]string{"cause": msg.diag.Message}), components.Destructive)
 		}
 		return a, nil
 	case openInstanceMsg:
@@ -184,11 +216,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case wizardCreatedMsg:
 		if msg.err != nil {
-			a.pushToast("✖ No se pudo crear: "+msg.err.Error(), components.Destructive)
+			a.pushToast(a.cat.Tf("app.toast.create_fail", map[string]string{"cause": msg.err.Error()}), components.Destructive)
 			return a, nil
 		}
 		a.router.Pop()
-		a.pushToast("✓ Instancia «" + msg.slug + "» creada")
+		a.pushToast(a.cat.Tf("app.toast.created", map[string]string{"name": msg.slug}))
 		return a, a.poller.Cmds(nowUTC(), true, false)
 	case themeChangedMsg:
 		a.pal = theme.For(msg.name)
@@ -211,12 +243,27 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if a.confirm != nil {
 		return a.handleConfirmKey(msg)
 	}
+	// Captura de entrada (§5): si la pantalla activa tiene un campo de texto o
+	// modal con foco, las teclas imprimibles van a ella y no disparan atajos
+	// globales. Solo Ctrl+C sigue siendo global para poder salir.
+	if c, ok := a.router.Active().(InputCaptor); ok && c.CapturesInput() {
+		if key == "ctrl+c" {
+			if a.busy {
+				return a.askQuit()
+			}
+			a.quitting = true
+			a.stopWatch()
+			return a, tea.Quit
+		}
+		return a, a.router.Update(msg)
+	}
 	switch key {
 	case "ctrl+c":
 		if a.busy {
 			return a.askQuit()
 		}
 		a.quitting = true
+		a.stopWatch()
 		return a, tea.Quit
 	case "q":
 		if a.router.Overlay() == nil {
@@ -224,6 +271,7 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return a.askQuit()
 			}
 			a.quitting = true
+			a.stopWatch()
 			return a, tea.Quit
 		}
 	case "esc":
@@ -254,17 +302,25 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.router.SetOverlay(newPaletteScreen(a.actions(), a.pal, a.ascii))
 		}
 		return a, nil
-	case "n":
+	case "ctrl+n":
 		if a.router.Overlay() == nil && a.router.Top().ID() != "wizard" {
 			a.router.Push(newWizardScreen(a.svc, a.pal, a.ascii))
 			return a, nil
 		}
-	case "d":
-		// Atajo de reparación cuando Docker está caído.
+	case "n":
+		// 'n' crea solo desde Inicio (sin input activo) para no chocar con el
+		// texto de un formulario. El atajo global es Ctrl+N.
+		if a.router.Overlay() == nil && a.router.Top().ID() == "home" {
+			a.router.Push(newWizardScreen(a.svc, a.pal, a.ascii))
+			return a, nil
+		}
+	case "ctrl+r":
+		// Atajo de reparación cuando Docker está caído (no imprimible, para no
+		// chocar con las teclas de las pantallas).
 		if !a.docker.State.Ready() && a.router.Overlay() == nil {
 			return a, a.repairDocker()
 		}
-	case "T":
+	case "ctrl+t":
 		return a, func() tea.Msg { return themeChangedMsg{name: nextTheme(a.pal.Name)} }
 	}
 	if a.router.Overlay() != nil && key == "esc" {
@@ -274,13 +330,38 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return a, a.router.Update(msg)
 }
 
-// handleMouse traduce la rueda del ratón a las teclas de navegación.
+// handleMouse traduce la rueda del ratón a las teclas de navegación y resuelve
+// los clics en botones (zonas) y filas clicables (§4.1).
 func (a *App) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	switch msg.Button {
 	case tea.MouseButtonWheelUp:
 		return a.Update(tea.KeyMsg{Type: tea.KeyUp})
 	case tea.MouseButtonWheelDown:
 		return a.Update(tea.KeyMsg{Type: tea.KeyDown})
+	case tea.MouseButtonLeft:
+		if msg.Action == tea.MouseActionPress {
+			return a.handleClick(msg)
+		}
+	}
+	return a, nil
+}
+
+// handleClick resuelve un clic: primero los botones (por zona de acción) y luego
+// los elementos clicables propios de la pantalla activa.
+func (a *App) handleClick(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	for _, act := range a.actions() {
+		z := zone.Get("action:" + act.ID)
+		if z != nil && z.InBounds(msg) {
+			if act.Disabled {
+				return a, nil
+			}
+			return a, a.invoke(act.ID)
+		}
+	}
+	if cz, ok := a.router.Active().(Clicker); ok {
+		if cmd := cz.Click(msg); cmd != nil {
+			return a, cmd
+		}
 	}
 	return a, nil
 }
@@ -288,11 +369,11 @@ func (a *App) handleMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 // askQuit pide confirmación para salir con una operación en curso (RF-7).
 func (a *App) askQuit() (tea.Model, tea.Cmd) {
 	a.confirm = &components.Modal{
-		Title: "Hay una operación en curso",
-		Body:  "Si sales ahora se cancelará la operación pendiente.",
+		Title: a.cat.T("app.quit.title"),
+		Body:  a.cat.T("app.quit.body"),
 		Actions: []components.Action{
-			{ID: "quit.wait", Verb: "No, esperar", Object: "a que termine", Key: "n", Hint: "Cancela la salida y deja terminar la operación.", Kind: components.Secondary},
-			{ID: "quit.now", Verb: "Sí, salir", Object: "y cancelar la operación", Key: "y", Hint: "Cierra la TUI cancelando lo pendiente.", Kind: components.Destructive},
+			{ID: "quit.wait", Verb: a.cat.T("app.quit.wait"), Object: a.cat.T("app.quit.wait_obj"), Key: "n", Hint: a.cat.T("app.quit.wait_hint"), Kind: components.Secondary},
+			{ID: "quit.now", Verb: a.cat.T("app.quit.now"), Object: a.cat.T("app.quit.now_obj"), Key: "y", Hint: a.cat.T("app.quit.now_hint"), Kind: components.Destructive},
 		},
 		Focused: 0,
 	}
@@ -327,9 +408,9 @@ func (a *App) svcInit() tea.Cmd { return a.router.Top().Init() }
 // marca deshabilitadas si Docker no está listo (guarda de prerrequisitos).
 func (a *App) actions() []components.Action {
 	globals := []components.Action{
-		{ID: "global.health", Verb: "Abrir", Object: "Salud del sistema", Key: "H", Hint: "Muestra Docker, Tailscale, disco y RAM.", Kind: components.Navigation},
-		{ID: "global.new", Verb: "Crear", Object: "una instancia nueva", Key: "n", Hint: "Abre el asistente de nueva instancia.", Kind: components.Primary, Disabled: a.dockerDown(), DisabledReason: "Docker no está activo — pulsa H para repararlo"},
-		{ID: "global.help", Verb: "Ver", Object: "la ayuda de esta pantalla", Key: "?", Hint: "Muestra todos los atajos.", Kind: components.Navigation},
+		{ID: "global.health", Verb: "Abrir", Object: a.cat.T("global.health.obj"), Key: "H", Hint: a.cat.T("global.health.hint"), Kind: components.Navigation},
+		{ID: "global.new", Verb: "Crear", Object: a.cat.T("global.new.obj"), Key: "ctrl+n", Hint: a.cat.T("global.new.hint"), Kind: components.Primary, Disabled: a.dockerDown(), DisabledReason: a.cat.T("app.disabled.docker")},
+		{ID: "global.help", Verb: "Ver", Object: a.cat.T("global.help.obj"), Key: "?", Hint: a.cat.T("global.help.hint"), Kind: components.Navigation},
 	}
 	out := append([]components.Action{}, a.router.Active().Actions()...)
 	// Guarda de prerrequisitos: si Docker no está listo, las acciones que
@@ -338,7 +419,7 @@ func (a *App) actions() []components.Action {
 		for i := range out {
 			if strings.HasPrefix(out[i].ID, "instance.") && !out[i].Disabled {
 				out[i].Disabled = true
-				out[i].DisabledReason = "Docker no está activo — pulsa H para repararlo"
+				out[i].DisabledReason = a.cat.T("app.disabled.docker")
 			}
 		}
 	}
@@ -367,6 +448,7 @@ func (a *App) invoke(id string) tea.Cmd {
 		return a.copyAction()
 	case "quit.now":
 		a.quitting = true
+		a.stopWatch()
 		return tea.Quit
 	case "quit.wait":
 		return nil
@@ -396,7 +478,7 @@ func (a *App) repairDocker() tea.Cmd {
 		return nil
 	}
 	a.repairing = true
-	a.pushToast("⟳ Intentando iniciar Docker…")
+	a.pushToast(a.cat.T("app.toast.repairing"))
 	ref := a.svc
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -439,12 +521,31 @@ func (a *App) expireToast(seq int) {
 }
 
 // noteIdleBanner avisa si hay auto-apagado configurado sin vigilante activo.
-func (a *App) noteIdleBanner() {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-	defer cancel()
-	rows, err := a.svc.Instances.Rows(ctx)
-	if err != nil {
-		return
+func (a *App) noteIdleBanner(rows []svc.Row) {
+	wanted := false
+	for _, r := range rows {
+		if r.IdleEnabled {
+			wanted = true
+			break
+		}
+	}
+	if wanted && !a.watchStarted && !a.svc.Idle.WatcherActive() && !a.idleWarned {
+		a.idleWarned = true
+		a.pushToast(a.cat.T("app.toast.idle_no_watcher"))
+	}
+}
+
+// idleEventMsg entrega un evento del vigilante en proceso a la TUI.
+type idleEventMsg struct{ ev events.Event }
+
+// idleWatchDoneMsg indica que el vigilante en proceso terminó.
+type idleWatchDoneMsg struct{ err error }
+
+// maybeStartIdleWatch arranca el vigilante en el proceso de la TUI si hay
+// instancias con auto-apagado activo y nadie más lo vigila (RF-8 §6).
+func (a *App) maybeStartIdleWatch(rows []svc.Row) tea.Cmd {
+	if a.watchStarted || a.idleStandby {
+		return nil
 	}
 	wanted := false
 	for _, r := range rows {
@@ -453,10 +554,93 @@ func (a *App) noteIdleBanner() {
 			break
 		}
 	}
-	if wanted && !a.svc.Idle.WatcherActive() && !a.idleWarned {
-		a.idleWarned = true
-		a.pushToast("⚠ El auto-apagado no está activo: nadie lo vigila. Actívalo con 'badomens idle daemon'.")
+	if !wanted || a.svc.Idle.WatcherActive() {
+		return nil
 	}
+	start := a.startIdleWatch()
+	return tea.Batch(start, a.waitIdleEvent())
+}
+
+// startIdleWatch lanza el vigilante en un Cmd (goroutine) y publica sus eventos.
+func (a *App) startIdleWatch() tea.Cmd {
+	if a.watchStarted {
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	a.watchCtx, a.watchCancel = ctx, cancel
+	a.watchStarted = true
+	ref := a.svc
+	emit := func(ev events.Event) {
+		select {
+		case a.idleEvents <- ev:
+		default: // la cola va llena: se descarta para no bloquear al vigilante
+		}
+	}
+	return func() tea.Msg {
+		return idleWatchDoneMsg{err: ref.Idle.Watch(ctx, emit)}
+	}
+}
+
+// waitIdleEvent espera el siguiente evento del vigilante (o la cancelación).
+func (a *App) waitIdleEvent() tea.Cmd {
+	ctx := a.watchCtx
+	return func() tea.Msg {
+		if ctx == nil {
+			return nil
+		}
+		select {
+		case ev, ok := <-a.idleEvents:
+			if !ok {
+				return nil
+			}
+			return idleEventMsg{ev: ev}
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+// stopWatch cancela el vigilante en proceso (al salir de la TUI).
+func (a *App) stopWatch() {
+	if a.watchCancel != nil {
+		a.watchCancel()
+		a.watchCancel = nil
+	}
+}
+
+// handleIdleEvent convierte un evento de auto-apagado en un aviso visible.
+func (a *App) handleIdleEvent(ev events.Event) tea.Cmd {
+	switch ev.Kind {
+	case events.IdleCountdownStarted:
+		secs := 0
+		if v, ok := ev.Data["remaining_seconds"].(int); ok {
+			secs = v
+		}
+		return a.pushToast(a.cat.Tf("app.toast.idle_countdown", map[string]string{"name": ev.Instance, "remaining": humanSeconds(secs)}))
+	case events.IdleCountdownCancelled:
+		return a.pushToast(a.cat.Tf("app.toast.idle_cancelled", map[string]string{"name": ev.Instance}))
+	case events.IdleStopped:
+		return a.pushToast(a.cat.Tf("app.toast.idle_stopped", map[string]string{"name": ev.Instance}))
+	}
+	return nil
+}
+
+// humanSeconds redacta una duración corta (p. ej. 90 → "1:30").
+func humanSeconds(secs int) string {
+	if secs <= 0 {
+		return "0 s"
+	}
+	if secs < 60 {
+		return itoa(secs) + " s"
+	}
+	return itoa(secs/60) + ":" + leftPad2(secs%60)
+}
+
+func leftPad2(n int) string {
+	if n < 10 {
+		return "0" + itoa(n)
+	}
+	return itoa(n)
 }
 
 // View pinta la app completa en el tamaño actual.
@@ -466,12 +650,28 @@ func (a *App) View() string {
 		w, h = 100, 30
 	}
 	if a.size.TooSmall() {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(a.pal.Warn)).
-			Render("Agranda la terminal (mínimo 40×12). Ahora: " + itoa(w) + "×" + itoa(h))
+		return zone.Scan(lipgloss.NewStyle().Foreground(lipgloss.Color(a.pal.Warn)).
+			Render(a.cat.Tf("app.too_small", map[string]string{"w": itoa(w), "h": itoa(h)})))
 	}
 	header := a.headerView(w)
 	footer := a.footerView(w)
-	bodyH := h - 3
+	banners := a.bannerView(w)
+	toasts := ""
+	if len(a.toasts) > 0 {
+		lines := make([]string, 0, len(a.toasts))
+		for _, t := range a.toasts {
+			lines = append(lines, components.RenderToast(components.Toast{Text: t.Text, Kind: t.Kind}, a.pal))
+		}
+		toasts = strings.Join(lines, "\n") + "\n"
+	}
+	// Reserva fija: 1 línea de cabecera + 1 de barra de atajos/envío; el resultado
+	// nunca puede desplazar el footer fuera de la pantalla (§4).
+	extra := 0
+	if banners != "" {
+		extra++
+	}
+	extra += len(a.toasts)
+	bodyH := h - 2 - extra
 	if bodyH < 1 {
 		bodyH = 1
 	}
@@ -482,23 +682,15 @@ func (a *App) View() string {
 	if a.confirm != nil {
 		body = a.confirm.Render(w, a.pal, a.ascii)
 	}
-	// Guarda de tamaño: el cuerpo nunca puede superar el ancho ni el alto.
+	// Guarda de tamaño: el cuerpo nunca puede superar el ancho ni el alto útil.
 	body = clampWidth(body, w)
-	body = clampLines(body, bodyH)
-	banners := a.bannerView(w)
-	toasts := ""
-	if len(a.toasts) > 0 {
-		lines := make([]string, 0, len(a.toasts))
-		for _, t := range a.toasts {
-			lines = append(lines, components.RenderToast(components.Toast{Text: t.Text, Kind: t.Kind}, a.pal))
-		}
-		toasts = strings.Join(lines, "\n") + "\n"
-	}
-	view := strings.Join([]string{header, banners + toasts + body, footer}, "\n")
-	// Guarda final de tamaño: ninguna línea puede superar w ni el total, h.
+	middle := banners + toasts + body
+	middle = clampLines(middle, h-2)
+	view := strings.Join([]string{header, middle, footer}, "\n")
+	// Guarda final de ancho: ninguna línea puede superar w.
 	view = clampWidth(view, w)
-	view = clampLines(view, h)
-	return view
+	// Registra las zonas de ratón y quita sus marcadores (bubblezone, §4.1).
+	return zone.Scan(view)
 }
 
 // bannerView pinta el banner fijo de prerrequisitos (Docker/Tailscale).
@@ -506,15 +698,15 @@ func (a *App) bannerView(w int) string {
 	if a.docker.State.Ready() || a.docker.State == dockerx.StateUnknown || a.docker.State == "" {
 		return ""
 	}
-	msg := "✖ Docker no está disponible — tus servidores no responden. [D] Reparar Docker"
+	msg := a.cat.T("app.banner.docker_down")
 	if a.docker.State == dockerx.StateStarting {
-		msg = "◐ Docker está arrancando… [D] Reintentar"
+		msg = a.cat.T("app.banner.docker_starting")
 	}
 	if a.ascii {
 		if a.docker.State == dockerx.StateStarting {
-			msg = "[..] Docker esta arrancando... [D] Reintentar"
+			msg = a.cat.T("app.banner.ascii_starting")
 		} else {
-			msg = "[XX] Docker no esta disponible - tus servidores no responden. [D] Reparar Docker"
+			msg = a.cat.T("app.banner.ascii_down")
 		}
 	}
 	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(a.pal.Bad)).Render(layout.Truncate(msg, w)) + "\n"
@@ -522,25 +714,25 @@ func (a *App) bannerView(w int) string {
 
 func (a *App) headerView(w int) string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(a.pal.Accent)).Render("badomens")
-	docker := "● Docker OK"
+	docker := a.cat.T("app.header.docker_ok")
 	color := a.pal.Good
 	switch {
 	case a.docker.State == "":
-		docker = "Docker sin comprobar"
+		docker = a.cat.T("app.header.docker_unchecked")
 		color = a.pal.Muted
 	case !a.docker.State.Ready():
-		docker = "✖ Docker " + string(a.docker.State)
+		docker = a.cat.Tf("app.header.docker_bad", map[string]string{"state": string(a.docker.State)})
 		color = a.pal.Bad
 	}
 	if a.ascii {
 		switch {
 		case a.docker.State == "":
-			docker = "[..] Docker sin comprobar"
+			docker = a.cat.T("app.header.ascii_unchecked")
 			color = a.pal.Muted
 		case a.docker.State.Ready():
-			docker = "[OK] Docker"
+			docker = a.cat.T("app.header.ascii_ok")
 		default:
-			docker = "[XX] Docker " + string(a.docker.State)
+			docker = a.cat.Tf("app.header.ascii_bad", map[string]string{"state": string(a.docker.State)})
 		}
 	}
 	right := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(docker)
@@ -556,6 +748,9 @@ func (a *App) headerView(w int) string {
 
 func (a *App) footerView(w int) string {
 	help := a.keys.ShortHelp()
+	if a.ascii {
+		help = a.keys.ShortHelpASCII()
+	}
 	second := ""
 	if top := a.router.Active(); top != nil {
 		second = top.Title()
@@ -564,7 +759,7 @@ func (a *App) footerView(w int) string {
 		second = a.status
 	}
 	if a.hint != "" {
-		second = "Pista: " + a.hint
+		second = a.cat.Tf("app.footer.hint", map[string]string{"hint": a.hint})
 	}
 	return lipgloss.NewStyle().Foreground(lipgloss.Color(a.pal.Muted)).
 		Render(layout.Truncate("  "+help+"    "+second, w))

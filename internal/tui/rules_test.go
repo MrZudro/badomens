@@ -62,27 +62,63 @@ func TestLintDeBotonesReales(t *testing.T) {
 	}
 }
 
-// TestClavesI18nUsadasExisten (§10.3, i18n): análisis estático simple sobre las
-// pantallas. Falla si una pantalla usa una clave del catálogo que no existe.
+// TestClavesI18nUsadasExisten (§10.3, i18n): análisis estático sobre TODAS las
+// pantallas (incluidas las subcarpetas). Falla si se usa una clave del catálogo
+// que no existe.
 func TestClavesI18nUsadasExisten(t *testing.T) {
 	cat := i18n.Es()
-	re := regexp.MustCompile(`\.T\("([^"]+)"\)`)
-	files, err := filepath.Glob("*.go")
+	re := regexp.MustCompile(`\.Tf?\("([^"]+)"`)
+	var files []string
+	err := filepath.WalkDir(".", func(path string, d os.DirEntry, werr error) error {
+		if werr != nil {
+			return werr
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		files = append(files, filepath.ToSlash(path))
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	used := 0
 	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") {
-			continue
-		}
 		raw, rerr := os.ReadFile(f)
 		if rerr != nil {
 			t.Fatal(rerr)
 		}
 		for _, m := range re.FindAllStringSubmatch(string(raw), -1) {
+			used++
 			if !cat.Has(m[1]) {
 				t.Errorf("%s usa la clave i18n %q que no existe en el catálogo", f, m[1])
 			}
+		}
+	}
+	if used == 0 {
+		t.Fatal("no se encontró ningún uso de i18n; la carcasa debe usar el catálogo")
+	}
+}
+
+// TestI18nCarcasaCableada (§10.3, i18n estricto): la carcasa de la app (cabecera,
+// banners, toasts, salida) debe tomar sus textos del catálogo, no en línea.
+func TestI18nCarcasaCableada(t *testing.T) {
+	raw, err := os.ReadFile("app_v2.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+	keys := []string{
+		"app.too_small", "app.header.docker_ok", "app.header.docker_bad",
+		"app.banner.docker_down", "app.banner.docker_starting", "app.footer.hint",
+		"app.toast.docker_down", "app.toast.docker_up", "app.toast.repairing",
+		"app.toast.created", "app.toast.idle_no_watcher", "app.toast.idle_stopped",
+		"app.quit.title", "app.disabled.docker",
+		"global.health.obj", "global.new.hint", "global.help.hint",
+	}
+	for _, k := range keys {
+		if !strings.Contains(src, `"`+k+`"`) {
+			t.Errorf("app_v2.go no toma %q del catálogo i18n", k)
 		}
 	}
 }

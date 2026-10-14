@@ -6,7 +6,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	zone "github.com/lrstanley/bubblezone"
 
+	"github.com/MrZudro/badomens/internal/events"
+	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/tui/svc"
 	"github.com/MrZudro/badomens/internal/tui/theme"
@@ -159,6 +162,85 @@ func TestAppAbreDetalleDeInstancia(t *testing.T) {
 	a.Update(homeDetailMsg{d: &svc.Detail{Spec: &instance.Spec{Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4", Port: 25565}, State: "running"}})
 	if !strings.Contains(a.router.Top().View(100, 30), "Survival") {
 		t.Fatal("el detalle debe mostrar el nombre")
+	}
+}
+
+func TestAppClicDeRatonAbreDetalle(t *testing.T) {
+	a := testApp()
+	resize(a, 120, 40)
+	rows := []svc.Row{{Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4", Port: 25565, State: "running"}}
+	a.Update(pollRowsMsg{rows: rows})
+	a.Update(homeDetailMsg{d: &svc.Detail{Spec: &instance.Spec{Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4", Port: 25565}, State: "running"}})
+	_ = a.View() // registra las zonas de ratón
+	z := zone.Get("row:survival")
+	if z == nil || z.IsZero() {
+		t.Fatal("la fila del Home debía registrar su zona de ratón")
+	}
+	click := tea.MouseMsg{X: z.StartX + 1, Y: z.StartY, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}
+	_, cmd := a.Update(click)
+	if cmd == nil {
+		t.Fatal("el clic en una fila debía abrir el detalle")
+	}
+	msg, ok := cmd().(openInstanceMsg)
+	if !ok || msg.slug != "survival" {
+		t.Fatalf("el clic debía abrir «survival», tengo %#v", cmd())
+	}
+}
+
+// TestVigilanteIdleEnProceso (RF-8 §6): con instancias con auto-apagado activo
+// y sin vigilante externo, la TUI arranca su propio vigilante y convierte sus
+// eventos en avisos.
+func TestVigilanteIdleEnProceso(t *testing.T) {
+	// Con un vigilante ya activo (demonio), la TUI no arranca el suyo.
+	activa := svc.NewFakeWith([]*instance.Spec{{Slug: "survival"}}, svc.FakeOptions{IdleWatcherActive: true})
+	aActiva := NewApp(activa, AppOptions{Theme: theme.Dark, ReducedMotion: true})
+	if cmd := aActiva.maybeStartIdleWatch([]svc.Row{{Slug: "survival", IdleEnabled: true}}); cmd != nil {
+		t.Fatal("no debe arrancar el vigilante si ya hay uno activo")
+	}
+
+	evs := []events.Event{
+		{Kind: events.IdleCountdownStarted, Instance: "survival", Data: map[string]any{"remaining_seconds": 90}},
+		{Kind: events.IdleStopped, Instance: "survival"},
+	}
+	spec := &instance.Spec{
+		Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4",
+		Memory: "4G", Port: 25565, Idle: idle.Config{Enabled: true, Timeout: 5 * time.Minute},
+	}
+	s := svc.NewFakeWith([]*instance.Spec{spec}, svc.FakeOptions{IdleWatcherActive: false, IdleEvents: evs})
+	a := NewApp(s, AppOptions{Theme: theme.Dark, ReducedMotion: true})
+	resize(a, 120, 40)
+
+	// maybeStartIdleWatch (sobre una app limpia) decide arrancarlo.
+	if cmd := a.maybeStartIdleWatch([]svc.Row{{Slug: "survival", IdleEnabled: true}}); cmd == nil || !a.watchStarted {
+		t.Fatal("debía decidir arrancar el vigilante en proceso")
+	}
+	a.stopWatch() // se descarta el comando por lotes; se prueba abajo por separado
+
+	b := NewApp(s, AppOptions{Theme: theme.Dark, ReducedMotion: true})
+	resize(b, 120, 40)
+	start := b.startIdleWatch()
+	if start == nil {
+		t.Fatal("startIdleWatch debía devolver un comando")
+	}
+	// El comando del vigilante se queda corriendo; se ejecuta en segundo plano.
+	done := make(chan tea.Msg, 1)
+	go func() { done <- start() }()
+	for i := 0; i < len(evs); i++ {
+		msg := b.waitIdleEvent()()
+		ev, ok := msg.(idleEventMsg)
+		if !ok {
+			t.Fatalf("mensaje inesperado: %T", msg)
+		}
+		_ = b.handleIdleEvent(ev.ev)
+	}
+	b.stopWatch()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("el vigilante no se detuvo al cancelar")
+	}
+	if len(b.toasts) < 2 {
+		t.Fatalf("se esperaban avisos de los eventos, tengo %d", len(b.toasts))
 	}
 }
 

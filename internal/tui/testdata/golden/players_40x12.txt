@@ -1,0 +1,12 @@
+┌ badomens        Docker sin comprobar ┐
+Survival   Resumen   Consola   Jugadore…
+
+En línea: no se pudo medir (¿servidor a…
+
+Lista blanca
+  Whitelist: ACTIVADA
+
+Jugadores permitidos
+  ▶ ana
+  ▶ luis
+  ? Ayuda · Ctrl+P Comandos · Tab Panel…

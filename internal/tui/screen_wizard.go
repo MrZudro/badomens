@@ -13,6 +13,7 @@ import (
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/host"
 	"github.com/MrZudro/badomens/internal/idle"
+	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/provision"
 	"github.com/MrZudro/badomens/internal/tui/components"
 	"github.com/MrZudro/badomens/internal/tui/help"
@@ -33,6 +34,17 @@ type wizardVersionsMsg struct {
 }
 
 type wizardHostMsg struct{ cap host.Capacity }
+
+// wizardPortDebounceMsg dispara la comprobación del puerto tras el debounce.
+type wizardPortDebounceMsg struct{ seq int }
+
+// wizardPortMsg trae el resultado de comprobar un puerto (RF-3).
+type wizardPortMsg struct {
+	seq  int
+	port int
+	res  ports.Result
+	err  error
+}
 
 // wizField es un campo del asistente con su ayuda (RF-4).
 type wizField struct {
@@ -76,6 +88,12 @@ type wizardScreen struct {
 
 	// Ayuda larga.
 	helpOpen bool
+
+	// Validación en vivo del puerto con debounce (RF-3).
+	portSeq     int
+	portStatus  string // "", checking, free, busy, warn, invalid, error
+	portDetail  string
+	portSuggest int
 
 	// Auto-apagado elegido en el asistente.
 	cap host.Capacity
@@ -121,7 +139,10 @@ func (w *wizardScreen) start(mode int) {
 				def("ops", ""),
 			}},
 			{title: "Recursos", fields: []wizField{def("memory", "4G")}},
-			{title: "Red", fields: []wizField{def("motd", "")}},
+			{title: "Red", fields: []wizField{
+				{key: "port", kind: "port", value: ""},
+				def("motd", ""),
+			}},
 			{title: "Automatización", fields: []wizField{
 				{key: "idle_enabled", kind: "bool", boolVal: false},
 				{key: "idle_timeout", kind: "cycle", value: "15m", options: []string{"5m", "10m", "15m", "30m", "1h", "2h"}},
@@ -205,6 +226,17 @@ func (w *wizardScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 			w.pickRecommended()
 		}
 		return w, nil
+	case wizardPortDebounceMsg:
+		if msg.seq != w.portSeq {
+			return w, nil
+		}
+		return w, w.checkPortCmd(msg.seq)
+	case wizardPortMsg:
+		if msg.seq != w.portSeq {
+			return w, nil
+		}
+		w.applyPortResult(msg)
+		return w, nil
 	}
 	km, ok := msg.(tea.KeyMsg)
 	if !ok {
@@ -276,9 +308,14 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 	if w.edit {
 		switch km.String() {
 		case "enter", "tab":
+			isPort := w.editingPort()
 			w.commitTextField()
+			var c tea.Cmd
+			if isPort {
+				c = w.schedulePort()
+			}
 			w.advance()
-			return w, nil
+			return w, c
 		case "esc":
 			w.commitTextField()
 			w.edit = false
@@ -287,6 +324,9 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 		}
 		var c tea.Cmd
 		w.input, c = w.input.Update(km)
+		if w.editingPort() {
+			c = tea.Batch(c, w.schedulePort())
+		}
 		return w, c
 	}
 	switch km.String() {
@@ -333,6 +373,11 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 		w.helpOpen = true
 	case "w":
 		w.enableWhitelist()
+	case "p":
+		if f, ok := w.currentField(); ok && f.kind == "port" && w.portSuggest > 0 {
+			w.setPortField(strconv.Itoa(w.portSuggest))
+			return w, w.schedulePort()
+		}
 	case "enter":
 		return w.enterField()
 	}
@@ -346,13 +391,154 @@ func (w *wizardScreen) commitTextField() {
 		return
 	}
 	val := strings.TrimSpace(w.input.Value())
-	if f.key == "max_players" {
+	switch f.key {
+	case "max_players":
 		if n, ok := intValue(val); ok {
+			val = strconv.Itoa(n)
+		}
+	case "port":
+		if n, ok := intValue(val); ok && n >= 1 && n <= 65535 {
 			val = strconv.Itoa(n)
 		}
 	}
 	f.value = val
 	w.setField(f)
+}
+
+// --- Validación en vivo del puerto con debounce (RF-3) ---
+
+// schedulePort arranca la comprobación del puerto 300 ms después del último
+// cambio, para no lanzar un sondeo por pulsación.
+func (w *wizardScreen) schedulePort() tea.Cmd {
+	w.portSeq++
+	seq := w.portSeq
+	w.portStatus, w.portDetail, w.portSuggest = "checking", "", 0
+	return tea.Tick(300*time.Millisecond, func(time.Time) tea.Msg { return wizardPortDebounceMsg{seq: seq} })
+}
+
+// editingPort indica si el campo activo es el puerto en edición.
+func (w *wizardScreen) editingPort() bool {
+	f, ok := w.currentField()
+	return ok && f.kind == "port" && w.edit
+}
+
+// portFieldValue devuelve el valor actual del puerto (editándose o guardado).
+func (w *wizardScreen) portFieldValue() string {
+	if w.editingPort() {
+		return strings.TrimSpace(w.input.Value())
+	}
+	for _, st := range w.steps {
+		for _, f := range st.fields {
+			if f.key == "port" {
+				return f.value
+			}
+		}
+	}
+	return ""
+}
+
+// setPortField fija el valor del puerto en el campo (si existe).
+func (w *wizardScreen) setPortField(v string) {
+	for si := range w.steps {
+		for fi := range w.steps[si].fields {
+			if w.steps[si].fields[fi].key == "port" {
+				w.steps[si].fields[fi].value = v
+				if w.editingPort() {
+					w.input.SetValue(v)
+				}
+				return
+			}
+		}
+	}
+}
+
+// checkPortCmd comprueba el puerto actual contra el Checker (RF-3).
+func (w *wizardScreen) checkPortCmd(seq int) tea.Cmd {
+	raw := w.portFieldValue()
+	if raw == "" {
+		w.portStatus = ""
+		return nil
+	}
+	port, ok := intValue(raw)
+	if !ok || port < 1 || port > 65535 {
+		w.portStatus, w.portDetail = "invalid", "el puerto debe ser un número entre 1 y 65535"
+		return nil
+	}
+	ref := w.svc
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+		defer cancel()
+		res, err := ref.Ports.Check(ctx, port)
+		return wizardPortMsg{seq: seq, port: port, res: res, err: err}
+	}
+}
+
+// applyPortResult traduce el resultado de la comprobación a un estado visible.
+func (w *wizardScreen) applyPortResult(msg wizardPortMsg) {
+	if msg.err != nil {
+		w.portStatus, w.portDetail, w.portSuggest = "error", msg.err.Error(), 0
+		return
+	}
+	w.portSuggest = msg.res.Suggested
+	if msg.res.Free {
+		w.portStatus, w.portDetail = "free", "libre"
+		return
+	}
+	w.portStatus, w.portDetail = "busy", "ocupado"
+	for _, cf := range msg.res.Conflicts {
+		if cf.Severity == ports.SeverityBlock {
+			w.portStatus = "busy"
+			if cf.Owner.Detail != "" {
+				w.portDetail = "ocupado por " + cf.Owner.Detail
+			}
+			return
+		}
+		if cf.Severity == ports.SeverityWarn {
+			w.portStatus = "warn"
+			w.portDetail = "responde en la tailnet: " + cf.Owner.Detail
+		}
+	}
+	if w.portStatus == "busy" && w.portSuggest > 0 {
+		w.portDetail += " — sugerimos " + itoa(w.portSuggest)
+	}
+}
+
+// portColor elige el color de la línea de validación del puerto.
+func (w *wizardScreen) portColor() string {
+	switch w.portStatus {
+	case "free":
+		return w.pal.Good
+	case "busy", "invalid", "error":
+		return w.pal.Bad
+	case "warn":
+		return w.pal.Warn
+	}
+	return w.pal.Muted
+}
+
+// portStatusLine compone la línea de validación del puerto (RF-3).
+func (w *wizardScreen) portStatusLine() string {
+	switch w.portStatus {
+	case "":
+		return ""
+	case "checking":
+		return "    ⟳ Comprobando…"
+	case "free":
+		return "    " + components.Check(w.ascii) + " Libre"
+	case "invalid":
+		return "    " + components.Cross(w.ascii) + " " + w.portDetail
+	case "error":
+		return "    " + components.Cross(w.ascii) + " No se pudo comprobar: " + w.portDetail
+	case "warn":
+		return "    " + components.Warn(w.ascii) + " " + w.portDetail + " (aviso)"
+	case "busy":
+		line := "    " + components.Cross(w.ascii) + " " + w.portDetail
+		if w.portSuggest > 0 {
+			line += " · [P] usar " + itoa(w.portSuggest)
+		}
+		return line
+	}
+	return ""
 }
 
 // advance pasa al siguiente campo o, si es el último, al siguiente paso.
@@ -504,6 +690,10 @@ func (w *wizardScreen) buildRequest() provision.Request {
 				if n, ok := intValue(f.value); ok {
 					req.MaxPlayers = n
 				}
+			case "port":
+				if n, ok := intValue(f.value); ok {
+					req.Port = n
+				}
 			case "online_mode":
 				req.Online = f.boolVal
 			case "whitelist":
@@ -631,6 +821,11 @@ func (w *wizardScreen) formView(width int) string {
 		if h.Short != "" {
 			b.WriteString("    " + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render(layout.Truncate(h.Short, maxi(width-4, 20))) + "\n")
 		}
+		if f.key == "port" {
+			if line := w.portStatusLine(); line != "" {
+				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(w.portColor())).Render(line) + "\n")
+			}
+		}
 	}
 	// Aviso P-05: modo offline sin whitelist.
 	if w.offlineRisk() {
@@ -652,6 +847,16 @@ func (w *wizardScreen) fieldValue(f wizField) string {
 				return "cargando versiones…"
 			}
 			return "(elige una versión: Enter)"
+		}
+		return f.value
+	case "port":
+		if w.edit {
+			if cf, ok := w.currentField(); ok && cf.key == f.key {
+				return w.input.View()
+			}
+		}
+		if strings.TrimSpace(f.value) == "" {
+			return "(automático)"
 		}
 		return f.value
 	}
@@ -738,8 +943,11 @@ func (w *wizardScreen) reviewView() string {
 			if label == "" {
 				label = f.key
 			}
-			b.WriteString("  " + label + ": " + w.fieldValue(f) + "\n")
+			b.WriteString("  " + label + ": " + w.reviewValue(f) + "\n")
 		}
+	}
+	if !w.hasPortField() {
+		b.WriteString("  Puerto: automático (el primero libre)\n")
 	}
 	if w.cap.NCPU > 0 {
 		b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render("Capacidad: "+strconv.Itoa(w.cap.NCPU)+" CPU · "+trimFloat(w.cap.MemTotalGiB())+" GiB RAM") + "\n")
@@ -797,6 +1005,39 @@ func (w *wizardScreen) offlineRisk() bool {
 	return seen && !online && !whitelist
 }
 
+// reviewValue pinta el valor de un campo en el resumen, con un marcador claro
+// cuando está vacío (para que el estado no dependa de un hueco en blanco).
+func (w *wizardScreen) reviewValue(f wizField) string {
+	if f.kind == "bool" {
+		return onOff(f.boolVal)
+	}
+	v := strings.TrimSpace(f.value)
+	if v != "" {
+		return v
+	}
+	switch f.key {
+	case "ops":
+		return "(ninguno)"
+	case "port":
+		return "(automático)"
+	case "memory":
+		return "(recomendada)"
+	case "version":
+		return "(recomendada)"
+	}
+	return "(auto)"
+}
+
+// hasPortField indica si el asistente incluye el campo de puerto.
+func (w *wizardScreen) hasPortField() bool {
+	for _, st := range w.steps {
+		if _, ok := st.findField("port"); ok {
+			return true
+		}
+	}
+	return false
+}
+
 func (w *wizardScreen) Actions() []components.Action {
 	if w.mode < 0 {
 		return []components.Action{
@@ -805,10 +1046,17 @@ func (w *wizardScreen) Actions() []components.Action {
 			{ID: "wizard.cancel", Verb: "Volver", Object: "sin crear", Key: "esc", Hint: "Cancela el asistente.", Kind: components.Navigation},
 		}
 	}
-	return []components.Action{
+	out := []components.Action{
 		{ID: "wizard.next", Verb: "Siguiente:", Object: "Revisar", Key: "tab", Hint: "Avanza al siguiente paso.", Kind: components.Primary},
-		{ID: "wizard.cancel", Verb: "Volver", Object: "sin crear", Key: "esc", Hint: "Cancela el asistente.", Kind: components.Navigation},
 	}
+	if w.portSuggest > 0 {
+		out = append(out, components.Action{
+			ID: "wizard.useport", Verb: "Usar", Object: "el puerto sugerido " + itoa(w.portSuggest),
+			Key: "p", Hint: "Asigna ese puerto libre en lugar del ocupado.", Kind: components.Secondary,
+		})
+	}
+	out = append(out, components.Action{ID: "wizard.cancel", Verb: "Volver", Object: "sin crear", Key: "esc", Hint: "Cancela el asistente.", Kind: components.Navigation})
+	return out
 }
 
 // Invoke ejecuta una acción del asistente por su ID.
@@ -822,6 +1070,11 @@ func (w *wizardScreen) Invoke(id string) tea.Cmd {
 		return w.versionsCmd()
 	case "wizard.next":
 		w.nextStep()
+	case "wizard.useport":
+		if w.portSuggest > 0 {
+			w.setPortField(itoa(w.portSuggest))
+			return w.schedulePort()
+		}
 	case "wizard.cancel":
 		return func() tea.Msg { return popScreenMsg{} }
 	case "wizard.create":
@@ -832,6 +1085,10 @@ func (w *wizardScreen) Invoke(id string) tea.Cmd {
 
 func (w *wizardScreen) Title() string { return "Nueva instancia" }
 func (w *wizardScreen) ID() string    { return "wizard" }
+
+// CapturesInput: el asistente es un formulario; con un modo activo o con la
+// ayuda abierta consume las teclas imprimibles y no deja pasar atajos globales.
+func (w *wizardScreen) CapturesInput() bool { return w.helpOpen || w.pickingVer || w.mode >= 0 }
 
 func engineNames() []string {
 	out := make([]string, 0, len(engines.Order))

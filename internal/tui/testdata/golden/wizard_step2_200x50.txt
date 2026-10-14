@@ -1,0 +1,19 @@
+┌ badomens                                                                                                                                                                        Docker sin comprobar ┐
+1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar
+
+▶ Jugadores máximos: > 20                                                                                                 ╭──────────────────────────────────────────────────────────────────────────╮
+    Cuántos pueden estar conectados a la vez. Más jugadores = más CPU y RAM.                                              │ ¿Qué es esto?                                                            │
+  Dificultad: normal                                                                                                      │                                                                          │
+    Pacífico, Fácil, Normal o Difícil: cuánto daño hacen los monstruos y el hambre.                                       │ Límite de jugadores simultáneos. Subirlo aumenta la carga de CPU y RAM;  │
+  Modo de juego: survival                                                                                                 │ el                                                                       │
+    Survival, Creativo, Aventura o Espectador para quienes entran por primera vez.                                        │ valor recomendado se calcula con la memoria asignada.                    │
+  Cuentas premium (modo online): no                                                                                       │                                                                          │
+    Activo: solo cuentas oficiales. Inactivo: entra cualquiera con cualquier nombre.                                      │ Ejemplo: 20                                                              │
+  Lista blanca: no                                                                                                        │                                                                          │
+    Solo entran los jugadores que apruebes. Muy recomendada si el modo online está inactivo.                              │ Afecta al rendimiento                                                    │
+  Operadores:                                                                                                             ╰──────────────────────────────────────────────────────────────────────────╯
+    Jugadores con poder de administrador dentro del juego (comandos, modo creativo).                                                                                                                  
+                                                                                                                                                                                                      
+⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                                                                               
+                                                                                                                                                                                                      
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS

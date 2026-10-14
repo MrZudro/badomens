@@ -59,9 +59,33 @@ internal/setup/          recomendaciones del asistente de creación
 internal/provision/      núcleo de creación de instancias (CLI + TUI)
 internal/tps/            diagnóstico de TPS/MSPT y métricas del contenedor
 internal/tui/            panel interactivo multi-instancia (bubbletea)
+internal/tui/svc/        fachada de servicios de la TUI (incluye acceso/whitelist)
+skills/tui-engineering/  skill obligatoria para trabajar en internal/tui
 internal/update/         chequeo de releases + descarga verificada (Apply) + caché
 internal/uninstall/      desinstalación del binario y la configuración
 ```
+
+## TUI (F4) — regla obligatoria
+
+Antes de tocar `internal/tui/**`, **lee la skill `skills/tui-engineering/SKILL.md`**
+y el contrato de rediseño en `docs/TUI_REDESIGN.md` / `docs/TUI_ACCEPTANCE_TESTS.md`.
+
+- Ruta de producción: `Run → NewApp (app_v2.go) → Router → Screen → Services`.
+  No basta con que pasen los tests del modelo legacy (`model.go`, `views.go`):
+  los flujos de teclado/estado deben probarse contra `App`+`Router`+`svc`.
+- Precedencia de teclado: modal/confirmación → campo de texto con foco →
+  control de la pestaña → pantalla activa → atajos globales. Las letras
+  imprimibles **no** son atajos globales mientras un formulario captura el foco;
+  los atajos globales usan combinaciones no imprimibles (`Ctrl+N`, `Ctrl+P`,
+  `Ctrl+R`, `Ctrl+T`, `Ctrl+C`).
+- La whitelist/operadores se leen del servicio (`svc.Access`) con **read-back**:
+  no se afirma éxito por haber enviado un comando. Se distingue estado en vivo
+  (`live`) de configuración guardada (`saved`) y de consulta no disponible.
+- Cabecera, pestañas, estado y barra de atajos reservan su altura; solo el
+  cuerpo se desplaza. Nada de logs crudos fuera de la pestaña Consola.
+- Antes de cerrar un cambio: `gofmt -w`, `go build ./...`, `go vet ./...`,
+  `go test ./...` (y `-race` si el entorno lo permite). Actualiza los snapshots
+  con `make golden` **tras revisar el diff**, nunca a ciegas.
 
 ## Reglas
 

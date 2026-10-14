@@ -1,0 +1,17 @@
+┌ badomens                                                                                                                                                                        Docker sin comprobar ┐
+1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar
+
+▶ Nombre: > survival-amigos                                                                                               ╭──────────────────────────────────────────────────────────────────────────╮
+    Nombre visible; también da nombre a carpeta y contenedor (minúsculas, números y guiones).                             │ ¿Qué es esto?                                                            │
+  Motor: paper                                                                                                            │                                                                          │
+    El programa que ejecuta el servidor; define si puedes usar plugins o mods.                                            │ El nombre es la cara visible del servidor y lo que verán los demás. Se   │
+  Versión de Minecraft: 1.21.4                                                                                            │ convierte en el identificador técnico (slug) que nombra la carpeta, el   │
+    Los jugadores deben usar esta versión. La marcada ★ es la recomendada.                                                │ contenedor y los backup: por eso solo admite minúsculas, números y       │
+                                                                                                                          │ guiones. No se puede cambiar después de crear la instancia.              │
+⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.   │                                                                          │
+                                                                                                                          │ Ejemplo: survival-amigos                                                 │
+                                                                                                                          │ Por defecto: obligatorio                                                 │
+                                                                                                                          │                                                                          │
+                                                                                                                          │ Solo al crear                                                            │
+                                                                                                                          ╰──────────────────────────────────────────────────────────────────────────╯
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS

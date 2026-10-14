@@ -1,0 +1,20 @@
+┌ badomens                                      Docker sin comprobar ┐
+╭────────────────────────────────────────────────────────────╮
+│ Ayuda                                                      │
+│ Atajos de esta pantalla                                    │
+│                                                            │
+│   ↑/k  subir                                               │
+│   ↓/j  bajar                                               │
+│   Enter  abrir/confirmar                                   │
+│   Esc  volver                                              │
+│   ?  ayuda                                                 │
+│   Ctrl+P  comandos                                         │
+│   Tab  cambiar panel                                       │
+│                                                            │
+│   Ctrl+N  nueva instancia                                  │
+│   H  salud del sistema                                     │
+│   c  copiar                                                │
+│   q  salir                                                 │
+│                                                            │
+│   Esc  cerrar ayuda                                        │
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTAN…

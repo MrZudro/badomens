@@ -3,7 +3,10 @@
 // es aditivo; añadir inglés después solo requiere una nueva entrada.
 package i18n
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 // Catalog es un catálogo de textos por idioma.
 type Catalog struct {
@@ -23,6 +26,16 @@ func (c *Catalog) T(key string) string {
 		return s
 	}
 	return "[" + key + "]"
+}
+
+// Tf devuelve el texto de una clave sustituyendo las variables {{clave}} por su
+// valor. Es la forma de componer textos con datos sin concatenar en la pantalla.
+func (c *Catalog) Tf(key string, vars map[string]string) string {
+	s := c.T(key)
+	for k, v := range vars {
+		s = strings.ReplaceAll(s, "{{"+k+"}}", v)
+	}
+	return s
 }
 
 // Has indica si la clave existe.
@@ -85,4 +98,45 @@ var es = map[string]string{
 	"health.disk":         "Disco",
 	"health.ram":          "RAM",
 	"health.update":       "Actualización",
+
+	// Carcasa de la app (cabecera, banners, toasts, salida).
+	"app.too_small":                "Agranda la terminal (mínimo 40×12). Ahora: {{w}}×{{h}}",
+	"app.header.docker_ok":         "● Docker OK",
+	"app.header.docker_unchecked":  "Docker sin comprobar",
+	"app.header.docker_bad":        "✖ Docker {{state}}",
+	"app.header.ascii_ok":          "[OK] Docker",
+	"app.header.ascii_unchecked":   "[..] Docker sin comprobar",
+	"app.header.ascii_bad":         "[XX] Docker {{state}}",
+	"app.banner.docker_down":       "✖ Docker no está disponible — tus servidores no responden. [Ctrl+R] Reparar Docker",
+	"app.banner.docker_starting":   "◐ Docker está arrancando… [Ctrl+R] Reintentar",
+	"app.banner.ascii_down":        "[XX] Docker no esta disponible - tus servidores no responden. [Ctrl+R] Reparar Docker",
+	"app.banner.ascii_starting":    "[..] Docker esta arrancando... [Ctrl+R] Reintentar",
+	"app.footer.hint":              "Pista: {{hint}}",
+	"app.toast.docker_down":        "✖ Docker se detuvo — tus servidores no responden. [H] Reparar",
+	"app.toast.docker_up":          "✓ Docker volvió",
+	"app.toast.docker_ready":       "✓ Docker está listo",
+	"app.toast.docker_repair_fail": "✖ No se pudo reparar Docker: {{cause}}",
+	"app.toast.docker_still":       "⚠ Docker sigue sin responder: {{cause}}",
+	"app.toast.repairing":          "⟳ Intentando iniciar Docker…",
+	"app.toast.create_fail":        "✖ No se pudo crear: {{cause}}",
+	"app.toast.created":            "✓ Instancia «{{name}}» creada",
+	"app.toast.idle_no_watcher":    "⚠ El auto-apagado no está activo: nadie lo vigila. Actívalo con 'badomens idle daemon'.",
+	"app.toast.idle_countdown":     "⟳ «{{name}}» se apagará por inactividad en {{remaining}}",
+	"app.toast.idle_cancelled":     "✓ «{{name}}»: hay jugadores de nuevo",
+	"app.toast.idle_stopped":       "☾ «{{name}}» se apagó por inactividad",
+	"app.quit.title":               "Hay una operación en curso",
+	"app.quit.body":                "Si sales ahora se cancelará la operación pendiente.",
+	"app.quit.wait":                "No, esperar",
+	"app.quit.wait_obj":            "a que termine",
+	"app.quit.wait_hint":           "Cancela la salida y deja terminar la operación.",
+	"app.quit.now":                 "Sí, salir",
+	"app.quit.now_obj":             "y cancelar la operación",
+	"app.quit.now_hint":            "Cierra la TUI cancelando lo pendiente.",
+	"app.disabled.docker":          "Docker no está activo — pulsa H para repararlo",
+	"global.health.obj":            "Salud del sistema",
+	"global.health.hint":           "Muestra Docker, Tailscale, disco y RAM.",
+	"global.new.obj":               "una instancia nueva",
+	"global.new.hint":              "Abre el asistente de nueva instancia.",
+	"global.help.obj":              "la ayuda de esta pantalla",
+	"global.help.hint":             "Muestra todos los atajos.",
 }

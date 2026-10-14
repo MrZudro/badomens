@@ -15,11 +15,13 @@ import (
 	"github.com/MrZudro/badomens/internal/config"
 	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/engines"
+	"github.com/MrZudro/badomens/internal/events"
 	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/provision"
 	"github.com/MrZudro/badomens/internal/runtime"
+	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tps"
 )
 
@@ -80,6 +82,8 @@ type Lifecycle interface {
 	Stop(ctx context.Context, slug string) error
 	Close(ctx context.Context, slug string) error
 	Restart(ctx context.Context, slug string) error
+	// Delete elimina el contenedor y la carpeta de la instancia (P-03).
+	Delete(ctx context.Context, slug string) error
 }
 
 // Backups gestiona las copias de seguridad.
@@ -107,6 +111,10 @@ type IdleCtrl interface {
 	Set(ctx context.Context, slug string, cfg idle.Config) error
 	// WatcherActive indica si hay un vigilante (TUI o demonio) latiendo.
 	WatcherActive() bool
+	// Watch corre el vigilante dentro del proceso hasta que ctx se cancele,
+	// publicando cada evento en emit (RF-8 §6). Devuelve idle.ErrStandby si ya
+	// hay otro vigilante (p. ej. el demonio) latiendo.
+	Watch(ctx context.Context, emit func(events.Event)) error
 }
 
 // Catalog consulta las versiones disponibles de un motor (RF-5).
@@ -134,6 +142,7 @@ type Services struct {
 	Idle         IdleCtrl
 	Catalog      Catalog
 	Creator      Creator
+	Access       Access
 }
 
 // New construye los adaptadores reales sobre los paquetes de dominio.
@@ -182,16 +191,20 @@ func New(cfg *config.Config) (*Services, error) {
 		Backups:      &realBackups{be: be},
 		Ports:        &allocPorts{a: alloc},
 		DockerState:  &realDocker{cfg: cfg},
-		Idle:         &realIdle{cfg: cfg, m: m},
+		Idle:         &realIdle{cfg: cfg, m: m, rt: rt, be: be},
 		Catalog:      &realCatalog{cache: engines.NewCache(cfg.DataDir, resolver)},
 		Creator:      &realCreator{cfg: cfg, m: m, rt: rt, resolver: resolver, alloc: alloc},
+		Access:       &realAccess{m: m, rt: rt},
 	}, nil
 }
 
-// realIdle gestiona la configuración de auto-apagado de una instancia.
+// realIdle gestiona la configuración de auto-apagado de una instancia y puede
+// correr el vigilante dentro del proceso de la TUI (RF-8).
 type realIdle struct {
 	cfg *config.Config
 	m   *instance.Manager
+	rt  *runtime.Runtime
+	be  *backup.Backend
 }
 
 func (r *realIdle) Config(_ context.Context, slug string) (idle.Config, error) {
@@ -224,6 +237,187 @@ func (r *realIdle) Set(_ context.Context, slug string, cfg idle.Config) error {
 // WatcherActive indica si el demonio de auto-apagado está latiendo.
 func (r *realIdle) WatcherActive() bool {
 	return idle.WatcherActive(filepath.Join(r.cfg.DataDir, "idle.lock"))
+}
+
+// Watch corre el vigilante de inactividad en el proceso de la TUI (RF-8): toma
+// el bloqueo (si el demonio ya vigila devuelve idle.ErrStandby), sondea las
+// instancias con auto-apagado activo y publica cada evento de dominio en emit.
+// Se detiene cuando ctx se cancela.
+func (r *realIdle) Watch(ctx context.Context, emit func(events.Event)) error {
+	if r.rt == nil || r.be == nil {
+		return nil
+	}
+	lock, err := idle.Acquire(filepath.Join(r.cfg.DataDir, "idle.lock"))
+	if err != nil {
+		return err // incluye idle.ErrStandby
+	}
+	defer func() { _ = lock.Release() }()
+
+	bus := events.New()
+	defer bus.Close()
+	sub, unsubscribe := bus.Subscribe(64)
+	defer unsubscribe()
+
+	w := idle.NewWatcher()
+	w.Bus = bus
+	w.Targets = r.idleTargets
+	w.Counter = r.idleCounter()
+	w.Controller = &runtimeIdleController{rt: r.rt, be: r.be}
+	w.Announce = func(ctx context.Context, instance, message string) error {
+		return r.rt.Console(ctx, instance, "say "+message)
+	}
+	w.Record = func(instance string, phase idle.Phase, _ idle.Decision) {
+		if phase == idle.PhaseStopped {
+			r.markStopped(instance)
+		}
+	}
+
+	// Bomba de eventos: reenvía el bus al llamante.
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case ev, ok := <-sub:
+				if !ok {
+					return
+				}
+				if emit != nil {
+					emit(ev)
+				}
+			}
+		}
+	}()
+
+	ticker := time.NewTicker(r.pollInterval())
+	defer ticker.Stop()
+	w.TickOnce(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			_ = lock.Touch()
+			w.TickOnce(ctx)
+		}
+	}
+}
+
+// idleTargets lista las instancias con auto-apagado activo que están corriendo.
+func (r *realIdle) idleTargets(ctx context.Context) ([]idle.Target, error) {
+	specs, err := r.m.List()
+	if err != nil {
+		return nil, err
+	}
+	var out []idle.Target
+	for _, s := range specs {
+		if !s.Idle.Enabled {
+			continue
+		}
+		state, _ := r.rt.State(ctx, s.Slug)
+		var started time.Time
+		if s.StoppedAt != "" {
+			if t, perr := time.Parse(time.RFC3339, s.StoppedAt); perr == nil {
+				started = t
+			}
+		}
+		out = append(out, idle.Target{
+			Instance: s.Slug, Config: s.Idle, Running: state == "running", StartedAt: started,
+		})
+	}
+	return out, nil
+}
+
+// idleCounter mide jugadores por Server List Ping y, como respaldo, con RCON.
+func (r *realIdle) idleCounter() idle.Counter {
+	slp := &idle.SLPCounter{
+		Timeout: 2 * time.Second,
+		Endpoint: func(instanceName string) (string, int, bool) {
+			spec, err := r.m.Load(instanceName)
+			if err != nil || spec.Port <= 0 {
+				return "", 0, false
+			}
+			host := ""
+			if spec.Connection != nil {
+				host = spec.Connection.Host
+			}
+			if host == "" {
+				pctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				host, _ = tailscale.ResolveIPv4(pctx)
+			}
+			if host == "" {
+				return "", 0, false
+			}
+			return host, spec.Port, true
+		},
+	}
+	docker := &idle.DockerCounter{Container: func(instanceName string) string {
+		return r.rt.ContainerName(instanceName)
+	}}
+	return idle.ChainCounter{slp, docker}
+}
+
+// pollInterval elige el intervalo de sondeo del vigilante: el mínimo de las
+// instancias (por defecto 15 s), con un suelo de 5 s.
+func (r *realIdle) pollInterval() time.Duration {
+	const def = 15 * time.Second
+	specs, err := r.m.List()
+	if err != nil {
+		return def
+	}
+	best := time.Duration(0)
+	for _, s := range specs {
+		p := s.Idle.PollInterval
+		if !s.Idle.Enabled || p <= 0 {
+			continue
+		}
+		if best == 0 || p < best {
+			best = p
+		}
+	}
+	if best < 5*time.Second {
+		if best == 0 {
+			return def
+		}
+		return 5 * time.Second
+	}
+	return best
+}
+
+// markStopped deja rastro del apagado por inactividad en el registro.
+func (r *realIdle) markStopped(slug string) {
+	spec, err := r.m.Load(slug)
+	if err != nil {
+		return
+	}
+	spec.StoppedBy = "idle"
+	spec.StoppedAt = time.Now().UTC().Format(time.RFC3339)
+	_ = r.m.Save(spec)
+}
+
+// runtimeIdleController ejecuta la parada limpia sobre el runtime real.
+type runtimeIdleController struct {
+	rt *runtime.Runtime
+	be *backup.Backend
+}
+
+func (c *runtimeIdleController) Running(ctx context.Context, instance string) (bool, error) {
+	st, err := c.rt.State(ctx, instance)
+	return st == "running", err
+}
+
+func (c *runtimeIdleController) Flush(ctx context.Context, instance string) error {
+	return c.rt.Console(ctx, instance, "save-all flush")
+}
+
+func (c *runtimeIdleController) Stop(ctx context.Context, instance string) error {
+	return c.rt.Stop(ctx, instance)
+}
+
+func (c *runtimeIdleController) Backup(ctx context.Context, instance string) error {
+	_, err := c.be.Create(instance, "")
+	return err
 }
 
 // realCatalog consulta las versiones con caché y respaldo embebido (RF-5).
@@ -355,6 +549,14 @@ func (l *realLifecycle) Close(ctx context.Context, slug string) error {
 
 func (l *realLifecycle) Restart(ctx context.Context, slug string) error {
 	return l.rt.Restart(ctx, slug)
+}
+
+// Delete quita el contenedor y borra la carpeta de la instancia (P-03).
+func (l *realLifecycle) Delete(ctx context.Context, slug string) error {
+	if l.rt != nil {
+		_ = l.rt.Down(ctx, slug)
+	}
+	return l.m.Remove(slug)
 }
 
 type realBackups struct{ be *backup.Backend }

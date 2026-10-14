@@ -1,0 +1,12 @@
+┌ badomens        Docker sin comprobar ┐
+╭────────────────────────────────────╮
+│ Paleta de comandos                 │
+│ Comandos                           │
+│ ▶ Iniciar «survival»  s            │
+│   Detener «survival» (guarda el m… │
+│   Reiniciar «survival»  r          │
+│   Crear backup ahora  b            │
+│ ▼ 5 más                            │
+│                                    │
+│                                    │
+  ? Ayuda · Ctrl+P Comandos · Tab Panel…

@@ -1,0 +1,16 @@
+┌ badomens                                                                                                                                                                        Docker sin comprobar ┐
+1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar
+
+▶ Semilla: > -2844874353865282585                                                                                         ╭──────────────────────────────────────────────────────────────────────────╮
+    Texto/número que genera el mapa; la misma semilla da el mismo mundo. Vacío = aleatoria.                               │ ¿Qué es esto?                                                            │
+                                                                                                                          │                                                                          │
+⚠ Riesgo de suplantación: sin modo online y sin lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.   │ La semilla fija la generación del terreno: con la misma semilla obtienes │
+                                                                                                                          │ el mismo mundo. Déjala vacía para un mundo aleatorio. Solo aplica al     │
+                                                                                                                          │ crear                                                                    │
+                                                                                                                          │ el mundo.                                                                │
+                                                                                                                          │                                                                          │
+                                                                                                                          │ Ejemplo: -2844874353865282585                                            │
+                                                                                                                          │                                                                          │
+                                                                                                                          │ Solo al crear                                                            │
+                                                                                                                          ╰──────────────────────────────────────────────────────────────────────────╯
+  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS

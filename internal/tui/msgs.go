@@ -30,5 +30,18 @@ type Actioner interface {
 	Invoke(id string) tea.Cmd
 }
 
+// Clicker lo implementan las pantallas con elementos clicables con el ratón
+// (además de los botones, que el App resuelve por zonas, §4.1).
+type Clicker interface {
+	Click(m tea.MouseMsg) tea.Cmd
+}
+
+// InputCaptor lo implementan las pantallas cuyo campo de texto o modal tiene el
+// foco. Mientras CapturesInput() sea true, las teclas imprimibles se entregan a
+// la pantalla y no disparan atajos globales (§5 del rediseño).
+type InputCaptor interface {
+	CapturesInput() bool
+}
+
 // popScreenMsg pide al App que desapile la pantalla actual.
 type popScreenMsg struct{}

@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/execx"
 	"github.com/MrZudro/badomens/internal/instance"
@@ -124,7 +125,7 @@ func (r *Runtime) ComposePath(base, slug string) string {
 // Render construye el YAML del compose para un spec y una IP de host.
 func (r *Runtime) Render(spec *instance.Spec, cfg *config.Config, hostIP string) ([]byte, error) {
 	data := composeData{
-		Image:         cfg.Image,
+		Image:         r.imageFor(spec),
 		Slug:          spec.Slug,
 		TypeValue:     r.types[spec.Engine],
 		Version:       spec.Version,
@@ -156,6 +157,19 @@ func (r *Runtime) Render(spec *instance.Spec, cfg *config.Config, hostIP string)
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// imageFor elige la imagen del contenedor según el Java que requiere la versión
+// de Minecraft (RF-5). Usa cfg.Image como respaldo si la versión no se reconoce.
+func (r *Runtime) imageFor(spec *instance.Spec) string {
+	fallback := "itzg/minecraft-server:java25"
+	if r.Cfg != nil && r.Cfg.Image != "" {
+		fallback = r.Cfg.Image
+	}
+	if spec == nil {
+		return fallback
+	}
+	return engines.JavaImageFor(spec.Version, fallback)
 }
 
 // HostIP devuelve la IP de publicación del puerto según la configuración.

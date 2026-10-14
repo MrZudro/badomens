@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/MrZudro/badomens/internal/backup"
 	"github.com/MrZudro/badomens/internal/idle"
@@ -49,6 +50,19 @@ type instancePlayersMsg struct {
 
 type instanceSavedMsg struct{ err error }
 
+// accessMsg trae el resultado de leer o mutar la lista blanca/operadores. Si op
+// es vacío es una lectura; si no, es la verificación posterior a una mutación.
+type accessMsg struct {
+	slug   string
+	state  svc.AccessState
+	err    error
+	op     string
+	player string
+}
+
+// instanceDeletedMsg indica que la instancia se eliminó por completo (P-03).
+type instanceDeletedMsg struct{ slug string }
+
 // instanceScreen es el detalle de una instancia con pestañas (RF-1/§5.2).
 type instanceScreen struct {
 	svc    *svc.Services
@@ -86,11 +100,30 @@ type instanceScreen struct {
 	playersOnline int
 	playersKnown  bool
 
+	// Estado de acceso (whitelist/operadores) con fuente y verificación (§6).
+	access       svc.AccessState
+	accessLoaded bool
+	accessStatus string
+	accessBusy   bool
+
 	prompt      bool
 	promptLabel string
 	promptAct   string
 
 	pendingSave *instance.Spec
+
+	// P-03: confirmación del cambio de versión (backup previo obligatorio).
+	confirmKind  string // "", "version"
+	confirmValue string
+
+	// P-08: recuperación ante caídas.
+	lastState    string
+	userStopped  bool
+	crash        bool
+	crashPending bool
+	crashCause   string
+	crashHistory []time.Time
+	crashLoop    bool
 }
 
 var instanceTabs = []string{"Resumen", "Consola", "Jugadores", "Backups", "Mundos", "Plugins/Mods", "Red", "Auto-apagado", "Ajustes"}
@@ -106,8 +139,9 @@ var dangerousPrefixes = []string{"stop", "op ", "deop ", "ban ", "ban-ip ", "kic
 
 func newInstanceScreen(sv *svc.Services, pal theme.Palette, ascii bool, slug string) *instanceScreen {
 	in := textinput.New()
+	in.Prompt = ""
 	in.Placeholder = "comando para la consola (ej. say hola)"
-	in.Width = 50
+	in.Width = 40
 	return &instanceScreen{svc: sv, pal: pal, ascii: ascii, slug: slug, input: in, status: "cargando…", follow: true}
 }
 
@@ -121,7 +155,7 @@ func (s *instanceScreen) load() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		d, err := ref.Instances.Detail(ctx, slug)
-		return homeDetailMsg{d: d, err: err}
+		return homeDetailMsg{d: d, err: err, slug: slug}
 	}
 }
 
@@ -192,19 +226,45 @@ func (s *instanceScreen) playersCmd() tea.Cmd {
 func (s *instanceScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case homeDetailMsg:
+		if msg.slug != "" && msg.slug != s.slug {
+			return s, nil // respuesta obsoleta de otra instancia
+		}
 		s.detail = msg.d
 		if msg.err != nil {
 			s.status = msg.err.Error()
-		} else {
-			s.status = ""
-			if s.tab == 1 {
-				return s, s.logsCmd()
-			}
+			return s, nil
 		}
+		s.status = ""
+		return s, s.applyState(s.detailState())
+	case pollRowsMsg:
+		if msg.err != nil {
+			return s, nil
+		}
+		for _, r := range msg.rows {
+			if r.Slug != s.slug {
+				continue
+			}
+			if s.detail != nil {
+				s.detail.State = r.State
+			}
+			return s, s.applyState(r.State)
+		}
+		return s, nil
 	case instanceLogsMsg:
 		if msg.slug == s.slug {
 			s.logs = msg.text
+			if s.crashPending {
+				s.crashCause = crashCause(msg.text)
+				s.crashPending = false
+			}
 		}
+	case instanceDeletedMsg:
+		return s, tea.Batch(
+			func() tea.Msg {
+				return toastMsg{Text: "✓ Instancia «" + msg.slug + "» eliminada"}
+			},
+			func() tea.Msg { return popScreenMsg{} },
+		)
 	case instanceBackupsMsg:
 		if msg.err == nil {
 			s.backups = msg.items
@@ -220,6 +280,8 @@ func (s *instanceScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		}
 	case instancePlayersMsg:
 		s.playersOnline, s.playersKnown = msg.online, msg.known
+	case accessMsg:
+		return s.handleAccessMsg(msg)
 	case instanceSavedMsg:
 		if msg.err != nil {
 			return s, func() tea.Msg {
@@ -254,12 +316,29 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		s.input, c = s.input.Update(msg)
 		return s, c
 	}
+	if s.confirmKind != "" {
+		switch msg.String() {
+		case "enter":
+			kind, val := s.confirmKind, s.confirmValue
+			s.confirmKind, s.confirmValue = "", ""
+			if kind == "version" {
+				return s, s.changeVersionCmd(val)
+			}
+		case "esc":
+			s.confirmKind, s.confirmValue = "", ""
+		}
+		return s, nil
+	}
 	if s.focus {
 		return s.handleConsoleKey(msg)
 	}
 	switch msg.String() {
 	case "esc":
 		return s, func() tea.Msg { return popScreenMsg{} }
+	case "D":
+		return s, s.startDeletePrompt()
+	case "v":
+		return s, s.startVersionPrompt()
 	case "tab", "right", "l":
 		return s.switchTab(1)
 	case "shift+tab", "left", "h":
@@ -313,7 +392,7 @@ func (s *instanceScreen) switchTab(d int) (Screen, tea.Cmd) {
 	case 1:
 		return s, s.logsCmd()
 	case 2:
-		return s, s.playersCmd()
+		return s, s.accessCmd()
 	case 3:
 		return s, s.backupsCmd()
 	case 6:
@@ -415,15 +494,148 @@ func (s *instanceScreen) consoleCmd(command string) tea.Cmd {
 }
 
 func (s *instanceScreen) runPrompt(act, val string) tea.Cmd {
-	if act == "__search__" {
+	switch act {
+	case "__search__":
 		s.filter = val
 		return nil
+	case "__delete__":
+		if val != s.slug {
+			return func() tea.Msg {
+				return toastMsg{Text: "✖ El nombre no coincide; no se borró nada", Kind: components.Destructive}
+			}
+		}
+		return s.deleteCmd()
+	case "__version__":
+		s.confirmKind, s.confirmValue = "version", val
+		return nil
+	case "acl.add", "acl.remove", "acl.op", "acl.deop":
+		return s.accessMutateCmd(act, val)
 	}
 	return s.consoleCmd(act + " " + val)
 }
 
+// deleteCmd borra el contenedor y los datos de la instancia (P-03).
+func (s *instanceScreen) deleteCmd() tea.Cmd {
+	ref, slug := s.svc, s.slug
+	return tea.Batch(busyCmd(true), func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		defer cancel()
+		if err := ref.Lifecycle.Delete(ctx, slug); err != nil {
+			return toastMsg{Text: "✖ No se pudo borrar «" + slug + "»: " + err.Error(), Kind: components.Destructive}
+		}
+		return instanceDeletedMsg{slug: slug}
+	})
+}
+
+// changeVersionCmd hace un backup previo obligatorio y cambia la versión (P-03).
+func (s *instanceScreen) changeVersionCmd(v string) tea.Cmd {
+	if s.detail == nil || s.detail.Spec == nil || strings.TrimSpace(v) == "" {
+		return nil
+	}
+	ref, spec := s.svc, s.detail.Spec
+	return tea.Batch(busyCmd(true), func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		defer cancel()
+		if err := ref.Backups.Create(ctx, spec.Slug); err != nil {
+			return toastMsg{Text: "✖ Backup previo falló: " + err.Error(), Kind: components.Destructive}
+		}
+		spec.Version = strings.TrimSpace(v)
+		if err := ref.Instances.Save(ctx, spec); err != nil {
+			return toastMsg{Text: "✖ No se pudo cambiar la versión: " + err.Error(), Kind: components.Destructive}
+		}
+		return toastMsg{Text: "✓ «" + spec.Slug + "»: backup hecho · versión " + spec.Version + " (reinicia para aplicar)"}
+	})
+}
+
+// startDeletePrompt pide escribir el nombre para habilitar el borrado (P-03).
+func (s *instanceScreen) startDeletePrompt() tea.Cmd {
+	s.prompt = true
+	s.promptAct = "__delete__"
+	s.promptLabel = "Escribe «" + s.slug + "» para borrar la instancia"
+	s.input.Placeholder = s.slug
+	s.input.SetValue("")
+	return s.input.Focus()
+}
+
+// startVersionPrompt pide la nueva versión (con backup y confirmación, P-03).
+func (s *instanceScreen) startVersionPrompt() tea.Cmd {
+	s.prompt = true
+	s.promptAct = "__version__"
+	s.promptLabel = "Nueva versión de Minecraft (se hará un backup antes)"
+	s.input.Placeholder = "1.21.4"
+	s.input.SetValue("")
+	return s.input.Focus()
+}
+
+// --- P-08: recuperación ante caídas ---
+
+// detailState devuelve el estado actual del detalle (vacío si no se cargó).
+func (s *instanceScreen) detailState() string {
+	if s.detail == nil {
+		return ""
+	}
+	return s.detail.State
+}
+
+// applyState detecta un apagado inesperado (running → exited sin acción del
+// usuario), lleva el historial de caídas y pide cargar los logs para la causa.
+func (s *instanceScreen) applyState(state string) tea.Cmd {
+	if state == "running" {
+		s.crash, s.crashLoop, s.userStopped = false, false, false
+	}
+	crashDetected := s.lastState == "running" && state == "exited" && !s.userStopped
+	if crashDetected {
+		s.noteCrash()
+	}
+	s.lastState = state
+	if crashDetected || s.tab == 1 {
+		return s.logsCmd()
+	}
+	return nil
+}
+
+// noteCrash registra una caída y activa la política de crash-loop (3 en 10 min).
+func (s *instanceScreen) noteCrash() {
+	s.crash = true
+	s.crashPending = true
+	now := time.Now()
+	s.crashHistory = append(s.crashHistory, now)
+	keep := s.crashHistory[:0]
+	for _, t := range s.crashHistory {
+		if now.Sub(t) <= 10*time.Minute {
+			keep = append(keep, t)
+		}
+	}
+	s.crashHistory = keep
+	if len(s.crashHistory) >= 3 {
+		s.crashLoop = true
+	}
+}
+
+// crashCause deduce la causa probable de una caída a partir de los logs.
+func crashCause(logs string) string {
+	lc := strings.ToLower(logs)
+	switch {
+	case strings.Contains(lc, "outofmemoryerror"):
+		return "falta memoria (OutOfMemoryError): sube la RAM o baja la distancia de render"
+	case strings.Contains(lc, "address already in use") || strings.Contains(lc, "already allocated") || strings.Contains(lc, "failed to bind"):
+		return "el puerto ya está en uso por otro proceso"
+	case strings.Contains(lc, "unsupportedclassversionerror") || strings.Contains(lc, "class file version") || strings.Contains(lc, "requires java"):
+		return "versión de Java incorrecta para esta versión de Minecraft"
+	case strings.Contains(lc, "eula"):
+		return "EULA no aceptado por la imagen"
+	}
+	return "causa desconocida; revisa la pestaña Consola"
+}
+
 func (s *instanceScreen) lifecycle(op string) tea.Cmd {
 	ref, slug := s.svc, s.slug
+	switch op {
+	case "start":
+		s.userStopped, s.crash, s.crashLoop = false, false, false
+	case "stop", "close":
+		s.userStopped = true
+	}
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
@@ -448,21 +660,135 @@ func (s *instanceScreen) lifecycle(op string) tea.Cmd {
 func (s *instanceScreen) playersKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	switch msg.String() {
 	case "a":
-		s.prompt = true
-		s.promptAct = "whitelist add"
-		s.promptLabel = "Nombre del jugador para la lista blanca"
-		s.input.Placeholder = "nombre"
-		return s, s.input.Focus()
+		return s, s.startAccessPrompt("acl.add", "Nombre del jugador para la lista blanca", "nombre")
+	case "d":
+		return s, s.startAccessPrompt("acl.remove", "Nombre del jugador a quitar de la lista blanca", "nombre")
 	case "o":
-		s.prompt = true
-		s.promptAct = "op"
-		s.promptLabel = "Nombre del jugador a hacer operador"
-		s.input.Placeholder = "nombre"
-		return s, s.input.Focus()
+		return s, s.startAccessPrompt("acl.op", "Nombre del jugador a hacer operador", "nombre")
+	case "O":
+		return s, s.startAccessPrompt("acl.deop", "Nombre del jugador a quitar como operador", "nombre")
+	case "w":
+		if !s.accessLoaded {
+			return s, nil
+		}
+		return s, s.setWhitelistCmd(!s.access.WhitelistEnabled)
 	case "R":
-		return s, s.playersCmd()
+		return s, s.accessCmd()
 	}
 	return s, nil
+}
+
+// startAccessPrompt abre el formulario para una operación de acceso.
+func (s *instanceScreen) startAccessPrompt(act, label, placeholder string) tea.Cmd {
+	s.prompt = true
+	s.promptAct = act
+	s.promptLabel = label
+	s.input.Placeholder = placeholder
+	s.input.SetValue("")
+	return s.input.Focus()
+}
+
+// accessCmd lee el estado de acceso (whitelist/operadores) con su fuente.
+func (s *instanceScreen) accessCmd() tea.Cmd {
+	ref, slug := s.svc, s.slug
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		st, err := ref.Access.Read(ctx, slug)
+		return accessMsg{slug: slug, state: st, err: err}
+	}
+}
+
+// accessMutateCmd valida localmente y ejecuta una mutación con read-back. Si el
+// nombre no es válido no se emite ningún comando al servidor (ACL-10).
+func (s *instanceScreen) accessMutateCmd(act, raw string) tea.Cmd {
+	name, err := svc.ValidatePlayerName(raw)
+	if err != nil {
+		return func() tea.Msg {
+			return toastMsg{Text: "✖ " + err.Error(), Kind: components.Destructive}
+		}
+	}
+	s.accessBusy = true
+	s.accessStatus = ""
+	ref, slug := s.svc, s.slug
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+		var (
+			st   svc.AccessState
+			merr error
+		)
+		switch act {
+		case "acl.add":
+			st, merr = ref.Access.AddWhitelist(ctx, slug, name)
+		case "acl.remove":
+			st, merr = ref.Access.RemoveWhitelist(ctx, slug, name)
+		case "acl.op":
+			st, merr = ref.Access.AddOperator(ctx, slug, name)
+		case "acl.deop":
+			st, merr = ref.Access.RemoveOperator(ctx, slug, name)
+		}
+		return accessMsg{slug: slug, state: st, err: merr, op: act, player: name}
+	}
+}
+
+// setWhitelistCmd activa o desactiva la whitelist con read-back.
+func (s *instanceScreen) setWhitelistCmd(enabled bool) tea.Cmd {
+	s.accessBusy = true
+	s.accessStatus = ""
+	ref, slug := s.svc, s.slug
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+		st, err := ref.Access.SetWhitelistEnabled(ctx, slug, enabled)
+		return accessMsg{slug: slug, state: st, err: err, op: "acl.toggle"}
+	}
+}
+
+// handleAccessMsg aplica el resultado de una lectura o mutación de acceso.
+func (s *instanceScreen) handleAccessMsg(msg accessMsg) (Screen, tea.Cmd) {
+	if msg.slug != s.slug {
+		return s, nil // respuesta obsoleta de otra instancia o pestaña
+	}
+	s.accessBusy = false
+	if msg.err != nil {
+		s.access = msg.state
+		s.accessLoaded = true
+		s.accessStatus = "✖ Error al consultar el acceso: " + msg.err.Error()
+		return s, nil
+	}
+	s.access = msg.state
+	s.accessLoaded = true
+	if msg.op == "" {
+		s.accessStatus = "✓ Estado de acceso verificado"
+		return s, nil
+	}
+	switch msg.state.Source {
+	case svc.AccessLive:
+		s.accessStatus = "✓ Verificado: " + accessOpLabel(msg.op, msg.player)
+	case svc.AccessSavedConfig:
+		s.accessStatus = "⚠ Comando enviado · resultado pendiente de verificar (sin lectura en vivo)"
+	default:
+		s.accessStatus = "⚠ No se pudo verificar el resultado"
+	}
+	return s, nil
+}
+
+// accessOpLabel redacta la acción de acceso aplicada.
+func accessOpLabel(op, player string) string {
+	switch op {
+	case "acl.add":
+		return "«" + player + "» añadido a la lista blanca"
+	case "acl.remove":
+		return "«" + player + "» quitado de la lista blanca"
+	case "acl.op":
+		return "«" + player + "» ahora es operador"
+	case "acl.deop":
+		return "«" + player + "» ya no es operador"
+	case "acl.toggle":
+		return "lista blanca actualizada"
+	}
+	return "acceso actualizado"
 }
 
 // --- Backups ---
@@ -716,6 +1042,10 @@ func (s *instanceScreen) saveCmd() tea.Cmd {
 
 // View pinta el detalle con pestañas.
 func (s *instanceScreen) View(w, h int) string {
+	// El ancho del campo sigue al terminal (nada de anchos fijos desconectados).
+	if w > 4 {
+		s.input.Width = w - 2
+	}
 	var b strings.Builder
 	name := s.slug
 	if s.detail != nil && s.detail.Spec != nil {
@@ -761,6 +1091,10 @@ func (s *instanceScreen) View(w, h int) string {
 	if s.pending != "" {
 		b.WriteString("\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render("⚠ Comando peligroso: «"+s.pending+"». Pulsa Enter otra vez para confirmar, o Esc para cancelar."))
 	}
+	if s.confirmKind == "version" {
+		b.WriteString("\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render(
+			"⚠ Se hará un backup y se cambiará la versión a «"+s.confirmValue+"». Bajar de versión puede corromper el mundo. [Enter] Confirmar · [Esc] Cancelar"))
+	}
 	return b.String()
 }
 
@@ -785,29 +1119,79 @@ func (s *instanceScreen) summaryView() string {
 	b.WriteString("\n\n")
 	conn := connectionFromSpecWithHost(spec, s.detail.Host)
 	b.WriteString(components.ConnectCard(conn, 64, s.pal, s.ascii))
+	if s.crash {
+		b.WriteString("\n\n" + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Bad)).Render(components.Warn(s.ascii)+" El servidor se cayó inesperadamente"))
+		b.WriteString("\n    Causa probable: " + orDash(s.crashCause))
+		if s.crashLoop {
+			b.WriteString("\n    " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).Render("Se cayó 3 veces en 10 min: revisa la causa antes de reiniciar."))
+		} else {
+			b.WriteString("\n    [R] Reiniciar")
+		}
+	}
 	return b.String()
 }
 
 func (s *instanceScreen) consoleView(w, h int) string {
 	var b strings.Builder
-	lines := s.filteredLogs()
-	max := h - 7
+	// La pestaña activa ya consume 2 líneas (título + blanco); reservamos el
+	// indicador de flags y la línea de entrada, dejando el resto al log.
+	max := h - 4
+	if s.pending != "" {
+		max--
+	}
 	if max < 1 {
 		max = 1
 	}
-	if s.follow && len(lines) > max {
-		lines = lines[len(lines)-max:]
+	disp := wrapWidth(strings.Join(s.filteredLogs(), "\n"), w)
+	if len(disp) > max {
+		if s.follow {
+			disp = disp[len(disp)-max:]
+		} else {
+			disp = disp[:max]
+		}
 	}
-	for _, l := range lines {
+	for _, l := range disp {
 		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(logColor(l, s.pal))).Render(l))
 		b.WriteString("\n")
 	}
 	flags := "seguir=" + onOff(s.follow) + "  pausa=" + onOff(s.paused) + "  filtro=" + orDash(s.filter)
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(flags))
+	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(flags))
 	if s.pending == "" {
 		b.WriteString("\n> " + s.input.View())
 	}
 	return b.String()
+}
+
+// wrapWidth envuelve el texto de log (sin ANSI) en líneas de ancho visual `w`,
+// de modo que ninguna línea desborde ni desplace el footer (UI-04).
+func wrapWidth(text string, w int) []string {
+	if w < 8 {
+		w = 8
+	}
+	raw := strings.Split(stripANSI(text), "\n")
+	out := make([]string, 0, len(raw))
+	for _, ln := range raw {
+		runes := []rune(ln)
+		if len(runes) == 0 {
+			out = append(out, "")
+			continue
+		}
+		for len(runes) > 0 {
+			cut := 0
+			for i := 1; i <= len(runes); i++ {
+				if ansi.StringWidth(string(runes[:i])) > w {
+					break
+				}
+				cut = i
+			}
+			if cut == 0 {
+				cut = 1
+			}
+			out = append(out, string(runes[:cut]))
+			runes = runes[cut:]
+		}
+	}
+	return out
 }
 
 func (s *instanceScreen) filteredLogs() []string {
@@ -828,29 +1212,108 @@ func (s *instanceScreen) playersView() string {
 	if s.detail == nil || s.detail.Spec == nil {
 		return "cargando…"
 	}
-	spec := s.detail.Spec
 	var b strings.Builder
 	online := "no se pudo medir (¿servidor apagado?)"
 	if s.playersKnown {
 		online = itoa(s.playersOnline) + " conectados ahora"
 	}
 	b.WriteString("En línea: " + online + "\n\n")
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Lista blanca") + " (" + onOff(spec.WhitelistEnabled) + ")\n")
-	if len(spec.Whitelist) == 0 {
-		b.WriteString("  (vacía)\n")
+	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Lista blanca") + "\n")
+	b.WriteString("  " + s.accessStatusLine() + "\n")
+	if s.accessBusy {
+		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render("⟳ aplicando…") + "\n")
 	}
-	for _, p := range spec.Whitelist {
-		b.WriteString("  • " + p + "\n")
+	if s.accessStatus != "" {
+		b.WriteString("  " + s.accessStatus + "\n")
+	}
+	if !s.accessLoaded {
+		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("verificando estado de acceso…") + "\n")
+	}
+	b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Jugadores permitidos") + "\n")
+	wl := s.accessWhitelist()
+	if len(wl) == 0 {
+		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("(ninguno)") + "\n")
+	}
+	for _, p := range wl {
+		b.WriteString("  " + components.Pointer(s.ascii) + " " + p + "\n")
 	}
 	b.WriteString("\n" + lipgloss.NewStyle().Bold(true).Render("Operadores") + "\n")
-	if len(spec.Ops) == 0 {
-		b.WriteString("  (ninguno)\n")
+	ops := s.accessOperators()
+	if len(ops) == 0 {
+		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("(ninguno)") + "\n")
 	}
-	for _, p := range spec.Ops {
-		b.WriteString("  • " + p + "\n")
+	for _, p := range ops {
+		b.WriteString("  " + components.Pointer(s.ascii) + " " + p + "\n")
 	}
-	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("[A] Añadir a lista blanca · [O] Hacer operador · [R] Actualizar"))
+	b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(
+		"[A] Añadir · [D] Quitar · [W] Activar/desactivar · [O] Operador · [Shift+O] Quitar operador · [R] Verificar de nuevo"))
 	return b.String()
+}
+
+// accessStatusLine resume el estado de la whitelist y su fuente (§6): distingue
+// estado en vivo verificado de configuración guardada no verificable.
+func (s *instanceScreen) accessStatusLine() string {
+	if !s.accessLoaded {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("Estado: NO VERIFICADA")
+	}
+	switch s.access.Source {
+	case svc.AccessLive:
+		state := "DESACTIVADA"
+		if s.access.WhitelistEnabled {
+			state = "ACTIVADA"
+		}
+		when := ""
+		if !s.access.VerifiedAt.IsZero() {
+			when = " · verificado " + humanAgo(s.access.VerifiedAt)
+		}
+		return "Whitelist: " + state + when
+	case svc.AccessSavedConfig:
+		saved := "desactivada"
+		if s.access.WhitelistEnabled {
+			saved = "activada"
+		}
+		return "Configuración guardada: " + saved + " · Estado en vivo: no verificable (servidor apagado)"
+	case svc.AccessUnavailable:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).Render("Lista blanca: ERROR DE CONSULTA")
+	}
+	return "Estado: NO VERIFICADA"
+}
+
+// accessWhitelist devuelve la lista mostrada: el estado de acceso si se cargó y
+// es fiable, o la configuración guardada como respaldo.
+func (s *instanceScreen) accessWhitelist() []string {
+	if s.accessLoaded && s.access.Source != svc.AccessUnavailable {
+		return s.access.Whitelist
+	}
+	if s.detail != nil && s.detail.Spec != nil {
+		return s.detail.Spec.Whitelist
+	}
+	return nil
+}
+
+func (s *instanceScreen) accessOperators() []string {
+	if s.accessLoaded && s.access.Source != svc.AccessUnavailable {
+		return s.access.Operators
+	}
+	if s.detail != nil && s.detail.Spec != nil {
+		return s.detail.Spec.Ops
+	}
+	return nil
+}
+
+// humanAgo redacta el tiempo transcurrido desde t.
+func humanAgo(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Second:
+		return "ahora"
+	case d < time.Minute:
+		return "hace " + itoa(int(d.Seconds())) + " s"
+	case d < time.Hour:
+		return "hace " + itoa(int(d.Minutes())) + " min"
+	default:
+		return "hace " + itoa(int(d.Hours())) + " h"
+	}
 }
 
 func (s *instanceScreen) backupsView() string {
@@ -980,12 +1443,20 @@ func (s *instanceScreen) settingsView() string {
 func (s *instanceScreen) Actions() []components.Action {
 	name := "«" + s.slug + "»"
 	running := s.detail != nil && s.detail.State == "running"
+	restartDisabled := !running
+	restartWhy := "No está en marcha"
+	if s.crashLoop {
+		restartDisabled = true
+		restartWhy = "Se cayó 3 veces en 10 min — revisa la causa en Resumen antes de reiniciar"
+	}
 	return []components.Action{
 		{ID: "instance.start", Verb: "Iniciar", Object: name, Key: "s", Hint: "Arranca el servidor.", Kind: components.Primary, Disabled: running, DisabledReason: "Ya está en marcha"},
 		{ID: "instance.stop", Verb: "Detener", Object: name, Key: "p", Hint: "Apaga guardando el mundo.", Kind: components.Secondary, Disabled: !running, DisabledReason: "No está en marcha"},
-		{ID: "instance.restart", Verb: "Reiniciar", Object: name, Key: "r", Hint: "Recrea el contenedor aplicando cambios.", Kind: components.Secondary, Disabled: !running, DisabledReason: "No está en marcha"},
+		{ID: "instance.restart", Verb: "Reiniciar", Object: name, Key: "r", Hint: "Recrea el contenedor aplicando cambios.", Kind: components.Secondary, Disabled: restartDisabled, DisabledReason: restartWhy},
 		{ID: "instance.console", Verb: "Escribir", Object: "en la consola", Key: "e", Hint: "Envía un comando al servidor.", Kind: components.Secondary},
 		{ID: "instance.copy", Verb: "Copiar", Object: "dirección de conexión", Key: "c", Hint: "Copia ip:puerto al portapapeles.", Kind: components.Secondary},
+		{ID: "instance.version", Verb: "Cambiar", Object: "la versión de " + name, Key: "v", Hint: "Hace un backup y cambia la versión (reinicia para aplicar).", Kind: components.Secondary},
+		{ID: "instance.delete", Verb: "Eliminar", Object: name + " para siempre", Key: "D", Hint: "Borra el contenedor y sus datos; pide escribir el nombre.", Kind: components.Destructive},
 		{ID: "instance.back", Verb: "Volver", Object: "a la lista", Key: "esc", Hint: "Cierra el detalle.", Kind: components.Navigation},
 	}
 }
@@ -1003,6 +1474,10 @@ func (s *instanceScreen) Invoke(id string) tea.Cmd {
 		s.tab = 1
 		s.focus = true
 		return s.input.Focus()
+	case "instance.version":
+		return s.startVersionPrompt()
+	case "instance.delete":
+		return s.startDeletePrompt()
 	case "instance.back":
 		return func() tea.Msg { return popScreenMsg{} }
 	case "instance.copy":
@@ -1025,6 +1500,12 @@ func (s *instanceScreen) Invoke(id string) tea.Cmd {
 
 func (s *instanceScreen) Title() string { return "Instancia " + s.slug }
 func (s *instanceScreen) ID() string    { return "instance" }
+
+// CapturesInput: el detalle captura las teclas cuando hay un campo de texto, un
+// prompt o una confirmación con foco, para no disparar atajos globales (§5).
+func (s *instanceScreen) CapturesInput() bool {
+	return s.prompt || s.confirmKind != "" || s.focus || s.editing
+}
 
 func logColor(line string, pal theme.Palette) string {
 	switch {

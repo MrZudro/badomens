@@ -30,7 +30,7 @@ var DefaultKeys = KeyMap{
 	Palette:  key.NewBinding(key.WithKeys("ctrl+p", ":"), key.WithHelp("Ctrl+P", "comandos")),
 	NextPane: key.NewBinding(key.WithKeys("tab"), key.WithHelp("Tab", "cambiar panel")),
 	PrevPane: key.NewBinding(key.WithKeys("shift+tab")),
-	New:      key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "nueva instancia")),
+	New:      key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("Ctrl+N", "nueva instancia")),
 	Health:   key.NewBinding(key.WithKeys("H"), key.WithHelp("H", "salud del sistema")),
 	Copy:     key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copiar")),
 	Quit:     key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "salir")),
@@ -41,6 +41,11 @@ var DefaultKeys = KeyMap{
 // ShortHelp es la barra de ayuda global (siempre visible en la última línea).
 func (k KeyMap) ShortHelp() string {
 	return "? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir"
+}
+
+// ShortHelpASCII es la barra de ayuda en modo ASCII (separadores planos).
+func (k KeyMap) ShortHelpASCII() string {
+	return "? Ayuda | Ctrl+P Comandos | Tab Panel | H Salud | Q Salir"
 }
 
 // FullHelp devuelve la hoja de atajos completa de la pantalla actual.

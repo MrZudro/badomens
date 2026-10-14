@@ -1,0 +1,12 @@
+┌ badomens        Docker sin comprobar ┐
+Survival   Resumen   Consola   Jugadore…
+
+Motor:      paper 1.21.4
+Memoria:    4G
+Puerto:     25565
+Jugadores:  —
+Dificultad: normal · modo survival
+Estado:     ● En línea
+
+╭──────────────────────────────────────…
+  ? Ayuda · Ctrl+P Comandos · Tab Panel…
