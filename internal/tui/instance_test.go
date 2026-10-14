@@ -31,7 +31,7 @@ func TestInstanciaDetectaCaida(t *testing.T) {
 	if !s.crash || !s.crashPending {
 		t.Fatal("debía detectarse la caída inesperada")
 	}
-	s.Update(instanceLogsMsg{slug: "survival", text: "java.lang.OutOfMemoryError: Java heap space"})
+	s.Update(instanceLogsMsg{slug: "survival", text: "java.lang.OutOfMemoryError: Java heap space", gen: s.logsGen})
 	if s.crashPending {
 		t.Fatal("la causa debía resolverse con los logs")
 	}

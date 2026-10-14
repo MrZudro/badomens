@@ -1,12 +1,12 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
-│ Survival  Consola  2/9  ←/→          │
-│ [22:10:19 INFO]: Done (1.234s)! For  │
-│ help, type "help"                    │
-│ seguir=sí  pausa=no  filtro=—        │
+│ Survival  [Consola]  2/9  ←/→        │
+│ ╭─ CONSOLA ──────── seg=sí pau=no ─╮ │
+│ │ZZ                                │ │
+│ │[22:10:19 INFO]: Done (1.234s)! Fo│ │
+│ │r help, type "help"               │ │
+│ ╰──────────────────────────────────╯ │
 │ > comando para la consola (ej. say … │
-│                                      │
-│                                      │
 │ Instancia survival                   │
 └─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘

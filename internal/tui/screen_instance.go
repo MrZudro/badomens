@@ -22,10 +22,15 @@ import (
 	"github.com/MrZudro/badomens/internal/tui/theme"
 )
 
+// maxLogLines acota el buffer de la consola: solo se conservan las últimas
+// líneas para que el detalle no dependa de un log sin límite.
+const maxLogLines = 2000
+
 type instanceLogsMsg struct {
 	slug string
 	text string
 	err  error
+	gen  int // generación del buffer: descarta respuestas de una consola abandonada
 }
 
 type instanceBackupsMsg struct {
@@ -65,16 +70,18 @@ type instanceDeletedMsg struct{ slug string }
 
 // instanceScreen es el detalle de una instancia con pestañas (RF-1/§5.2).
 type instanceScreen struct {
-	svc    *svc.Services
-	pal    theme.Palette
-	ascii  bool
-	slug   string
-	detail *svc.Detail
-	tab    int
-	logs   string
-	input  textinput.Model
-	focus  bool
-	status string
+	svc     *svc.Services
+	pal     theme.Palette
+	ascii   bool
+	slug    string
+	detail  *svc.Detail
+	tab     int
+	logs    string
+	logsErr string // error recuperable de la última lectura de logs (se conserva el buffer)
+	logsGen int    // generación del buffer de la consola (vista que lo pidió)
+	input   textinput.Model
+	focus   bool
+	status  string
 
 	history []string
 	histIdx int
@@ -146,6 +153,8 @@ func newInstanceScreen(sv *svc.Services, pal theme.Palette, ascii bool, slug str
 }
 
 func (s *instanceScreen) Init() tea.Cmd {
+	// Nueva generación del buffer: lo que llegue de una vista anterior se descarta.
+	s.logsGen++
 	return tea.Batch(s.load(), s.loadIdle())
 }
 
@@ -170,12 +179,14 @@ func (s *instanceScreen) loadIdle() tea.Cmd {
 }
 
 func (s *instanceScreen) logsCmd() tea.Cmd {
-	ref, slug := s.svc, s.slug
+	// La generación capturada viaja en el mensaje: si mientras tanto el usuario
+	// abandona la pestaña Consola, la respuesta se descarta al aplicarla.
+	ref, slug, gen := s.svc, s.slug, s.logsGen
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 		defer cancel()
-		text, err := ref.Instances.Logs(ctx, slug, 200)
-		return instanceLogsMsg{slug: slug, text: text, err: err}
+		text, err := ref.Instances.Logs(ctx, slug, maxLogLines)
+		return instanceLogsMsg{slug: slug, text: text, err: err, gen: gen}
 	}
 }
 
@@ -251,12 +262,26 @@ func (s *instanceScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		}
 		return s, nil
 	case instanceLogsMsg:
-		if msg.slug == s.slug {
-			s.logs = msg.text
+		// Respuesta obsoleta: de otra instancia o de una vista anterior de la consola.
+		// No toca el buffer ni da por resuelta la causa de una caída.
+		if msg.slug != s.slug || msg.gen != s.logsGen {
+			return s, nil
+		}
+		if msg.err != nil {
+			// Error recuperable (p. ej. contenedor recién recreado): se conserva el
+			// buffer visible y se avisa dentro del panel, en vez de vaciar la consola.
+			s.logsErr = msg.err.Error()
 			if s.crashPending {
-				s.crashCause = crashCause(msg.text)
+				s.crashCause = "no se pudieron leer los logs; revisa la pestaña Consola"
 				s.crashPending = false
 			}
+			return s, nil
+		}
+		s.logsErr = ""
+		s.logs = trimLogs(msg.text, maxLogLines)
+		if s.crashPending {
+			s.crashCause = crashCause(s.logs)
+			s.crashPending = false
 		}
 	case instanceDeletedMsg:
 		return s, tea.Batch(
@@ -387,7 +412,13 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 }
 
 func (s *instanceScreen) switchTab(d int) (Screen, tea.Cmd) {
+	prev := s.tab
 	s.tab = (s.tab + len(instanceTabs) + d) % len(instanceTabs)
+	// Al abandonar la pestaña Consola se invalida el buffer en vuelo: la respuesta
+	// que llegue más tarde se descarta por generación.
+	if prev == 1 && s.tab != 1 {
+		s.logsGen++
+	}
 	switch s.tab {
 	case 1:
 		return s, s.logsCmd()
@@ -588,6 +619,9 @@ func (s *instanceScreen) applyState(state string) tea.Cmd {
 		s.noteCrash()
 	}
 	s.lastState = state
+	// Gate de I/O: fuera de la pestaña Consola no se piden logs (tampoco en View).
+	// Excepción única: una caída recién detectada, que carga los logs una vez para
+	// deducir la causa aunque el usuario no esté en la consola.
 	if crashDetected || s.tab == 1 {
 		return s.logsCmd()
 	}
@@ -1071,7 +1105,7 @@ func (s *instanceScreen) View(w, h int) string {
 	if s.prompt {
 		b.WriteString("\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Accent)).Render(s.promptLabel+": ") + s.input.View())
 	}
-	if s.pending != "" {
+	if s.pending != "" && s.tab != 1 { // en la pestaña Consola el aviso va dentro del panel
 		b.WriteString("\n\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render("⚠ Comando peligroso: «"+s.pending+"». Pulsa Enter otra vez para confirmar, o Esc para cancelar."))
 	}
 	if s.confirmKind == "version" {
@@ -1092,19 +1126,23 @@ func (s *instanceScreen) Chrome(w int) string {
 	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render(name)
 	if layout.ClassifyWidth(w) == layout.Compact {
 		ind := " " + itoa(s.tab+1) + "/" + itoa(len(instanceTabs))
-		label := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent)).Render(" " + instanceTabs[s.tab] + " ")
+		label := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent)).Render(" [" + instanceTabs[s.tab] + "] ")
 		muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(ind + "  ←/→")
 		return layout.Truncate(title+" "+label+muted, w)
 	}
 	tabLine := ""
 	for i, tab := range instanceTabs {
 		style := lipgloss.NewStyle()
+		label := " " + tab + " "
 		if i == s.tab {
+			// La pestaña activa se marca con corchetes además del color: el foco
+			// debe verse sin depender exclusivamente del color (§9 del rediseño).
 			style = style.Bold(true).Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent))
+			label = " [" + tab + "] "
 		} else {
 			style = style.Foreground(lipgloss.Color(s.pal.Muted))
 		}
-		tabLine += style.Render(" "+tab+" ") + " "
+		tabLine += style.Render(label) + " "
 	}
 	return title + "  " + layout.Truncate(tabLine, w-lipgloss.Width(title)-2)
 }
@@ -1142,35 +1180,90 @@ func (s *instanceScreen) summaryView() string {
 	return b.String()
 }
 
+// consoleView dibuja la Consola dentro de un panel (Fase C): el log vive en el
+// cuerpo del panel (el único viewport) y la línea de entrada queda fuera del
+// marco, siempre visible. Aquí no se hace I/O: los logs llegan por mensajes.
 func (s *instanceScreen) consoleView(w, h int) string {
-	var b strings.Builder
-	// La pestaña activa ya consume 2 líneas (título + blanco); reservamos el
-	// indicador de flags y la línea de entrada, dejando el resto al log.
-	max := h - 4
+	// Reserva una línea para la entrada; si hay un comando peligroso pendiente se
+	// muestra su aviso en el cuerpo y se le resta otra línea al log.
+	logH := h - 1
+	warn := ""
 	if s.pending != "" {
+		logH = h - 2
+		warn = layout.Truncate(lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render(
+			"⚠ Comando peligroso: «"+s.pending+"». Pulsa Enter otra vez para confirmar, o Esc para cancelar."), w)
+	}
+	if logH < 2 {
+		logH = 2 // el marco del panel necesita al menos dos líneas
+	}
+	// El cuerpo del panel son logH-2 líneas: los bordes no dibujan cuerpo.
+	max := logH - 2
+	// Error recuperable: se conserva el buffer y se reserva la primera línea del
+	// cuerpo para el aviso, que así no se pierde aunque el viewport siga la cola.
+	errLine := ""
+	if s.logsErr != "" {
+		// Mensaje breve y accionable (§8): el volcado técnico del error no cabe ni
+		// ayuda; la causa real (Docker caído, contenedor reiniciando) se ve en el
+		// banner y en Salud (F2), y el refresco del sondeo reintenta solo.
+		errLine = layout.Truncate(components.Cross(s.ascii)+" no se pudieron leer los logs · se reintentará al refrescar (F2 revisa el sistema)", w-2)
 		max--
 	}
-	if max < 1 {
-		max = 1
+	if max < 0 {
+		max = 0
 	}
-	disp := wrapWidth(strings.Join(s.filteredLogs(), "\n"), w)
-	if len(disp) > max {
-		if s.follow {
-			disp = disp[len(disp)-max:]
-		} else {
-			disp = disp[:max]
+	var disp []string
+	if strings.TrimSpace(s.logs) != "" {
+		disp = wrapWidth(strings.Join(s.filteredLogs(), "\n"), w-2)
+		if len(disp) > max {
+			if s.follow {
+				disp = disp[len(disp)-max:]
+			} else {
+				disp = disp[:max]
+			}
 		}
 	}
-	for _, l := range disp {
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(logColor(l, s.pal))).Render(l))
-		b.WriteString("\n")
+	var body strings.Builder
+	written := 0
+	if errLine != "" {
+		body.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).Render(errLine))
+		written++
 	}
-	flags := "seguir=" + onOff(s.follow) + "  pausa=" + onOff(s.paused) + "  filtro=" + orDash(s.filter)
-	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(flags))
-	if s.pending == "" {
-		b.WriteString("\n> " + s.input.View())
+	if len(disp) == 0 {
+		if written == 0 && max > 0 {
+			body.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("(vacío)"))
+		}
+	} else {
+		for _, l := range disp {
+			if written > 0 {
+				body.WriteString("\n")
+			}
+			body.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(logColor(l, s.pal))).Render(l))
+			written++
+		}
 	}
-	return b.String()
+	out := components.Panel("CONSOLA", s.consoleFlags(w), body.String(), w, logH, false, s.pal, s.ascii)
+	if warn != "" {
+		out += "\n" + warn
+	}
+	return out + "\n> " + s.input.View()
+}
+
+// consoleFlags compone el contador derecho del panel de consola con la misma
+// regla que los demás paneles (§5.2): se elige la forma más larga que quepa
+// junto al título («CONSOLA») y, si ninguna cabe, se omite antes que recortar el
+// título. Nunca se envía al panel una forma que este vaya a descartar: así el
+// estado de la consola no desaparece en anchos medios.
+func (s *instanceScreen) consoleFlags(w int) string {
+	long := "seguir=" + onOff(s.follow) + " pausa=" + onOff(s.paused) + " filtro=" + orDash(s.filter)
+	short := "seg=" + onOff(s.follow) + " pau=" + onOff(s.paused) + " filtro=" + orDash(s.filter)
+	mini := "seg=" + onOff(s.follow) + " pau=" + onOff(s.paused)
+	need := 3 + layout.Width("CONSOLA") + 3
+	for _, form := range []string{long, short, mini} {
+		if need+layout.Width(form) <= w-2 {
+			return form
+		}
+	}
+	return ""
 }
 
 // wrapWidth envuelve el texto de log (sin ANSI) en líneas de ancho visual `w`,
@@ -1204,6 +1297,19 @@ func wrapWidth(text string, w int) []string {
 		flush()
 	}
 	return out
+}
+
+// trimLogs recorta el texto de log a sus últimas max líneas (buffer acotado):
+// así la pestaña Consola nunca crece sin límite aunque lleguen mensajes grandes.
+func trimLogs(text string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) <= max {
+		return text
+	}
+	return strings.Join(lines[len(lines)-max:], "\n")
 }
 
 func (s *instanceScreen) filteredLogs() []string {

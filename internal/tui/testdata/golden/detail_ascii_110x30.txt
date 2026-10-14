@@ -1,7 +1,7 @@
 +- badomens 0.0.0-dev ----------------------------------------------------------- [..] Docker sin comprobar -+
 | Inicio  [Instancias]  Salud  Ayuda                                                                         |
 +------------------------------------------------------------------------------------------------------------+
-| Survival   Resumen   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado   Ajustes… |
+| Survival   [Resumen]   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado   Ajust… |
 | Motor:      paper 1.21.4                                                                                   |
 | Memoria:    4G                                                                                             |
 | Puerto:     25565                                                                                          |

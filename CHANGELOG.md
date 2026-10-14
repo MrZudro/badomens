@@ -45,6 +45,14 @@ versionado es [semántico](https://semver.org/lang/es/).
   **carga** y **error de listado**, con la acción primaria siempre visible —también
   en 40×12 con banner de Docker. El detalle se **cachea por slug** con TTL corto
   (3 s, invalidado al mutar) para no repetir consultas al recorrer instancias.
+- **Consola rediseñada en panel (§5.4)**: el log vive en un `Panel` «CONSOLA» con
+  contador `seguir/pausa/filtro`; la línea de entrada queda fuera del marco y el
+  buffer se acota a 2.000 líneas. Cada lectura lleva una **generación** (se
+  descarta al salir de la pestaña) y solo se consultan logs con la pestaña
+  visible, salvo una carga puntual tras una caída para deducir la causa. Estados
+  de vacío (`(vacío)`), muchas líneas y línea larga; ante un fallo de lectura se
+  conserva el buffer y se muestra un aviso breve y accionable. La pestaña activa
+  se marca con corchetes (`[Consola]`) además del color.
 
 ### 🔧 Cambiado
 

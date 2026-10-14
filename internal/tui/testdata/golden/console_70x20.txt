@@ -1,20 +1,20 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
-│ Survival  Consola  2/9  ←/→                                        │
-│ [22:10:03 INFO]: Alex joined the game                              │
-│ [22:10:10 INFO]: There are 3 of a max of 20 players online         │
-│ ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ │
-│ ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ │
-│ ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ │
-│ ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                         │
-│ [22:10:19 INFO]: Done (1.234s)! For help, type "help"              │
-│ seguir=sí  pausa=no  filtro=—                                      │
+│ Survival  [Consola]  2/9  ←/→                                      │
+│ ╭─ CONSOLA ──────────────────────── seguir=sí pausa=no filtro=— ─╮ │
+│ │[22:10:03 INFO]: Alex joined the game                           │ │
+│ │[22:10:10 INFO]: There are 3 of a max of 20 players online      │ │
+│ │ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ│ │
+│ │ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ│ │
+│ │ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ│ │
+│ │ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                │ │
+│ │[22:10:19 INFO]: Done (1.234s)! For help, type "help"           │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ │                                                                │ │
+│ ╰────────────────────────────────────────────────────────────────╯ │
 │ > comando para la consola (ej. say hola)                           │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
-│                                                                    │
 │ Instancia survival                                                 │
 └─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
