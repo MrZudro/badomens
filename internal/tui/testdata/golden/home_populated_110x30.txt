@@ -1,0 +1,30 @@
+┌─ badomens 0.0.0-dev ─────────────────────────────────────────────── ● Docker OK  2/5 inst · 1/3 en marcha ─┐
+│ [Inicio]  Instancias  Salud  Ayuda                                                                         │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ╭─ INSTANCIAS ───── 2/5 · 1/3 en marcha ─╮ ╭─ DETALLE ───────────────────────────────────────────────────╮ │
+│ │▶ Survival  0/20  4G  pto 25565         │ │Survival · paper 1.21.4                                      │ │
+│ │  Creativo  0/0  2G  pto 25566          │ │● En línea                                                   │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │Jugadores  0/20                                              │ │
+│ │                                        │ │Puerto     25565                                             │ │
+│ │                                        │ │Memoria    4G                                                │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │Cómo conectarse                                              │ │
+│ │                                        │ │Versión: Minecraft 1.21.4 · Modo offline (cualquier nombre)  │ │
+│ │                                        │ │⚠ IP de Tailscale no disponible: ejecuta 'tailscale up' en e…│ │
+│ │                                        │ │⚠ MagicDNS desactivado: falta el nombre de conexión; usa la …│ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ │                                        │ │                                                             │ │
+│ ╰────────────────────────────────────────╯ ╰─────────────────────────────────────────────────────────────╯ │
+│ Instancias                                                                                                 │
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [B] Crear  [C] Co…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘

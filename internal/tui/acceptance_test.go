@@ -8,6 +8,7 @@ import (
 
 	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/tui/components"
 	"github.com/MrZudro/badomens/internal/tui/layout"
 	"github.com/MrZudro/badomens/internal/tui/svc"
 )
@@ -471,4 +472,76 @@ func TestShellNavSeccionActiva(t *testing.T) {
 	if out := stripANSI(a.View()); !strings.Contains(out, "[Instancias]") {
 		t.Fatalf("la sección activa debe verse en 40×12:\n%s", out)
 	}
+}
+
+// assertWithinSize comprueba que una vista no excede ni el ancho ni el alto del
+// terminal (medición por celdas visuales).
+func assertWithinSize(t *testing.T, out string, w, h int) {
+	t.Helper()
+	lines := strings.Split(out, "\n")
+	if len(lines) > h {
+		t.Fatalf("%dx%d: la vista excede el alto (%d líneas)", w, h, len(lines))
+	}
+	for i, ln := range lines {
+		if layout.Width(ln) > w {
+			t.Fatalf("%dx%d: línea %d mide %d celdas: %q", w, h, i+1, layout.Width(ln), ln)
+		}
+	}
+}
+
+// UI-01: Inicio vacío y poblado en los tamaños de referencia. Sin desborde, con
+// la acción primaria visible en vacío y una selección identificable en poblado.
+func TestUI01InicioVacioYPoblado(t *testing.T) {
+	for _, sz := range [][2]int{{40, 12}, {70, 20}, {110, 30}, {132, 40}} {
+		w, h := sz[0], sz[1]
+
+		empty := NewApp(svc.NewFake(nil), darkOpts())
+		resize(empty, w, h)
+		empty.Update(homeReqMsg{dockerOK: true, tsIP: "100.64.0.1", tsOK: true})
+		empty.Update(pollRowsMsg{rows: nil})
+		out := stripANSI(empty.View())
+		if !strings.Contains(out, "Crear") {
+			t.Fatalf("%dx%d: el Inicio vacío debe ofrecer la acción primaria Crear:\n%s", w, h, out)
+		}
+		assertWithinSize(t, out, w, h)
+
+		populated := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+		resize(populated, w, h)
+		populated.Update(pollRowsMsg{rows: []svc.Row{
+			{Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4", Memory: "4G", Port: 25565, State: "running", MaxPlayers: 20, Host: "100.64.0.1"},
+			{Slug: "creativo", Name: "Creativo", Engine: "vanilla", Version: "1.21", Memory: "2G", Port: 25566, State: "exited"},
+		}})
+		populated.Update(homeDetailMsg{d: &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}, slug: "survival"})
+		out = stripANSI(populated.View())
+		if !strings.Contains(out, "Survival") {
+			t.Fatalf("%dx%d: el Inicio poblado debe listar Survival:\n%s", w, h, out)
+		}
+		if !strings.Contains(out, components.Pointer(false)) {
+			t.Fatalf("%dx%d: debe verse el puntero de selección:\n%s", w, h, out)
+		}
+		assertWithinSize(t, out, w, h)
+	}
+}
+
+// TestUI01VacioCTAConBannerMinimo: en 40×12 con banner de Docker caído (que
+// resta una línea al cuerpo) la acción primaria y el banner corto siguen
+// visibles y sin desbordar.
+func TestUI01VacioCTAConBannerMinimo(t *testing.T) {
+	a := NewApp(svc.NewFake(nil), darkOpts())
+	resize(a, 40, 12)
+	a.Update(pollDockerMsg{diag: dockerx.Diagnosis{State: dockerx.StateDaemonDown}})
+	a.Update(homeReqMsg{dockerOK: false, tsOK: false})
+	a.Update(pollRowsMsg{rows: nil})
+	out := stripANSI(a.View())
+	lines := strings.Split(out, "\n")
+	if len(lines) != 12 {
+		t.Fatalf("la vista debe ocupar 12 líneas, tengo %d", len(lines))
+	}
+	if !strings.Contains(out, "Crear") {
+		t.Fatalf("con banner y 40×12 el CTA debe seguir visible:\n%s", out)
+	}
+	if !strings.Contains(out, "Ctrl+R") {
+		t.Fatalf("el banner corto debe conservar la acción de reparar:\n%s", out)
+	}
+	assertWithinSize(t, out, 40, 12)
 }

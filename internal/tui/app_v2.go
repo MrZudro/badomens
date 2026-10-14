@@ -832,23 +832,40 @@ func (a *App) bottomLine(w int, actions string) string {
 		a.styles.border.Render(" "+strings.Repeat(hz, fill)+br)
 }
 
-// bannerView pinta el banner fijo de prerrequisitos (Docker/Tailscale).
+// bannerView pinta el banner fijo de prerrequisitos (Docker/Tailscale). Si el
+// mensaje completo no cabe, usa una variante corta que conserva la acción.
 func (a *App) bannerView(w int) string {
 	if a.docker.State.Ready() || a.docker.State == dockerx.StateUnknown || a.docker.State == "" {
 		return ""
 	}
-	msg := a.cat.T("app.banner.docker_down")
-	if a.docker.State == dockerx.StateStarting {
-		msg = a.cat.T("app.banner.docker_starting")
-	}
-	if a.ascii {
-		if a.docker.State == dockerx.StateStarting {
-			msg = a.cat.T("app.banner.ascii_starting")
-		} else {
-			msg = a.cat.T("app.banner.ascii_down")
-		}
+	starting := a.docker.State == dockerx.StateStarting
+	msg := a.bannerText(starting, false)
+	if layout.Width(msg) > w {
+		msg = a.bannerText(starting, true)
 	}
 	return a.styles.bad.Render(layout.Truncate(msg, w))
+}
+
+// bannerText devuelve el texto del banner según el estado y la variante.
+func (a *App) bannerText(starting, short bool) string {
+	switch {
+	case starting && a.ascii && short:
+		return a.cat.T("app.banner.ascii_start_short")
+	case starting && short:
+		return a.cat.T("app.banner.starting_short")
+	case starting && a.ascii:
+		return a.cat.T("app.banner.ascii_starting")
+	case starting:
+		return a.cat.T("app.banner.docker_starting")
+	case a.ascii && short:
+		return a.cat.T("app.banner.ascii_down_short")
+	case short:
+		return a.cat.T("app.banner.docker_down_short")
+	case a.ascii:
+		return a.cat.T("app.banner.ascii_down")
+	default:
+		return a.cat.T("app.banner.docker_down")
+	}
 }
 
 // headerView pinta la cabecera en el borde superior: producto + versión, estado

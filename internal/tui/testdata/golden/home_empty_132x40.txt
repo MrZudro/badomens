@@ -1,0 +1,40 @@
+┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────── ● Docker OK  Tailscale ●  0/5 inst · 0/3 en marcha ─┐
+│ [Inicio]  Instancias  Salud  Ayuda                                                                                               │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ╭─ INSTANCIAS ─────────────────────────────────────────────────────────────────────────────────────────── 0/5 · 0/3 en marcha ─╮ │
+│ │Todavía no hay instancias                                                                                                     │ │
+│ │                                                                                                                              │ │
+│ │Crea tu primer servidor y badomens te dirá cómo conectarte.                                                                   │ │
+│ │                                                                                                                              │ │
+│ │ [N] Crear mi primer servidor                                                                                                 │ │
+│ │                                                                                                                              │ │
+│ │Requisitos                                                                                                                    │ │
+│ │  ✓ Docker  instalado y en marcha                                                                                             │ │
+│ │  ✓ Tailscale  IP 100.64.0.1                                                                                                  │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ │                                                                                                                              │ │
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
+│ no hay instancias todavía                                                                                                        │
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [B] Crear  [C] Copiar  [ENTER] Ver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ──────┘

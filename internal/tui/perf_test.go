@@ -235,3 +235,30 @@ func TestUI07ResizeConsolaActiva(t *testing.T) {
 		t.Fatalf("el ancho del input debe seguir al terminal, tengo %d, quiero %d", inst.input.Width, want)
 	}
 }
+
+// §5.2: el detalle por slug se cachea con TTL corto; volver a una fila reciente
+// no dispara otra consulta al servicio.
+func TestHomeCacheDetallePorSlug(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{{Slug: "survival", Name: "Survival"}}), darkOpts())
+	resize(a, 120, 40)
+	a.Update(pollRowsMsg{rows: []svc.Row{{Slug: "survival", Name: "Survival", State: "running"}}})
+	hs, ok := a.router.Top().(*homeScreen)
+	if !ok {
+		t.Fatal("se esperaba home")
+	}
+	d := &svc.Detail{Spec: &instance.Spec{Slug: "survival", Name: "Survival"}, State: "running"}
+	a.Update(homeDetailMsg{d: d, slug: "survival", gen: hs.detailGen})
+	if got := hs.cachedDetail("survival"); got != d {
+		t.Fatal("el detalle debe quedar cacheado por slug")
+	}
+	// Servir desde caché no toca el servicio: el comando devuelve el mismo dato.
+	msg, ok := hs.detailCmd()().(homeDetailMsg)
+	if !ok || msg.d != d {
+		t.Fatalf("el detalle debía servirse desde la caché, tengo %#v", msg)
+	}
+	// Pasado el TTL, la caché caduca.
+	hs.cache["survival"] = detailCacheEntry{d: d, at: nowUTC().Add(-homeDetailTTL - time.Second)}
+	if hs.cachedDetail("survival") != nil {
+		t.Fatal("la caché debe caducar pasado el TTL")
+	}
+}

@@ -37,9 +37,22 @@ versionado es [semántico](https://semver.org/lang/es/).
   200×50, incluida una línea de log de 240 caracteres.
 - **Tests de aceptación `KEY-*`, `ACL-*`, `UI-*`** sobre la ruta de producción
   (`acceptance_test.go`).
+- **Inicio rediseñado en paneles (§5.2)**: la lista y el detalle viven en cajas
+  con borde (`components.Panel`); la cabecera de la lista lleva los contadores
+  `n/max · r/max en marcha`, la fila seleccionada usa banda + puntero y en
+  terminales anchas aparece una tercera zona `ACTIVIDAD` con estado derivado
+  (nunca logs crudos). Estados explícitos de **vacío** (CTA + requisitos),
+  **carga** y **error de listado**, con la acción primaria siempre visible —también
+  en 40×12 con banner de Docker. El detalle se **cachea por slug** con TTL corto
+  (3 s, invalidado al mutar) para no repetir consultas al recorrer instancias.
 
 ### 🔧 Cambiado
 
+- **Barras de acciones dentro del cuerpo**: se retiran de Inicio (incluida la
+  barra compacta); los atajos contextuales viven solo en la barra inferior de la
+  carcasa. El banner de Docker caído usa una variante corta (`✖ Docker caído ·
+  [Ctrl+R] Reparar`) cuando el texto completo no cabe, y se corrigen referencias
+  obsoletas al atajo `H` (ahora `Ctrl+R`).
 - **Ancho interior y clasificación**: el marco reserva 4 columnas, así que las
   pantallas reciben el ancho interior y `layout.ClassifyWidth` usa 36 como umbral
   crítico. Los estilos del marco se cachean por tema (nada de construir

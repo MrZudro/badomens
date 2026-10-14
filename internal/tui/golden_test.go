@@ -39,34 +39,53 @@ func goldenApp() *App {
 	return a
 }
 
-// TestGoldenHome (RF-1/§10.2): capturas doradas del Home en 40×12, 70×20,
-// 110×30 y 200×50. Se regeneran con `go test ./internal/tui/ -update`.
+// goldenEmptyApp es el Inicio sin instancias (estado vacío determinista).
+func goldenEmptyApp() *App {
+	a := NewApp(svc.NewFake(nil), darkOpts())
+	a.Update(pollRowsMsg{rows: nil})
+	a.Update(homeReqMsg{dockerOK: true, tsIP: "100.64.0.1", tsOK: true})
+	a.Update(pollDockerMsg{diag: dockerOKDiagnosis()})
+	return a
+}
+
+// TestGoldenHome (UI-01/§5.2): capturas doradas del Inicio vacío y poblado en
+// 40×12, 70×20, 110×30 y 132×40. Se regeneran con `go test ./internal/tui/ -update`.
 func TestGoldenHome(t *testing.T) {
-	sizes := [][2]int{{40, 12}, {70, 20}, {110, 30}, {200, 50}}
-	for _, sz := range sizes {
-		sz := sz
-		t.Run(name(sz), func(t *testing.T) {
-			a := goldenApp()
-			a.Update(tea.WindowSizeMsg{Width: sz[0], Height: sz[1]})
-			got := stripANSI(a.View())
-			path := filepath.Join("testdata", "golden", name(sz)+".txt")
-			if *update {
-				if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-					t.Fatal(err)
+	sizes := [][2]int{{40, 12}, {70, 20}, {110, 30}, {132, 40}}
+	cases := []struct {
+		prefix string
+		build  func() *App
+	}{
+		{"home_empty", goldenEmptyApp},
+		{"home_populated", goldenApp},
+	}
+	for _, c := range cases {
+		for _, sz := range sizes {
+			c, sz := c, sz
+			gname := c.prefix + "_" + name(sz)
+			t.Run(gname, func(t *testing.T) {
+				a := c.build()
+				a.Update(tea.WindowSizeMsg{Width: sz[0], Height: sz[1]})
+				got := stripANSI(a.View())
+				path := filepath.Join("testdata", "golden", gname+".txt")
+				if *update {
+					if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
+						t.Fatal(err)
+					}
+					return
 				}
-				if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
-					t.Fatal(err)
+				want, err := os.ReadFile(path)
+				if err != nil {
+					t.Skipf("golden %s ausente; genera con `go test ./internal/tui/ -update`: %v", path, err)
 				}
-				return
-			}
-			want, err := os.ReadFile(path)
-			if err != nil {
-				t.Skipf("golden %s ausente; genera con `go test ./internal/tui/ -update`: %v", path, err)
-			}
-			if strings.TrimRight(got, "\n") != strings.TrimRight(string(want), "\n") {
-				t.Fatalf("el golden %s no coincide.\n--- esperado ---\n%s\n--- obtenido ---\n%s", path, want, got)
-			}
-		})
+				if strings.TrimRight(got, "\n") != strings.TrimRight(string(want), "\n") {
+					t.Fatalf("el golden %s no coincide.\n--- esperado ---\n%s\n--- obtenido ---\n%s", path, want, got)
+				}
+			})
+		}
 	}
 }
 

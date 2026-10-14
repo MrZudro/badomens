@@ -1,30 +1,30 @@
 +- badomens 0.0.0-dev ----------------------------------------------------------- [..] Docker sin comprobar -+
 | [Inicio]  Instancias  Salud  Ayuda                                                                         |
 +------------------------------------------------------------------------------------------------------------+
-| Todavía no hay instancias                                                                                  |
-|                                                                                                            |
-| Crea tu primer servidor y badomens te dirá cómo conectarte.                                                |
-|                                                                                                            |
-|  [N] Crear mi primer servidor                                                                              |
-|                                                                                                            |
-| Requisitos                                                                                                 |
-|   comprobando Docker y Tailscale…                                                                          |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
-|                                                                                                            |
+| +- INSTANCIAS -------------------------------------------------------------------------------------------+ |
+| |cargando instancias…                                                                                    | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| |                                                                                                        | |
+| +--------------------------------------------------------------------------------------------------------+ |
 | cargando instancias…                                                                                       |
 +- [S] Iniciar  [P] Detener  [R] Reiniciar  [B] Crear  [C] Co…   F1 Ayuda | Ctrl+P | F2 Salud | Ctrl+Q Salir +

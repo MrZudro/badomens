@@ -41,6 +41,16 @@ type homeDetailDebounceMsg struct{ gen int }
 // homeNavDebounce es la espera antes de cargar el detalle de la selección.
 const homeNavDebounce = 150 * time.Millisecond
 
+// homeDetailTTL es la vigencia del detalle cacheado por slug: evita repetir la
+// consulta al volver a una fila ya vista (§5.2/§6.2).
+const homeDetailTTL = 3 * time.Second
+
+// detailCacheEntry guarda una ficha con el instante en que se obtuvo.
+type detailCacheEntry struct {
+	d  *svc.Detail
+	at time.Time
+}
+
 type homeReqMsg struct {
 	dockerOK bool
 	tsIP     string
@@ -68,12 +78,19 @@ type homeScreen struct {
 	logSlug   string
 	// detailGen identifica la selección vigente para descartar respuestas tardías.
 	detailGen int
+	// loaded indica que ya hubo un listado (aunque sea vacío) y loadErr el
+	// último error de listado: distinguen vacío real de carga y de error (§5.2).
+	loaded  bool
+	loadErr error
+	// cache guarda el detalle por slug con TTL corto (§5.2).
+	cache map[string]detailCacheEntry
 }
 
 func newHomeScreen(sv *svc.Services, pal theme.Palette, ascii bool) *homeScreen {
 	return &homeScreen{
 		svc: sv, pal: pal, ascii: ascii, status: "cargando instancias…",
 		idleSince: map[string]time.Time{}, memHist: map[string][]float64{},
+		cache: map[string]detailCacheEntry{},
 	}
 }
 
@@ -94,9 +111,12 @@ func (s *homeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		return s, nil
 	case pollRowsMsg:
 		if msg.err != nil {
-			s.status = "error al listar: " + msg.err.Error()
+			s.loadErr = msg.err
+			s.status = components.Cross(s.ascii) + " error al listar: " + msg.err.Error()
 			return s, nil
 		}
+		s.loadErr = nil
+		s.loaded = true
 		prev := s.selected()
 		s.rows = msg.rows
 		s.running = 0
@@ -127,6 +147,11 @@ func (s *homeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 				delete(s.memHist, slug)
 			}
 		}
+		for slug := range s.cache {
+			if !seen[slug] {
+				delete(s.cache, slug)
+			}
+		}
 		s.cursor = 0
 		if prev != "" {
 			for i, r := range s.rows {
@@ -141,13 +166,18 @@ func (s *homeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		}
 		s.status = ""
 		s.detailGen++
-		return s, s.detailCmd()
+		return s, s.refreshDetailCmd()
 	case homeDetailDebounceMsg:
 		if msg.gen != s.detailGen {
 			return s, nil // la selección cambió: tick obsoleto
 		}
 		return s, s.detailCmd()
 	case homeDetailMsg:
+		// Cachea por slug aunque la selección ya haya cambiado (TTL corto): así
+		// volver a una fila reciente no repite la consulta (§5.2).
+		if msg.err == nil && msg.d != nil && msg.slug != "" {
+			s.cache[msg.slug] = detailCacheEntry{d: msg.d, at: nowUTC()}
+		}
 		// Descarta respuestas de otra instancia o de una selección ya cambiada.
 		if msg.slug != "" && (msg.slug != s.selected() || msg.gen != s.detailGen) {
 			return s, nil
@@ -259,12 +289,31 @@ func (s *homeScreen) selected() string {
 	return slug
 }
 
+// detailCmd carga el detalle de la selección; si hay una ficha reciente en cache
+// (TTL corto) la sirve sin tocar el servicio (§5.2).
 func (s *homeScreen) detailCmd() tea.Cmd {
 	slug := s.selected()
 	if slug == "" {
 		return nil
 	}
 	gen := s.detailGen
+	if d := s.cachedDetail(slug); d != nil {
+		return func() tea.Msg { return homeDetailMsg{d: d, slug: slug, gen: gen} }
+	}
+	return s.fetchDetailCmd(slug, gen)
+}
+
+// refreshDetailCmd fuerza una consulta nueva (tras el sondeo, el estado de la
+// instancia puede haber cambiado).
+func (s *homeScreen) refreshDetailCmd() tea.Cmd {
+	slug := s.selected()
+	if slug == "" {
+		return nil
+	}
+	return s.fetchDetailCmd(slug, s.detailGen)
+}
+
+func (s *homeScreen) fetchDetailCmd(slug string, gen int) tea.Cmd {
 	ref := s.svc
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -272,6 +321,19 @@ func (s *homeScreen) detailCmd() tea.Cmd {
 		d, err := ref.Instances.Detail(ctx, slug)
 		return homeDetailMsg{d: d, err: err, slug: slug, gen: gen}
 	}
+}
+
+// cachedDetail devuelve la ficha cacheada de un slug si sigue vigente.
+func (s *homeScreen) cachedDetail(slug string) *svc.Detail {
+	e, ok := s.cache[slug]
+	if !ok || e.d == nil {
+		return nil
+	}
+	if nowUTC().Sub(e.at) > homeDetailTTL {
+		delete(s.cache, slug)
+		return nil
+	}
+	return e.d
 }
 
 // logsCmd carga las últimas líneas de la instancia seleccionada para la zona de
@@ -292,6 +354,7 @@ func (s *homeScreen) logsCmd() tea.Cmd {
 
 func (s *homeScreen) lifecycle(op, slug string) tea.Cmd {
 	ref := s.svc
+	delete(s.cache, slug) // el estado cambia: invalida la ficha cacheada
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
@@ -322,6 +385,7 @@ func (s *homeScreen) lifecycle(op, slug string) tea.Cmd {
 
 func (s *homeScreen) backup(slug string) tea.Cmd {
 	ref := s.svc
+	delete(s.cache, slug)
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 		defer cancel()
@@ -350,36 +414,65 @@ func (s *homeScreen) copyAddress() tea.Cmd {
 	return func() tea.Msg { return toastMsg{Text: "✓ Copiado: " + addr} }
 }
 
-// View pinta el dashboard según la clase de tamaño.
+// View pinta el panel de Inicio por regiones (lista · detalle · actividad) según
+// la clase de tamaño (§5.2). Todo el estado vive en paneles con borde; las
+// acciones van en la barra inferior de la carcasa, no dentro del cuerpo.
 func (s *homeScreen) View(w, h int) string {
-	class := layout.ClassifyWidth(w)
 	if len(s.rows) == 0 {
-		return s.emptyView(w, class)
-	}
-	list := s.listView(w, h, class)
-	if class == layout.Compact {
-		bar := components.ActionBar(s.Actions(), w, 0, s.pal)
-		return list + "\n" + bar
-	}
-	// Wide: tres zonas (lista · detalle · actividad en vivo, §4.1).
-	if class == layout.Wide {
-		activityW := 28
-		if w/4 > activityW {
-			activityW = w / 4
-		}
-		activity := s.activityView(activityW, h)
-		detailW := w - lipgloss.Width(list) - activityW - 4
-		if detailW >= 30 {
-			detail := s.detailView(detailW, h)
-			return lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail, "  ", activity)
+		switch {
+		case s.loadErr != nil:
+			return s.errorView(w, h)
+		case !s.loaded:
+			return s.loadingView(w, h)
+		default:
+			return s.emptyView(w, h)
 		}
 	}
-	detailW := w - lipgloss.Width(list) - 2
-	if detailW < 20 {
-		detailW = 20
+	switch layout.ClassifyWidth(w) {
+	case layout.Wide:
+		return s.wideView(w, h)
+	case layout.Normal:
+		return s.normalView(w, h)
 	}
-	detail := s.detailView(detailW, h)
-	return lipgloss.JoinHorizontal(lipgloss.Top, list, "  ", detail)
+	return s.listPanel(w, h, true)
+}
+
+// wideView compone lista · detalle · actividad (≥110 celdas interiores).
+func (s *homeScreen) wideView(w, h int) string {
+	listW, activityW := 44, 26
+	if w >= 140 {
+		activityW = 32
+	}
+	detailW := w - listW - activityW - 2
+	if detailW < 30 {
+		return s.normalView(w, h)
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		s.listPanel(listW, h, true), " ",
+		s.detailPanel(detailW, h), " ",
+		s.activityPanel(activityW, h))
+}
+
+// normalView compone lista · detalle (70–109 celdas interiores).
+func (s *homeScreen) normalView(w, h int) string {
+	listW := w * 2 / 5
+	if listW < 28 {
+		listW = 28
+	}
+	if listW > 46 {
+		listW = 46
+	}
+	detailW := w - listW - 1
+	if detailW < 30 {
+		listW = w - 31
+		if listW < 24 {
+			return s.listPanel(w, h, true)
+		}
+		detailW = w - listW - 1
+	}
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		s.listPanel(listW, h, true), " ",
+		s.detailPanel(detailW, h))
 }
 
 // homeActivity es una línea derivada del estado (nunca logs crudos) para la
@@ -415,46 +508,62 @@ func (s *homeScreen) activityLines() []homeActivity {
 	return out
 }
 
-// activityView muestra el resumen operativo derivado (no logs crudos, §UI-09).
-func (s *homeScreen) activityView(w, h int) string {
-	var b strings.Builder
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render("ACTIVIDAD"))
-	b.WriteString("\n")
+// activityPanel muestra el resumen operativo derivado (sin logs crudos, UI-09)
+// dentro de un panel con borde.
+func (s *homeScreen) activityPanel(w, h int) string {
 	lines := s.activityLines()
-	max := h - 1
+	max := h - 2
 	if max < 1 {
 		max = 1
 	}
 	if len(lines) > max {
 		lines = lines[:max]
 	}
+	rendered := make([]string, 0, len(lines))
 	for _, l := range lines {
-		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(l.pal)).Render(layout.Truncate(l.text, w)))
-		b.WriteString("\n")
+		rendered = append(rendered, lipgloss.NewStyle().Foreground(lipgloss.Color(l.pal)).Render(layout.Truncate(l.text, w-2)))
 	}
-	// Ancho fijo para que la zona reserve su sitio aunque no haya líneas.
-	return lipgloss.NewStyle().Width(w).Render(strings.TrimRight(b.String(), "\n"))
+	return components.Panel("ACTIVIDAD", "", strings.Join(rendered, "\n"), w, h, false, s.pal, s.ascii)
 }
 
-func (s *homeScreen) emptyView(w int, class layout.Class) string {
-	var b strings.Builder
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render("Todavía no hay instancias"))
-	b.WriteString("\n\n")
-	b.WriteString("Crea tu primer servidor y badomens te dirá cómo conectarte.\n\n")
-	b.WriteString(components.Button(components.Action{ID: "global.new", Verb: "Crear", Object: "mi primer servidor", Key: "n", Kind: components.Primary, Hint: "Abre el asistente."}, true, s.pal))
-	b.WriteString("\n\n")
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("Requisitos"))
-	b.WriteString("\n")
-	if s.reqs {
-		s.reqRow(&b, "Docker", s.dockerOK, "instalado y en marcha", "instálalo o arráncalo", "Ctrl+R")
-		s.reqRow(&b, "Tailscale", s.tsOK, "IP "+s.tsIP, "sin IP del tailnet ('tailscale up')", "F2")
+// emptyView es el estado vacío: causa (CTA para crear) + requisitos, dentro de
+// un panel con borde (§5.2).
+func (s *homeScreen) emptyView(w, h int) string {
+	inner := h - 2
+	lines := []string{lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render("Todavía no hay instancias")}
+	if inner >= 7 {
+		lines = append(lines, "", "Crea tu primer servidor y badomens te dirá cómo conectarte.", "")
 	} else {
-		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("comprobando Docker y Tailscale…"))
+		lines = append(lines, "")
 	}
-	return b.String()
+	lines = append(lines, components.Button(components.Action{ID: "global.new", Verb: "Crear", Object: "mi primer servidor", Key: "n", Kind: components.Primary, Hint: "Abre el asistente."}, true, s.pal))
+	if inner >= 10 {
+		lines = append(lines, "", lipgloss.NewStyle().Bold(true).Render("Requisitos"))
+		if s.reqs {
+			lines = append(lines,
+				s.reqLine("Docker", s.dockerOK, "instalado y en marcha", "instálalo o arráncalo", "Ctrl+R"),
+				s.reqLine("Tailscale", s.tsOK, "IP "+s.tsIP, "sin IP del tailnet ('tailscale up')", "F2"))
+		} else {
+			lines = append(lines, "  "+lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("comprobando Docker y Tailscale…"))
+		}
+	}
+	return components.Panel("INSTANCIAS", s.listCounters(w), strings.Join(lines, "\n"), w, h, false, s.pal, s.ascii)
 }
 
-func (s *homeScreen) reqRow(b *strings.Builder, name string, ok bool, detail, fix, key string) {
+// loadingView es el primer listado aún sin respuesta.
+func (s *homeScreen) loadingView(w, h int) string {
+	body := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("cargando instancias…")
+	return components.Panel("INSTANCIAS", "", body, w, h, false, s.pal, s.ascii)
+}
+
+// errorView es el error recuperable de listado (con acción de reintento).
+func (s *homeScreen) errorView(w, h int) string {
+	line := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).Render(components.Cross(s.ascii) + " error al listar: " + s.loadErr.Error())
+	hint := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("Se reintentará automáticamente; revisa Docker con F2.")
+	return components.Panel("INSTANCIAS", "", line+"\n\n"+hint, w, h, false, s.pal, s.ascii)
+}
+
+func (s *homeScreen) reqLine(name string, ok bool, detail, fix, key string) string {
 	icon, color := "✓", s.pal.Good
 	if !ok {
 		icon, color = "✖", s.pal.Bad
@@ -464,43 +573,77 @@ func (s *homeScreen) reqRow(b *strings.Builder, name string, ok bool, detail, fi
 	if !ok {
 		line += "  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn)).Render("["+key+"] "+fix)
 	}
-	b.WriteString(line + "\n")
+	return line
 }
 
-func (s *homeScreen) listView(w, h int, class layout.Class) string {
-	width := 34
-	if class == layout.Wide {
-		width = 30
+// listPanel dibuja la lista de instancias en un panel con borde: el título lleva
+// los contadores y la fila seleccionada una banda con puntero (§5.2).
+func (s *homeScreen) listPanel(w, h int, focused bool) string {
+	return components.Panel("INSTANCIAS", s.listCounters(w), s.listBody(w-2, h-2), w, h, focused, s.pal, s.ascii)
+}
+
+// listCounters resume instancias y cupos. Usa la forma completa («… en marcha»)
+// si cabe junto al título del panel y la corta en caso contrario, para no
+// recortar nunca el título.
+func (s *homeScreen) listCounters(w int) string {
+	base := itoa(len(s.rows)) + "/" + itoa(s.svc.MaxInstances) + " · " +
+		itoa(s.running) + "/" + itoa(s.svc.MaxParallel)
+	inner := w - 2
+	need := 3 + layout.Width("INSTANCIAS") + 3
+	if need+layout.Width(base+" en marcha") <= inner {
+		return base + " en marcha"
 	}
-	if class == layout.Compact {
-		width = w
+	if need+layout.Width(base) <= inner {
+		return base
+	}
+	return ""
+}
+
+// listBody compone las filas visibles (máx. rows líneas) con puntero y banda de
+// selección; la banda se pinta al ancho interior para que no dependa del color.
+func (s *homeScreen) listBody(innerW, rows int) string {
+	if rows < 1 {
+		rows = 1
 	}
 	var b strings.Builder
-	head := "INSTANCIAS (" + itoa(len(s.rows)) + "/" + itoa(s.svc.MaxInstances) + " · " +
-		itoa(s.running) + "/" + itoa(s.svc.MaxParallel) + " en marcha)"
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render(layout.Truncate(head, width)))
-	b.WriteString("\n")
-	max := h - 2
 	shown := 0
 	for i, r := range s.rows {
-		if max > 0 && shown >= max {
+		if shown >= rows {
 			break
 		}
 		shown++
-		line := s.rowLine(r, width-3)
+		line := s.rowLine(r, innerW-2)
 		var rendered string
 		if i == s.cursor {
-			rendered = lipgloss.NewStyle().Background(lipgloss.Color(s.pal.Accent)).Foreground(lipgloss.Color(s.pal.AccentText)).Render(components.Pointer(s.ascii) + " " + line)
+			band := lipgloss.NewStyle().Background(lipgloss.Color(s.pal.Accent)).Foreground(lipgloss.Color(s.pal.AccentText))
+			rendered = band.Render(padPlain(components.Pointer(s.ascii)+" "+line, innerW))
 		} else {
 			rendered = "  " + line
 		}
 		b.WriteString(zone.Mark("row:"+r.Slug, rendered))
 		b.WriteString("\n")
 	}
-	if max > 0 && len(s.rows) > shown {
+	if len(s.rows) > shown {
 		b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("▲ " + itoa(len(s.rows)-shown) + " más"))
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// padPlain ajusta texto sin ANSI al ancho visual exacto (corta con «…» o rellena
+// con espacios). Se usa antes de aplicar la banda para que cubra toda la fila.
+func padPlain(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	sw := layout.Width(s)
+	if sw > w {
+		s = layout.Truncate(s, w)
+		sw = layout.Width(s)
+	}
+	if sw < w {
+		s += strings.Repeat(" ", w-sw)
+	}
+	return s
 }
 
 // rowLine compone la fila de una instancia: insignia, nombre, jugadores, RAM,
@@ -543,29 +686,47 @@ func (s *homeScreen) idleLabel(r svc.Row) string {
 	return "Apagado en " + mmss(left)
 }
 
-func (s *homeScreen) detailView(w, h int) string {
+// detailPanel resume la instancia seleccionada en un panel con borde, sin cajas
+// anidadas (§5.2): identidad, estado, ocupación y tarjeta de conexión.
+func (s *homeScreen) detailPanel(w, h int) string {
 	if s.detail == nil || s.detail.Spec == nil {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("Selecciona una instancia (↑/↓).")
+		msg := "Selecciona una instancia (↑/↓)."
+		if len(s.rows) > 0 && s.cachedDetail(s.selected()) == nil {
+			msg = "cargando detalle…"
+		}
+		return components.Panel("DETALLE", "", lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(msg), w, h, false, s.pal, s.ascii)
 	}
 	spec := s.detail.Spec
-	var b strings.Builder
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render(spec.Name + " · " + spec.Engine + " " + spec.Version))
-	b.WriteString("\n" + components.Badge(stateKey(s.detail.State), s.pal, s.ascii))
-	running := s.detail.State == "running"
-	b.WriteString("\n\n")
-	if row, ok := s.rowFor(spec.Slug); ok && running {
-		b.WriteString("CPU/RAM ")
-		b.WriteString(components.Sparkline(s.memHist[spec.Slug], 16))
-		b.WriteString("  " + itoa(int(row.MemUsedMB)) + "/" + itoa(int(row.MemLimitMB)) + " MB\n\n")
+	var lines []string
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Render(spec.Name+" · "+spec.Engine+" "+spec.Version))
+	lines = append(lines, components.Badge(stateKey(s.detail.State), s.pal, s.ascii))
+	if row, ok := s.rowFor(spec.Slug); ok {
+		players := "-/" + itoa(row.MaxPlayers)
+		if row.PlayersOnline >= 0 {
+			players = itoa(row.PlayersOnline) + "/" + itoa(row.MaxPlayers)
+		}
+		lines = append(lines,
+			"",
+			"Jugadores  "+players,
+			"Puerto     "+itoa(spec.Port))
+		if spec.Memory != "" {
+			lines = append(lines, "Memoria    "+spec.Memory)
+		}
+		if s.detail.State == "running" && row.MemLimitMB > 0 {
+			lines = append(lines, "CPU/RAM    "+components.Sparkline(s.memHist[spec.Slug], 12)+"  "+
+				itoa(int(row.MemUsedMB))+"/"+itoa(int(row.MemLimitMB))+" MB")
+		}
+		if row.IdleEnabled {
+			lines = append(lines, "Auto-apagado  "+s.idleLabel(row))
+		}
 	}
 	conn := connectionFromSpec(spec)
 	if s.detail.Host != "" {
 		conn = connectionFromSpecWithHost(spec, s.detail.Host)
 	}
-	b.WriteString(components.ConnectCard(conn, w, s.pal, s.ascii))
-	b.WriteString("\n\n")
-	b.WriteString(s.actionsBar(w))
-	return b.String()
+	lines = append(lines, "")
+	lines = append(lines, components.ConnectLines(conn, s.pal, s.ascii)...)
+	return components.Panel("DETALLE", "", strings.Join(lines, "\n"), w, h, false, s.pal, s.ascii)
 }
 
 func (s *homeScreen) rowFor(slug string) (svc.Row, bool) {
@@ -575,10 +736,6 @@ func (s *homeScreen) rowFor(slug string) (svc.Row, bool) {
 		}
 	}
 	return svc.Row{}, false
-}
-
-func (s *homeScreen) actionsBar(w int) string {
-	return components.ActionBar(s.Actions(), w, 0, s.pal)
 }
 
 func (s *homeScreen) Actions() []components.Action {

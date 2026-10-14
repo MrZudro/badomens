@@ -120,25 +120,32 @@ func (pr Progress) Render(p theme.Palette) string {
 	return out
 }
 
-// ConnectCard pinta la tarjeta "Cómo conectarse" (RF-2).
-func ConnectCard(info connection.Info, w int, p theme.Palette, ascii bool) string {
-	var b strings.Builder
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.Accent)).Render("Cómo conectarse"))
+// ConnectLines devuelve las líneas de la tarjeta «Cómo conectarse» sin borde,
+// para incrustarlas en un panel (Inicio §5.2 evita cajas anidadas). La primera
+// línea es el encabezado.
+func ConnectLines(info connection.Info, p theme.Palette, ascii bool) []string {
+	out := []string{lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.Accent)).Render("Cómo conectarse")}
 	if info.Address != "" {
-		b.WriteString("\nDirección:  " + info.Address + "   (c = copiar)")
+		out = append(out, "Dirección:  "+info.Address+"   (c = copiar)")
 	} else if info.AddressDNS != "" {
-		b.WriteString("\nDirección:  " + info.AddressDNS + "   (c = copiar)")
+		out = append(out, "Dirección:  "+info.AddressDNS+"   (c = copiar)")
 	}
 	if info.AddressDNS != "" && info.Address != "" {
-		b.WriteString("\nNombre:     " + info.AddressDNS)
+		out = append(out, "Nombre:     "+info.AddressDNS)
 	}
-	b.WriteString(fmt.Sprintf("\nVersión: Minecraft %s · Modo %s", info.McVersion, modoTexto(info.OnlineMode)))
+	out = append(out, fmt.Sprintf("Versión: Minecraft %s · Modo %s", info.McVersion, modoTexto(info.OnlineMode)))
 	if info.Loader != "" {
-		b.WriteString("\nLoader:     " + info.Loader)
+		out = append(out, "Loader:     "+info.Loader)
 	}
+	warnStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(p.Warn))
 	for _, warn := range info.Warnings {
-		b.WriteString("\n" + lipgloss.NewStyle().Foreground(lipgloss.Color(p.Warn)).Render(Warn(ascii)+" "+warn))
+		out = append(out, warnStyle.Render(Warn(ascii)+" "+warn))
 	}
+	return out
+}
+
+// ConnectCard pinta la tarjeta "Cómo conectarse" (RF-2).
+func ConnectCard(info connection.Info, w int, p theme.Palette, ascii bool) string {
 	boxW := w
 	if boxW <= 0 {
 		boxW = 60
@@ -148,7 +155,7 @@ func ConnectCard(info connection.Info, w int, p theme.Palette, ascii bool) strin
 		BorderForeground(lipgloss.Color(p.Border)).
 		Padding(0, 1).
 		Width(boxW - 2).
-		Render(b.String())
+		Render(strings.Join(ConnectLines(info, p, ascii), "\n"))
 }
 
 func modoTexto(online bool) string {
