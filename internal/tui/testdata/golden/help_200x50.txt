@@ -11,19 +11,15 @@
 │ │   [C]  Copiar dirección de conexión                        │                                                                                                                                       │
 │ │   [enter]  Ver detalle de «survival»                       │                                                                                                                                       │
 │ │                                                            │                                                                                                                                       │
-│ │ Globales                                                   │                                                                                                                                       │
+│ │ Globales (menú principal)                                  │                                                                                                                                       │
+│ │   Ctrl+Q  salir                                            │                                                                                                                                       │
 │ │   F1  ayuda                                                │                                                                                                                                       │
 │ │   Ctrl+P  comandos                                         │                                                                                                                                       │
 │ │   F2  salud del sistema                                    │                                                                                                                                       │
-│ │   Ctrl+Q  salir                                            │                                                                                                                                       │
 │ │   Ctrl+N  nueva instancia                                  │                                                                                                                                       │
-│ │   ↑/k  subir                                               │                                                                                                                                       │
-│ │   ↓/j  bajar                                               │                                                                                                                                       │
-│ │   Enter  abrir/confirmar                                   │                                                                                                                                       │
-│ │   Esc  volver                                              │                                                                                                                                       │
-│ │   Tab  cambiar panel                                       │                                                                                                                                       │
-│ │   c  copiar                                                │                                                                                                                                       │
-│ │   Esc  cerrar ayuda                                        │                                                                                                                                       │
+│ │   Tab  cambiar pantalla                                    │                                                                                                                                       │
+│ │   Shift+Tab  pantalla anterior                             │                                                                                                                                       │
+│ │   Esc o F1: cerrar ayuda                                   │                                                                                                                                       │
 │ │                                                            │                                                                                                                                       │
 │ │                                                            │                                                                                                                                       │
 │ ╰────────────────────────────────────────────────────────────╯                                                                                                                                       │
@@ -46,5 +42,9 @@
 │                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
+│                                                                                                                                                                                                      │
 │ Ayuda                                                                                                                                                                                                │
-└─ F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+└─ F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

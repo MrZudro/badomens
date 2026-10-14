@@ -11,8 +11,10 @@ import (
 	"github.com/MrZudro/badomens/internal/tui/theme"
 )
 
-// helpScreen es la hoja de atajos: los contextuales de la pantalla activa
-// (Pantalla) y los globales no imprimibles (Globales) (§5.14).
+// helpScreen es la hoja de atajos (§5.14). Separa dos bloques para que no se
+// confundan los botones de la pantalla activa con la navegación de primer nivel:
+// «Pantalla» (las mismas acciones que la barra inferior y la paleta) y «Globales
+// (menú principal)» (Tab/Shift+Tab, F1, Ctrl+P, F2, Ctrl+N, Ctrl+Q).
 type helpScreen struct {
 	keys    KeyMap
 	actions []components.Action
@@ -35,37 +37,45 @@ func (h *helpScreen) View(w, hgt int) string {
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(h.pal.Muted))
 	bold := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(h.pal.Accent))
 
-	// Acciones contextuales de la pantalla activa (tecla + etiqueta). Las
-	// globales (prefijo «global.») van al bloque de abajo.
+	// Bloque «Pantalla»: acciones propias de la pantalla activa (tecla +
+	// etiqueta). Las globales (prefijo «global.») van al bloque de abajo; sus
+	// teclas se anotan para no repetirlas luego (dedup).
 	var screen []string
+	screenKeys := make(map[string]bool, len(h.actions))
 	for _, a := range h.actions {
 		if strings.HasPrefix(a.ID, "global.") {
 			continue
 		}
-		key := a.Key
-		if len([]rune(key)) == 1 {
-			key = strings.ToUpper(key)
+		screenKeys[normalizeKey(a.Key)] = true
+		label := a.Key
+		if len([]rune(label)) == 1 {
+			label = strings.ToUpper(label)
 		}
-		line := "  " + accent.Render("["+key+"]") + "  " + a.Label()
+		if label == "" {
+			label = "—"
+		}
+		line := "  " + accent.Render("["+label+"]") + "  " + a.Label()
 		if a.Disabled {
 			line += "  " + muted.Render("(no disponible)")
 		}
 		screen = append(screen, line)
 	}
 	if len(screen) == 0 {
-		screen = append(screen, "  "+muted.Render("(esta pantalla no tiene atajos propios)"))
+		// Sin atajos propios se dice explícitamente, para no dar a entender que
+		// las teclas del menú son botones de la pantalla.
+		screen = append(screen, "  "+muted.Render("(esta pantalla no tiene atajos propios: usa los del menú principal)"))
 	}
 
-	// Orden por prioridad: los globales esenciales (ayuda, comandos, salud,
-	// salir, crear) van primero para que el recorte por altura no los pierda
-	// (§5.14); después, la navegación.
-	ordered := []key.Binding{
-		h.keys.Help, h.keys.Palette, h.keys.Health, h.keys.Quit, h.keys.New,
-		h.keys.Up, h.keys.Down, h.keys.Enter, h.keys.Back, h.keys.NextPane, h.keys.Copy,
-	}
+	// Bloque «Globales (menú principal)»: solo lo que funciona en cualquier
+	// pantalla. Si la pantalla activa ya usa esa tecla (el asistente usa Tab para
+	// avanzar), no se repite aquí (§5.14). Los esenciales van primero para que el
+	// recorte por altura nunca pierda «Salir», la ayuda ni los comandos.
 	var globals []string
-	for _, binding := range ordered {
-		if !binding.Enabled() {
+	for _, binding := range []key.Binding{
+		h.keys.Quit, h.keys.Help, h.keys.Palette, h.keys.Health,
+		h.keys.New, h.keys.NextPane, h.keys.PrevPane,
+	} {
+		if !binding.Enabled() || helpUsesKey(binding, screenKeys) {
 			continue
 		}
 		help := binding.Help()
@@ -79,7 +89,7 @@ func (h *helpScreen) View(w, hgt int) string {
 	if maxBody < 6 {
 		maxBody = 6
 	}
-	fixed := len(screen) + 4 // Pantalla + acciones + blanco + Globales + pista
+	fixed := len(screen) + 4 // título + acciones + blanco + Globales + pista
 	allowed := maxBody - fixed
 	if allowed < 0 {
 		allowed = 0
@@ -94,14 +104,30 @@ func (h *helpScreen) View(w, hgt int) string {
 
 	lines := []string{bold.Render("Pantalla")}
 	lines = append(lines, screen...)
-	lines = append(lines, "", bold.Render("Globales"))
+	lines = append(lines, "", bold.Render("Globales (menú principal)"))
 	lines = append(lines, globals...)
-	lines = append(lines, "  Esc  cerrar ayuda")
+	lines = append(lines, "  "+muted.Render("Esc o F1: cerrar ayuda"))
 
 	return components.Modal{
 		Title: "Ayuda",
 		Body:  strings.Join(lines, "\n"),
 	}.Render(w, h.pal, h.ascii)
+}
+
+// helpUsesKey indica si la pantalla activa ya usa alguna de las teclas del atajo
+// global: en ese caso no se repite en el bloque de globales.
+func helpUsesKey(b key.Binding, used map[string]bool) bool {
+	for _, k := range b.Keys() {
+		if used[normalizeKey(k)] {
+			return true
+		}
+	}
+	return false
+}
+
+// normalizeKey compara teclas sin depender de mayúsculas ni espacios sobrantes.
+func normalizeKey(k string) string {
+	return strings.ToLower(strings.TrimSpace(k))
 }
 
 func (h *helpScreen) Actions() []components.Action { return nil }

@@ -4,9 +4,9 @@
 │ Survival  [Ajustes]  9/9  ←/→        │
 │ ╭─ AJUSTES ────────────────────────╮ │
 │ │▶ Jugadores máximos: 20           │ │
-│ │  Dificultad: normal  ⚠ reiniciar │ │
-│ │  Modo de juego: survival  ⚠      │ │
+│ │  Dificultad: Normal  ⚠ reiniciar │ │
+│ │  Modo de juego: Supervivencia  ⚠ │ │
 │ │  Memoria: 4G  ⚠ reiniciar        │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
-└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘
+└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘

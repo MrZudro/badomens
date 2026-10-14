@@ -27,4 +27,4 @@
 │                                                                                                            │
 │                                                                                                            │
 │ cargando instancias…                                                                         ⟳ trabajando… │
-└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [B] Crear  [C] Co…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [B] Crear  [C] Co…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘

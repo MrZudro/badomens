@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/MrZudro/badomens/internal/tui/layout"
 )
 
@@ -237,5 +239,141 @@ func TestConsolaFlagsSiempreVisibles(t *testing.T) {
 		if tc.wantFiltro && !strings.Contains(out, "filtro=") {
 			t.Fatalf("%dx%d: el filtro activo debe verse:\n%s", tc.w, tc.h, out)
 		}
+	}
+}
+
+// El campo de la consola se activa solo con «/»: «e» ya no hace nada (antes
+// enfocaba la consola) y «/» no abre el buscador (eso es Ctrl+F).
+func TestConsolaSoloSeActivaConBarra(t *testing.T) {
+	a := testApp()
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 1
+	a.Update(press("e"))
+	if inst.focus {
+		t.Fatal("«e» ya no debe enfocar la consola: el atajo es «/»")
+	}
+	if inst.prompt {
+		t.Fatal("«e» no debe abrir ningún formulario")
+	}
+	inst.input.SetValue("texto de una sesión anterior")
+	a.Update(press("/"))
+	if !inst.focus || !inst.input.Focused() {
+		t.Fatal("«/» debe enfocar el campo de la consola")
+	}
+	if inst.input.Value() != "" {
+		t.Fatalf("«/» debe empezar con el campo vacío, tengo %q", inst.input.Value())
+	}
+	if inst.prompt {
+		t.Fatal("«/» no debe abrir el buscador de logs")
+	}
+}
+
+// El buscador de logs vive en Ctrl+F (no imprimible) y filtra el panel.
+func TestConsolaBuscadorConCtrlF(t *testing.T) {
+	a := testApp()
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 1
+	inst.logs = "linea INFO\nlinea WARN\notra INFO"
+	a.Update(tea.KeyMsg{Type: tea.KeyCtrlF})
+	if !inst.prompt || inst.promptAct != "__search__" {
+		t.Fatalf("Ctrl+F debe abrir el buscador de logs; prompt=%v act=%q", inst.prompt, inst.promptAct)
+	}
+	for _, r := range "WARN" {
+		a.Update(press(string(r)))
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Fatal("filtrar no debe lanzar ningún comando al servidor")
+	}
+	if inst.filter != "WARN" {
+		t.Fatalf("el filtro debe quedar aplicado, tengo %q", inst.filter)
+	}
+	vista := stripANSI(inst.consoleView(116, 24))
+	if !strings.Contains(vista, "filtro=WARN") {
+		t.Fatalf("el panel debe mostrar el filtro activo:\n%s", vista)
+	}
+	if !strings.Contains(vista, "linea WARN") || strings.Contains(vista, "linea INFO") {
+		t.Fatalf("el log mostrado debe quedar filtrado:\n%s", vista)
+	}
+}
+
+// El comando enviado no conserva la barra inicial: «/list» = «list».
+func TestConsolaRecortaBarraInicial(t *testing.T) {
+	a := testApp()
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 1
+	a.Update(press("/"))
+	for _, r := range "/list" {
+		a.Update(press(string(r)))
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	msg, ok := ejecutaCmd(cmd).(toastMsg)
+	if !ok {
+		t.Fatalf("se esperaba el aviso del envío, tengo %T", msg)
+	}
+	if !strings.Contains(msg.Text, "comando enviado: list") {
+		t.Fatalf("el comando debe enviarse sin la barra inicial, tengo %q", msg.Text)
+	}
+	if len(inst.history) == 0 || inst.history[len(inst.history)-1] != "list" {
+		t.Fatalf("el histórico debe guardar «list», tengo %v", inst.history)
+	}
+}
+
+// Regresión «4G»: lo que se escribe en un campo de Ajustes no debe aparecer en la
+// línea de la Consola (antes Ajustes y Consola compartían el mismo campo).
+func TestConsolaNoHeredaTextoDeAjustes(t *testing.T) {
+	a := testApp()
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 8
+	inst.setCursor = settingIndex(inst.settingFields(), "motd")
+	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !inst.editing {
+		t.Fatal("Enter debe iniciar la edición del MOTD")
+	}
+	for _, r := range "4G" {
+		a.Update(press(string(r)))
+	}
+	if !strings.Contains(inst.settingsInput.Value(), "4G") {
+		t.Fatalf("el valor debe escribirse en el campo de Ajustes, tengo %q", inst.settingsInput.Value())
+	}
+	if inst.input.Value() != "" {
+		t.Fatalf("la Consola no debe recibir lo que se escribe en Ajustes, tengo %q", inst.input.Value())
+	}
+	a.Update(tea.KeyMsg{Type: tea.KeyEsc}) // cancela la edición
+	if inst.editing {
+		t.Fatal("Esc debe cancelar la edición de Ajustes")
+	}
+	if a.router.Top().ID() != "instance" {
+		t.Fatalf("Esc en la edición debe cancelarla, no abandonar el detalle, tengo %s", a.router.Top().ID())
+	}
+
+	// De Ajustes a Consola (8 → 1): el campo de la consola queda limpio.
+	inst.switchTab(-7)
+	if inst.tab != 1 {
+		t.Fatalf("se esperaba la pestaña Consola, tengo %d", inst.tab)
+	}
+	if inst.input.Value() != "" {
+		t.Fatalf("la Consola debe quedar vacía al cambiar de pestaña, tengo %q", inst.input.Value())
+	}
+	vista := stripANSI(inst.consoleView(116, 24))
+	if strings.Contains(vista, "4G") {
+		t.Fatalf("el texto de Ajustes no debe pintarse en la Consola:\n%s", vista)
+	}
+
+	// Y en la Consola se puede escribir y borrar con normalidad.
+	a.Update(press("/"))
+	for _, r := range "list" {
+		a.Update(press(string(r)))
+	}
+	if inst.input.Value() != "list" {
+		t.Fatalf("debe poderse escribir en la consola, tengo %q", inst.input.Value())
+	}
+	a.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if inst.input.Value() != "lis" {
+		t.Fatalf("debe poderse borrar en la consola, tengo %q", inst.input.Value())
 	}
 }

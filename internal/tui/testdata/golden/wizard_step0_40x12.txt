@@ -9,4 +9,4 @@
 │ │    El programa que ejecuta el se…│ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘
+└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘

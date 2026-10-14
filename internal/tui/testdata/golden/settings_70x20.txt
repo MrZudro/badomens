@@ -5,16 +5,16 @@
 │ ╭─ AJUSTES ──────────────────────────────────────────────────────╮ │
 │ │▶ Jugadores máximos: 20                                         │ │
 │ │    Cuántos pueden estar conectados a la vez. Más jugadores = m…│ │
-│ │  Dificultad: normal  ⚠ Requiere reiniciar                      │ │
+│ │  Dificultad: Normal  ⚠ Requiere reiniciar                      │ │
 │ │    Pacífico, Fácil, Normal o Difícil: cuánto daño hacen los mo…│ │
-│ │  Modo de juego: survival  ⚠ Requiere reiniciar                 │ │
+│ │  Modo de juego: Supervivencia  ⚠ Requiere reiniciar            │ │
 │ │    Survival, Creativo, Aventura o Espectador para quienes entr…│ │
 │ │  Memoria: 4G  ⚠ Requiere reiniciar                             │ │
 │ │    RAM máxima del servidor. Más no siempre es mejor; te sugeri…│ │
+│ │  Cuentas: Premium  ⚠ Requiere reiniciar                        │ │
+│ │    Premium: solo cuentas oficiales. Crackeado: entra cualquier…│ │
 │ │  Mensaje (MOTD): Bienvenidos al servidor                       │ │
 │ │    Texto que ven los jugadores en la lista de servidores.      │ │
-│ │                                                                │ │
-│ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                 │
-└─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
+└─ [S] Iniciar  [P] D…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘

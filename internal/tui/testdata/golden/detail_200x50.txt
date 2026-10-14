@@ -47,4 +47,4 @@
 │ │                                                                                                                                          ││                                                      │ │
 │ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                                                                                                                                                   │
-└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [E] Escribir  [C] Copiar  [V] Cambiar  [D] Eliminar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ───────────────────────────────────────────┘
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [/] Escribir  [C] Copiar  [V] Cambiar  [G] Regenerar  [L] Cargar  [D] Eliminar  [ESC] Volver   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ────────────────┘

@@ -17,4 +17,4 @@
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                    │
-└─ [TAB] Siguiente  […   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
+└─ [TAB] Siguiente  […   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘

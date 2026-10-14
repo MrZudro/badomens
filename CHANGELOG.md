@@ -6,6 +6,49 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-14
+
+> 🔧 Correcciones y mejoras de la TUI tras el rediseño 1.2, con revisión visual
+> pantalla a pantalla.
+
+### 🐛 Corregido
+
+- **Whitelist/ops en modo crackeado (offline)**: la imagen itzg resolvía los
+  nombres de `WHITELIST`/`OPS` contra PlayerDB y escribía un **UUID premium**, que
+  no coincide con el UUID offline del servidor y expulsaba al jugador
+  (`You are not white-listed on this server!`). Ahora, con `ONLINE_MODE=FALSE`,
+  badomens calcula el **UUID offline (versión 3)** y lo manda en `WHITELIST`/`OPS`;
+  con modo premium manda el nombre tal cual.
+- **Ajustes**: las flechas ←/→ ya **no** actúan como Enter. La dificultad, el modo
+  de juego, la memoria y las cuentas se eligen con **selectores**; Enter abre el
+  selector y confirma.
+- **Consola**: el texto de Ajustes (p. ej. `4G`) ya no se filtra al campo de la
+  consola (modelos de entrada separados) y el campo se activa **solo con `/`**.
+- **Botón/tecla `C`**: ahora copia la dirección de conexión también desde
+  cualquier pestaña del detalle de la instancia (antes solo desde Red).
+- **Ayuda**: se separan con claridad los atajos de la pantalla activa de los del
+  menú principal (globales), sin duplicados, para que no se confundan.
+- **Ajustes en terminales estrechas**: el foco y las opciones del selector abierto
+  ya no quedan fuera de la vista; el aviso «Esc: cancelar» es visible también a 40
+  columnas.
+- **Barra inferior compacta**: conserva el atajo `Tab` (navegación entre pantallas)
+  sin perder «Salir».
+- **Paleta de comandos**: la fila enfocada resalta toda la línea y alinea su atajo,
+  como el resto.
+- **Ayuda de «Cuentas»**: el texto ahora habla de **Premium/Crackeado**, coherente
+  con el selector (antes decía «Activo/Inactivo»).
+
+### ➕ Añadido
+
+- **Cuentas premium/crackeadas en Ajustes**: se puede alternar entre ambos modos
+  desde la instancia (requiere reiniciar), sin recrearla.
+- **Mundos**: muestra la semilla actual, permite **regenerar** el mundo (con
+  semilla propia o aleatoria) y **cargar un mundo desde un explorador de archivos**
+  (`.zip`), siempre con aviso de **pérdida de datos**.
+- **Navegación con Tab**: Tab/Shift+Tab cambian de pantalla de primer nivel
+  (Inicio → Instancias → Salud → Ayuda); las flechas ←/→ cambian las pestañas
+  dentro de la instancia.
+
 ## [1.2] - 2026-10-14
 
 > 🧭 Rediseño completo de la TUI guiado por `docs/TUI_REDESIGN.md` y

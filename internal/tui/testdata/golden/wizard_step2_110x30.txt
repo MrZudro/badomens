@@ -10,7 +10,7 @@
 │ │  Modo de juego: survival                                           ││                                  │ │
 │ │    Survival, Creativo, Aventura o Espectador para quienes entran p…││Ejemplo: 20                       │ │
 │ │  Cuentas premium (modo online): no                                 ││                                  │ │
-│ │    Activo: solo cuentas oficiales. Inactivo: entra cualquiera con …││Afecta al rendimiento             │ │
+│ │    Premium: solo cuentas oficiales. Crackeado: entra cualquiera co…││Afecta al rendimiento             │ │
 │ │  Lista blanca: no                                                  ││                                  │ │
 │ │    Solo entran los jugadores que apruebes. Muy recomendada si el m…││                                  │ │
 │ │  Operadores:                                                       ││                                  │ │
@@ -27,4 +27,4 @@
 │ │                                                                    ││                                  │ │
 │ ╰────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────╯ │
 │ Nueva instancia                                                                                            │
-└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ─────────────────┘
+└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ─────────────────┘

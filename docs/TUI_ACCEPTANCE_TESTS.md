@@ -59,6 +59,26 @@ Probar por lo menos `80×24`, `100×30`, `132×40` y `60×18` si el terminal mí
 | PERF-04 | Servicio bloqueado hasta timeout | La pantalla no se congela; se muestra error recuperable y se libera el estado busy. |
 | PERF-05 | Benchmark de View en listas/logs grandes | Guardar baseline; detectar regresiones significativas. Evitar umbrales frágiles por máquina en CI compartida. |
 
+## Navegación, teclado y ajustes (v1.2.1)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| NAV-01 | `Tab` / `Shift+Tab` en pantallas de primer nivel | Cambia de pantalla: Inicio → Instancias (detalle seleccionado) → Salud → Ayuda → Inicio (y al revés). |
+| NAV-02 | `←`/`→` dentro del detalle de una instancia | Cambia de pestaña en cualquier pestaña, **incluida Ajustes**; nunca cambia de pantalla de primer nivel. |
+| NAV-03 | `Tab` con el asistente (modo elegido) o la consola con foco | No navega: el formulario/input captura la tecla (la precedencia de foco manda). |
+| NAV-04 | `←`/`→` en Ajustes | No actúan "como Enter": no cambian el valor del campo, no abren el selector ni guardan. |
+| SET-01 | Ajustes: Enter en Dificultad/Modo/Cuentas/Memoria | Abre el selector; `↑/↓` eligen; Enter aplica y guarda; Esc cancela sin guardar. |
+| SET-02 | Ajustes: Enter en un campo de texto (Jugadores/MOTD) | Edita en el campo propio de Ajustes; Enter guarda; Esc cancela y **no** abandona el detalle. |
+| SET-03 | Ajustes: cambiar Memoria y pasar a Consola | El campo de Consola aparece **vacío** (no hereda `4G` ni placeholders de otros formularios). |
+| SET-04 | Ajustes: alternar Cuentas crackeado ↔ premium | Persiste `online_mode` en el Spec y avisa "Requiere reiniciar". |
+| CON-01 | Consola: pulsar `/` | Activa el campo de comando (única tecla que lo hace). `Ctrl+F` busca en los logs. |
+| CON-02 | Consola: `/say hola` + Enter | La barra inicial se recorta: se envía `say hola`. |
+| CON-03 | Detalle: `c` (o `C` en Red) | Copia la dirección de conexión desde cualquier pestaña; un fallo no afirma "copiado". |
+| WLD-01 | Mundos: `[G]` | Pide semilla (vacío = aleatoria), avisa de **pérdida de datos** y regenera al confirmar. |
+| WLD-02 | Mundos: `[L]` | Abre un explorador de archivos; `↑/↓` navegan, Enter abre carpeta o elige un `.zip`, y la carga avisa de pérdida de datos. |
+| WLD-03 | Mundos | Muestra la semilla actual y la biblioteca; estados de carga/vacío/error distinguibles. |
+| ACL-11 | Modo offline (`ONLINE_MODE=FALSE`) con whitelist/ops | El compose envía el **UUID offline (v3)** de cada nombre en `WHITELIST`/`OPS`, nunca el nombre (que la imagen resolvería a un UUID premium). |
+
 ## Comandos de verificación
 
 Adaptar al `Makefile` real y registrar la salida:

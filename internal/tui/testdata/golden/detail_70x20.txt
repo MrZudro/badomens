@@ -17,4 +17,4 @@
 │                                                                    │
 │                                                                    │
 │ Instancia survival                                                 │
-└─ [S] Iniciar  [P] D…   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ┘
+└─ [S] Iniciar  [P] D…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘

@@ -5,13 +5,10 @@
 │ ╭─ MUNDO ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮ │
 │ │Semilla: 42                                                                                                                                                                                       │ │
 │ │                                                                                                                                                                                                  │ │
-│ │Biblioteca de mundos (CLI)                                                                                                                                                                        │ │
-│ │Guardar, importar o cambiar el mundo se hace desde el CLI:                                                                                                                                        │ │
-│ │badomens world list                                                                                                                                                                               │ │
-│ │badomens -i survival world save <nombre>                                                                                                                                                          │ │
-│ │badomens -i survival world use <nombre>                                                                                                                                                           │ │
-│ │badomens -i survival world export [nombre]                                                                                                                                                        │ │
-│ │badomens world import <zip> <nombre>                                                                                                                                                              │ │
+│ │⚠ [G] Regenerar borra el mundo actual: se pierden Overworld, Nether y End.                                                                                                                        │ │
+│ │                                                                                                                                                                                                  │ │
+│ │Biblioteca de mundos                                                                                                                                                                              │ │
+│ │cargando…                                                                                                                                                                                         │ │
 │ │                                                                                                                                                                                                  │ │
 │ │                                                                                                                                                                                                  │ │
 │ │                                                                                                                                                                                                  │ │
@@ -45,6 +42,9 @@
 │ │                                                                                                                                                                                                  │ │
 │ │                                                                                                                                                                                                  │ │
 │ │                                                                                                                                                                                                  │ │
+│ │                                                                                                                                                                                                  │ │
+│ │                                                                                                                                                                                                  │ │
+│ │[G] Regenerar el mundo (borra el actual) · [L] Cargar desde un archivo (.zip)                                                                                                                     │ │
 │ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                                                                                                                                                   │
-└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [E] Escribir  [C] Copiar  [V] Cambiar  [D] Eliminar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ───────────────────────────────────────────┘
+└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [/] Escribir  [C] Copiar  [V] Cambiar  [G] Regenerar  [L] Cargar  [D] Eliminar  [ESC] Volver   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ────────────────┘

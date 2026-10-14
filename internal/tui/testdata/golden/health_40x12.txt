@@ -9,4 +9,4 @@
 │ ╰──────────────────────────────────╯ │
 │ [D] Reparar Docker · [T] Reparar Ta… │
 │ Salud del sistema                    │
-└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘
+└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘

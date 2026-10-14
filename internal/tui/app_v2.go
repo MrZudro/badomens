@@ -282,6 +282,10 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, a.router.Update(msg)
 	}
 	switch key {
+	case "tab":
+		return a, a.cycleSection(1)
+	case "shift+tab":
+		return a, a.cycleSection(-1)
 	case "ctrl+c", "ctrl+q":
 		if a.busy {
 			return a.askQuit()
@@ -1208,4 +1212,73 @@ func itoa(n int) string {
 		buf[i] = '-'
 	}
 	return string(buf[i:])
+}
+
+// sectionOrder es el orden de las pantallas de primer nivel que recorre Tab
+// (§2): inicio → instancias → salud → ayuda.
+var sectionOrder = []string{"home", "instances", "health", "help"}
+
+// cycleSection cambia de pantalla de primer nivel con Tab (d = 1) o Shift+Tab
+// (d = -1). Un formulario con el foco (asistente, consola, modal) no llega aquí:
+// handleGlobalKey lo entrega antes a la pantalla (§5).
+func (a *App) cycleSection(d int) tea.Cmd {
+	// El asistente de creación no declara captura mientras elige el modo (no hay
+	// campo de texto con foco), pero Tab es suyo: ahí avanza de campo y de paso.
+	// Con un overlay abierto (ayuda o paleta) la navegación sí funciona.
+	if a.router.Overlay() == nil {
+		if top := a.router.Top(); top != nil && top.ID() == "wizard" {
+			return nil
+		}
+	}
+	n := len(sectionOrder)
+	idx := 0
+	cur := a.navSection()
+	for i, id := range sectionOrder {
+		if id == cur {
+			idx = i
+			break
+		}
+	}
+	return a.gotoSection(sectionOrder[((idx+d)%n+n)%n])
+}
+
+// gotoSection navega a una pantalla de primer nivel (§2):
+//   - inicio: vuelve a la raíz de la pila y cierra el overlay;
+//   - instancias: sube al detalle si ya está apilado; si no, abre el detalle de
+//     la instancia seleccionada en Inicio y, si no hay ninguna, cae a Salud;
+//   - salud: cierra el overlay y apila Salud (o se queda si ya es la cima);
+//   - ayuda: abre el overlay de ayuda.
+func (a *App) gotoSection(target string) tea.Cmd {
+	switch target {
+	case "home":
+		a.router.ClearOverlay()
+		if root := a.router.Root(); root != nil {
+			a.router.PopTo(root.ID())
+		}
+		return nil
+	case "instances":
+		a.router.ClearOverlay()
+		if a.router.Contains("instance") {
+			a.router.PopTo("instance")
+			return nil
+		}
+		if home, ok := a.router.Root().(*homeScreen); ok {
+			if slug, ok := home.selectedSlug(); ok {
+				a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, slug))
+				return a.svcInit()
+			}
+		}
+		return a.gotoSection("health")
+	case "health":
+		a.router.ClearOverlay()
+		if top := a.router.Top(); top != nil && top.ID() == "health" {
+			return nil
+		}
+		a.router.Push(newHealthScreen(a.svc, a.pal, a.ascii))
+		return a.svcInit()
+	case "help":
+		a.router.SetOverlay(newHelpScreen(a.keys, a.actions(), a.pal, a.ascii))
+		return nil
+	}
+	return nil
 }

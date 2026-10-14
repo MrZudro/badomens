@@ -2,6 +2,8 @@ package tui
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -123,6 +125,52 @@ type accessMsg struct {
 // instanceDeletedMsg indica que la instancia se eliminó por completo (P-03).
 type instanceDeletedMsg struct{ slug string }
 
+// worldsLibMsg trae la biblioteca de mundos compartida (svc.Worlds.Library). La
+// lectura vive en un tea.Cmd: View nunca toca el disco (§7).
+type worldsLibMsg struct {
+	names []string
+	err   error
+}
+
+// browseEntry es una entrada del explorador de archivos de la pestaña Mundos: una
+// subcarpeta o un archivo .zip.
+type browseEntry struct {
+	Name  string
+	Path  string
+	IsDir bool
+}
+
+// worldsBrowseMsg trae el contenido de un directorio del explorador (la lectura se
+// hace en un tea.Cmd, nunca en View).
+type worldsBrowseMsg struct {
+	dir     string
+	entries []browseEntry
+	err     error
+}
+
+// worldsOpMsg cierra una operación de la pestaña Mundos (regenerar o importar):
+// la pantalla publica el desenlace como toast y, si fue bien, recarga el detalle
+// y la biblioteca.
+type worldsOpMsg struct {
+	what string // "regenerar" | "importar"
+	slug string
+	seed string // semilla aplicada al regenerar (vacío = aleatoria)
+	name string // nombre del mundo importado
+	err  error
+}
+
+// text redacta el desenlace de una operación de Mundos con su icono.
+func (m worldsOpMsg) text() string {
+	if m.what == "importar" {
+		return "✓ «" + m.slug + "»: mundo «" + m.name + "» importado y activo"
+	}
+	seed := m.seed
+	if seed == "" {
+		seed = "aleatoria"
+	}
+	return "✓ «" + m.slug + "»: mundo regenerado (semilla " + seed + ")"
+}
+
 // instanceScreen es el detalle de una instancia con pestañas (RF-1/§5.2).
 type instanceScreen struct {
 	svc     *svc.Services
@@ -134,9 +182,13 @@ type instanceScreen struct {
 	logs    string
 	logsErr string // error recuperable de la última lectura de logs (se conserva el buffer)
 	logsGen int    // generación del buffer de la consola (vista que lo pidió)
-	input   textinput.Model
-	focus   bool
-	status  string
+	// input es el campo de la Consola y de los formularios (prompt). Ajustes usa
+	// su propio modelo (settingsInput): compartirlo hacía que el texto de un
+	// ajuste («4G») acabara pintándose en la línea de la Consola.
+	input         textinput.Model
+	settingsInput textinput.Model
+	focus         bool
+	status        string
 
 	history []string
 	histIdx int
@@ -171,6 +223,11 @@ type instanceScreen struct {
 	setCursor int
 	editing   bool
 	editKey   string
+	// selecting es el selector de un campo de Ajustes abierto: mientras lo esté,
+	// ↑/↓ mueven selectCursor y Enter aplica la opción elegida.
+	selecting    bool
+	selectKey    string
+	selectCursor int
 
 	playersOnline int
 	playersKnown  bool
@@ -187,10 +244,25 @@ type instanceScreen struct {
 
 	pendingSave *instance.Spec
 
-	// P-03/§5.15: confirmación modal (borrado destructivo y cambio de versión).
+	// P-03/§5.15: confirmación modal (borrado destructivo, cambio de versión y
+	// las operaciones de la pestaña Mundos).
 	modal      *components.Modal
-	modalKind  string // "", "delete", "version"
-	modalValue string // versión pendiente de aplicar
+	modalKind  string // "", "delete", "version", "world_regen", "world_import"
+	modalValue string // versión pendiente, semilla del mundo o archivo .zip
+	modalName  string // nombre del mundo a importar (solo "world_import")
+
+	// WS-4: biblioteca de mundos (llega por worldsLibMsg) y explorador de archivos
+	// interno de la pestaña Mundos. Todo lo que toca el disco se lanza con un tea.Cmd:
+	// View solo representa el estado que ya llegó.
+	worldsLib       []string
+	worldsLibLoaded bool
+	worldsLibErr    string
+	browsing        bool
+	browseDir       string
+	browseEntries   []browseEntry
+	browseCursor    int
+	browseErr       string
+	browseLoading   bool
 
 	// P-08: recuperación ante caídas.
 	lastState    string
@@ -216,9 +288,27 @@ var dangerousPrefixes = []string{"stop", "op ", "deop ", "ban ", "ban-ip ", "kic
 func newInstanceScreen(sv *svc.Services, pal theme.Palette, ascii bool, slug string) *instanceScreen {
 	in := textinput.New()
 	in.Prompt = ""
-	in.Placeholder = "comando para la consola (ej. say hola)"
+	in.Placeholder = consolePlaceholder
 	in.Width = 40
-	return &instanceScreen{svc: sv, pal: pal, ascii: ascii, slug: slug, input: in, status: "cargando…", follow: true}
+	// Ajustes usa su propio campo de texto: así lo que se escribe allí nunca
+	// aparece en la línea de la Consola (bug «4G»).
+	set := textinput.New()
+	set.Prompt = ""
+	set.Placeholder = "nuevo valor"
+	set.Width = 40
+	return &instanceScreen{svc: sv, pal: pal, ascii: ascii, slug: slug, input: in, settingsInput: set, status: "cargando…", follow: true}
+}
+
+// consolePlaceholder es la pista del campo de la consola.
+const consolePlaceholder = "comando para la consola (ej. say hola)"
+
+// resetConsoleInput deja el campo de la consola vacío, sin foco y con su pista
+// por defecto: no arrastra ni el texto ni el placeholder de Ajustes ni el de un
+// formulario anterior (bug «4G»).
+func (s *instanceScreen) resetConsoleInput() {
+	s.input.SetValue("")
+	s.input.Placeholder = consolePlaceholder
+	s.input.Blur()
 }
 
 func (s *instanceScreen) Init() tea.Cmd {
@@ -441,6 +531,37 @@ func (s *instanceScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		// publica el App, que ve este mensaje aunque la pantalla cambie).
 		s.bkBusy = ""
 		return s, nil
+	case worldsLibMsg:
+		// Una respuesta (aunque venga vacía o con error) cierra la carga: así el
+		// panel distingue el vacío real de la lectura en curso.
+		s.worldsLibLoaded = true
+		if msg.err != nil {
+			s.worldsLibErr = msg.err.Error()
+			s.worldsLib = nil
+			return s, nil
+		}
+		s.worldsLibErr = ""
+		s.worldsLib = msg.names
+		return s, nil
+	case worldsBrowseMsg:
+		// Con el explorador cerrado se descarta la respuesta: no se reabre solo.
+		if !s.browsing {
+			return s, nil
+		}
+		s.browseLoading = false
+		s.browseDir = msg.dir
+		s.browseEntries = msg.entries
+		s.browseErr = ""
+		if msg.err != nil {
+			s.browseEntries = nil
+			s.browseErr = msg.err.Error()
+		}
+		if s.browseCursor >= len(s.browseEntries) {
+			s.browseCursor = 0
+		}
+		return s, nil
+	case worldsOpMsg:
+		return s, s.handleWorldsOp(msg)
 	case tea.KeyMsg:
 		return s.handleKey(msg)
 	}
@@ -453,15 +574,17 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 			val := strings.TrimSpace(s.input.Value())
 			act := s.promptAct
 			s.prompt = false
-			s.input.SetValue("")
-			if val == "" {
+			s.resetConsoleInput()
+			// Un campo vacío cancela el formulario salvo en la semilla del mundo:
+			// ahí vacío significa «aleatoria» y sí se aplica.
+			if val == "" && act != "__regen__" {
 				return s, nil
 			}
 			return s, s.runPrompt(act, val)
 		}
 		if msg.String() == "esc" {
 			s.prompt = false
-			s.input.Blur()
+			s.resetConsoleInput()
 			return s, nil
 		}
 		var c tea.Cmd
@@ -471,8 +594,18 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	if s.modal != nil {
 		return s, s.handleModalKey(msg)
 	}
+	// El explorador de archivos de Mundos captura sus teclas (mover, entrar o
+	// cargar, subir y cerrar) antes de los atajos del detalle.
+	if s.browsing {
+		return s.browseKey(msg)
+	}
 	if s.focus {
 		return s.handleConsoleKey(msg)
+	}
+	// Editar un ajuste o elegir en un selector captura las teclas: Esc cierra el
+	// formulario (no abandona el detalle) y las letras se escriben, no son atajos.
+	if s.editing || s.selecting {
+		return s.settingsKey(msg)
 	}
 	switch msg.String() {
 	case "esc":
@@ -486,15 +619,19 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case "shift+tab":
 		return s.switchTab(-1)
 	case "right", "l":
-		// En Ajustes, → cicla el valor del campo enfocado: el control de la
-		// pestaña tiene prioridad sobre el atajo de pantalla (§5).
-		if s.tab != 8 {
-			return s.switchTab(1)
+		// Dentro de una instancia, ←/→ cambian de pestaña en cualquier pestaña
+		// (incluida Ajustes). En Ajustes nunca actúan "como Enter": no cambian el
+		// valor ni guardan (eso lo hace Enter, que abre el selector). Mientras se
+		// edita un campo o hay un selector abierto, la captura de foco (§5) las
+		// entrega a settingsKey antes de llegar aquí.
+		// Excepción: en Mundos, [L] carga un mundo desde un archivo; → sigue
+		// cambiando de pestaña (se distingue la tecla «l» de la flecha).
+		if msg.String() == "l" && s.tab == 4 {
+			return s, s.Invoke("instance.world.load")
 		}
+		return s.switchTab(1)
 	case "left", "h":
-		if s.tab != 8 {
-			return s.switchTab(-1)
-		}
+		return s.switchTab(-1)
 	case "s":
 		return s, s.lifecycle("start")
 	case "p":
@@ -505,17 +642,18 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		return s, s.lifecycle("stop")
 	case "r":
 		return s, s.lifecycle("restart")
-	case "e":
-		if s.tab == 1 {
-			s.focus = true
-			return s, s.input.Focus()
-		}
+	case "c":
+		// [c] copia la dirección de conexión en cualquier pestaña del detalle
+		// (en Red, además, sigue funcionando [C]).
+		return s, s.Invoke("instance.copy")
 	case "f":
 		if s.tab == 1 {
 			s.follow = !s.follow
 			return s, nil
 		}
-	case "/":
+	case "ctrl+f":
+		// El buscador de logs vive en una combinación no imprimible: «/» queda
+		// libre para escribir en la consola.
 		if s.tab == 1 {
 			s.prompt = true
 			s.promptAct = "__search__"
@@ -523,11 +661,20 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 			s.input.Placeholder = "texto"
 			return s, s.input.Focus()
 		}
+	case "/":
+		// El campo de la consola se activa solo con «/».
+		if s.tab == 1 {
+			s.focus = true
+			s.resetConsoleInput()
+			return s, s.input.Focus()
+		}
 	}
 	// Teclas específicas de la pestaña activa.
 	switch s.tab {
 	case 2:
 		return s.playersKey(msg)
+	case 4:
+		return s.worldsKey(msg)
 	case 3:
 		return s.backupsKey(msg)
 	case 6:
@@ -543,6 +690,12 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 func (s *instanceScreen) switchTab(d int) (Screen, tea.Cmd) {
 	prev := s.tab
 	s.tab = (s.tab + len(instanceTabs) + d) % len(instanceTabs)
+	// Cambiar de pestaña cierra lo que estuviera a medias: los campos de la
+	// Consola y de Ajustes se limpian (no arrastran texto de una pestaña a otra,
+	// bug «4G») y la edición o el selector abiertos se descartan.
+	s.resetConsoleInput()
+	s.cancelEditing()
+	s.closeSelector()
 	// Al abandonar la pestaña Consola se invalida el buffer en vuelo: la respuesta
 	// que llegue más tarde se descarta por generación.
 	if prev == 1 && s.tab != 1 {
@@ -555,6 +708,8 @@ func (s *instanceScreen) switchTab(d int) (Screen, tea.Cmd) {
 		return s, s.accessCmd()
 	case 3:
 		return s, s.backupsCmd()
+	case 4:
+		return s, s.worldsLibCmd()
 	case 6:
 		return s, s.portCmd()
 	}
@@ -565,7 +720,8 @@ func (s *instanceScreen) switchTab(d int) (Screen, tea.Cmd) {
 func (s *instanceScreen) handleConsoleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
-		cmd := strings.TrimSpace(s.input.Value())
+		// Se admite el comando con o sin la barra inicial («/say hola» = «say hola»).
+		cmd := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(s.input.Value()), "/"))
 		s.input.SetValue("")
 		if cmd == "" {
 			s.focus = false
@@ -667,6 +823,9 @@ func (s *instanceScreen) runPrompt(act, val string) tea.Cmd {
 		return s.deleteCmd()
 	case "__version__":
 		s.openVersionModal(val)
+		return nil
+	case "__regen__":
+		s.openRegenModal(val)
 		return nil
 	case "acl.add", "acl.remove", "acl.op", "acl.deop":
 		return s.accessMutateCmd(act, val)
@@ -805,7 +964,7 @@ func (s *instanceScreen) handleModalKey(msg tea.KeyMsg) tea.Cmd {
 // confirmModal aplica la acción del modal ya aceptado. El borrado conserva la
 // validación del nombre (runPrompt) aunque el botón ya estuviera habilitado.
 func (s *instanceScreen) confirmModal() tea.Cmd {
-	kind, val := s.modalKind, s.modalValue
+	kind, val, name := s.modalKind, s.modalValue, s.modalName
 	typed := ""
 	if s.modal != nil {
 		typed = s.modal.Typed
@@ -816,6 +975,10 @@ func (s *instanceScreen) confirmModal() tea.Cmd {
 		return s.runPrompt("__delete__", typed)
 	case "version":
 		return s.changeVersionCmd(val)
+	case "world_regen":
+		return s.worldsRegenCmd(val)
+	case "world_import":
+		return s.worldsImportCmd(val, name)
 	}
 	return nil
 }
@@ -823,7 +986,7 @@ func (s *instanceScreen) confirmModal() tea.Cmd {
 // clearModal cierra el modal activo sin ejecutar nada.
 func (s *instanceScreen) clearModal() {
 	s.modal = nil
-	s.modalKind, s.modalValue = "", ""
+	s.modalKind, s.modalValue, s.modalName = "", "", ""
 }
 
 // startVersionPrompt pide la nueva versión (con backup y confirmación, P-03).
@@ -1181,13 +1344,109 @@ func (s *instanceScreen) idleSetCmd(cfg idle.Config) tea.Cmd {
 
 // --- Ajustes ---
 
+// settingField describe un campo editable de Ajustes. kind «text» se edita con el
+// campo de texto propio de la pestaña; kind «select» abre una lista de opciones
+// con Enter (nada de ciclar con ←/→, que no cambia el valor ni guarda nada).
 type settingField struct {
 	key      string
 	label    string
 	value    string
-	kind     string // text | cycle
-	options  []string
+	kind     string   // text | select
+	options  []string // valores válidos de un select
+	labels   []string // etiquetas en español de options (paralelas; opcional)
 	requires bool
+}
+
+// optionLabel es la etiqueta visible de la opción i (en español si la hay).
+func (f settingField) optionLabel(i int) string {
+	switch {
+	case i < 0:
+		return ""
+	case i < len(f.labels):
+		return f.labels[i]
+	case i < len(f.options):
+		return f.options[i]
+	}
+	return ""
+}
+
+// optionIndex devuelve el índice de val entre opts (sin distinguir mayúsculas) o 0
+// si no está: el selector siempre tiene una opción señalada.
+func optionIndex(opts []string, val string) int {
+	for i, o := range opts {
+		if strings.EqualFold(o, val) {
+			return i
+		}
+	}
+	return 0
+}
+
+// display es el valor que se pinta del campo: para un select, la etiqueta en
+// español de la opción activa; si el valor guardado no está en la lista se muestra
+// tal cual (nunca se pierde).
+func (f settingField) display() string {
+	if strings.TrimSpace(f.value) == "" {
+		return "—"
+	}
+	if f.kind == "select" {
+		for i, o := range f.options {
+			if strings.EqualFold(o, f.value) {
+				return f.optionLabel(i)
+			}
+		}
+	}
+	return f.value
+}
+
+// memoryChoices son los tamaños de RAM que ofrece el selector.
+var memoryChoices = []string{"1G", "2G", "3G", "4G", "6G", "8G", "12G", "16G"}
+
+// memoryOptions añade el valor actual a la lista de tamaños si no está: un valor
+// fuera de la lista no se pierde al abrir el selector. Se ordena por tamaño para
+// que el añadido quede en su sitio; lo que no se puede interpretar va al final.
+func memoryOptions(cur string) []string {
+	out := append([]string{}, memoryChoices...)
+	cur = strings.TrimSpace(cur)
+	if cur == "" {
+		return out
+	}
+	for _, o := range out {
+		if strings.EqualFold(o, cur) {
+			return out
+		}
+	}
+	out = append(out, cur)
+	sort.SliceStable(out, func(i, j int) bool { return memMB(out[i]) < memMB(out[j]) })
+	return out
+}
+
+// memMB interpreta «4G», «512M» o un número de MiB para ordenar los tamaños.
+func memMB(v string) int {
+	s := strings.ToUpper(strings.TrimSpace(v))
+	if s == "" {
+		return 1 << 20
+	}
+	unit := 1024
+	switch s[len(s)-1] {
+	case 'M':
+		unit = 1
+		s = s[:len(s)-1]
+	case 'G':
+		s = s[:len(s)-1]
+	}
+	n, ok := intValue(s)
+	if !ok {
+		return 1 << 20
+	}
+	return n * unit
+}
+
+// onlineModeChoice traduce el modo online del Spec a la opción del selector.
+func onlineModeChoice(online bool) string {
+	if online {
+		return "premium"
+	}
+	return "crackeado"
 }
 
 // settingsSpec es el Spec visible en Ajustes: la copia preparada mientras hay un
@@ -1203,6 +1462,8 @@ func (s *instanceScreen) settingsSpec() *instance.Spec {
 	return s.detail.Spec
 }
 
+// settingFields describe los campos de Ajustes. Dificultad, modo de juego,
+// memoria y cuentas son selectores: no admiten texto libre.
 func (s *instanceScreen) settingFields() []settingField {
 	sp := s.settingsSpec()
 	if sp == nil {
@@ -1210,29 +1471,51 @@ func (s *instanceScreen) settingFields() []settingField {
 	}
 	return []settingField{
 		{key: "max_players", label: "Jugadores máximos", value: itoa(sp.MaxPlayers), kind: "text"},
-		{key: "difficulty", label: "Dificultad", value: sp.Difficulty, kind: "cycle", options: []string{"peaceful", "easy", "normal", "hard"}, requires: true},
-		{key: "gamemode", label: "Modo de juego", value: sp.Gamemode, kind: "cycle", options: []string{"survival", "creative", "adventure", "spectator"}, requires: true},
-		{key: "memory", label: "Memoria", value: sp.Memory, kind: "text", requires: true},
+		{
+			key: "difficulty", label: "Dificultad", value: sp.Difficulty, kind: "select",
+			options:  []string{"peaceful", "easy", "normal", "hard"},
+			labels:   []string{"Pacífico", "Fácil", "Normal", "Difícil"},
+			requires: true,
+		},
+		{
+			key: "gamemode", label: "Modo de juego", value: sp.Gamemode, kind: "select",
+			options:  []string{"survival", "creative", "adventure", "spectator"},
+			labels:   []string{"Supervivencia", "Creativo", "Aventura", "Espectador"},
+			requires: true,
+		},
+		{key: "memory", label: "Memoria", value: sp.Memory, kind: "select", options: memoryOptions(sp.Memory), requires: true},
+		{
+			key: "online_mode", label: "Cuentas", value: onlineModeChoice(sp.OnlineMode), kind: "select",
+			options:  []string{"crackeado", "premium"},
+			labels:   []string{"Crackeado", "Premium"},
+			requires: true,
+		},
 		{key: "motd", label: "Mensaje (MOTD)", value: sp.Motd, kind: "text"},
 	}
 }
 
+// settingsKey atiende la pestaña Ajustes. Con un selector abierto, ↑/↓ (o j/k)
+// eligen, Enter aplica la opción y guarda y Esc cierra sin guardar. Sin selector:
+// ↑/↓ mueven el cursor y Enter edita el campo de texto o abre el selector. ←/→ no
+// hacen nada aquí: no cambian el valor ni guardan.
 func (s *instanceScreen) settingsKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
-	fields := s.settingFields()
+	if s.selecting {
+		return s.settingsSelectKey(msg)
+	}
 	if s.editing {
-		if msg.String() == "enter" {
-			s.commitSetting(strings.TrimSpace(s.input.Value()))
+		switch msg.String() {
+		case "enter":
+			s.commitSetting(strings.TrimSpace(s.settingsInput.Value()))
 			return s, s.saveCmd()
-		}
-		if msg.String() == "esc" {
-			s.editing = false
-			s.input.Blur()
+		case "esc":
+			s.cancelEditing()
 			return s, nil
 		}
 		var c tea.Cmd
-		s.input, c = s.input.Update(msg)
+		s.settingsInput, c = s.settingsInput.Update(msg)
 		return s, c
 	}
+	fields := s.settingFields()
 	switch msg.String() {
 	case "j", "down":
 		if s.setCursor < len(fields)-1 {
@@ -1242,55 +1525,88 @@ func (s *instanceScreen) settingsKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		if s.setCursor > 0 {
 			s.setCursor--
 		}
-	case "enter", "right":
+	case "enter":
 		if s.setCursor < len(fields) {
-			f := fields[s.setCursor]
-			if f.kind == "cycle" {
-				s.cycleSetting(f)
-				return s, s.saveCmd()
-			}
-			s.editing = true
-			s.editKey = f.key
-			s.input.SetValue(f.value)
-			return s, s.input.Focus()
-		}
-	case "left":
-		if s.setCursor < len(fields) && fields[s.setCursor].kind == "cycle" {
-			s.cycleSettingBack(fields[s.setCursor])
-			return s, s.saveCmd()
+			return s, s.openSetting(fields[s.setCursor])
 		}
 	}
 	return s, nil
 }
 
-func (s *instanceScreen) cycleSetting(f settingField) {
-	idx := 0
-	for i, o := range f.options {
-		if o == f.value {
-			idx = i
-			break
-		}
+// openSetting activa el campo enfocado: un campo de texto se edita con el campo
+// propio de Ajustes y un select abre su lista de opciones.
+func (s *instanceScreen) openSetting(f settingField) tea.Cmd {
+	if f.kind == "select" {
+		s.selecting, s.selectKey = true, f.key
+		s.selectCursor = optionIndex(f.options, f.value)
+		return nil
 	}
-	idx = (idx + 1) % len(f.options)
-	s.applySetting(f.key, f.options[idx])
+	s.editing, s.editKey = true, f.key
+	s.settingsInput.SetValue(f.value)
+	s.settingsInput.CursorEnd()
+	return s.settingsInput.Focus()
 }
 
-func (s *instanceScreen) cycleSettingBack(f settingField) {
-	idx := 0
-	for i, o := range f.options {
-		if o == f.value {
-			idx = i
-			break
+// settingsSelectKey atiende el selector abierto.
+func (s *instanceScreen) settingsSelectKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
+	opts := s.selectOptions()
+	switch msg.String() {
+	case "j", "down":
+		if s.selectCursor < len(opts)-1 {
+			s.selectCursor++
 		}
+	case "k", "up":
+		if s.selectCursor > 0 {
+			s.selectCursor--
+		}
+	case "enter":
+		key, val := s.selectKey, ""
+		if s.selectCursor >= 0 && s.selectCursor < len(opts) {
+			val = opts[s.selectCursor]
+		}
+		s.closeSelector()
+		if val == "" {
+			return s, nil
+		}
+		s.applySetting(key, val)
+		return s, s.saveCmd()
+	case "esc":
+		s.closeSelector()
 	}
-	idx = (idx + len(f.options) - 1) % len(f.options)
-	s.applySetting(f.key, f.options[idx])
+	return s, nil
 }
 
+// selectOptions son las opciones del selector abierto (vacío si el campo ya no
+// existe, p. ej. porque el detalle dejó de estar disponible).
+func (s *instanceScreen) selectOptions() []string {
+	for _, f := range s.settingFields() {
+		if f.key == s.selectKey {
+			return f.options
+		}
+	}
+	return nil
+}
+
+// closeSelector cierra el selector abierto sin aplicar nada.
+func (s *instanceScreen) closeSelector() {
+	s.selecting, s.selectKey, s.selectCursor = false, "", 0
+}
+
+// cancelEditing descarta la edición de texto en curso y limpia su campo.
+func (s *instanceScreen) cancelEditing() {
+	s.editing, s.editKey = false, ""
+	s.settingsInput.SetValue("")
+	s.settingsInput.Blur()
+}
+
+// commitSetting aplica el valor tecleado y deja el campo listo para la próxima
+// edición (vacío y sin foco).
 func (s *instanceScreen) commitSetting(v string) {
-	s.editing = false
-	s.input.Blur()
-	s.applySetting(s.editKey, v)
+	key := s.editKey
+	s.editing, s.editKey = false, ""
+	s.settingsInput.SetValue("")
+	s.settingsInput.Blur()
+	s.applySetting(key, v)
 }
 
 // applySetting prepara un cambio sobre una COPIA del Spec: el Spec persistido no
@@ -1315,6 +1631,9 @@ func (s *instanceScreen) applySetting(key, val string) {
 		next.Gamemode = val
 	case "memory":
 		next.Memory = val
+	case "online_mode":
+		// El selector muestra «crackeado»/«premium»; el Spec guarda el booleano.
+		next.OnlineMode = val == "premium"
 	case "motd":
 		next.Motd = val
 	}
@@ -2480,11 +2799,16 @@ func windowRows(rows []string, keep, cursor int) []string {
 
 // --- Mundos (§5.7) ---
 
-// worldsView dibuja la pestaña Mundos dentro de un panel (§5.7). Solo muestra el
-// dato del Spec (la semilla) y las instrucciones del CLI para importar/exportar:
-// la TUI no calcula el tamaño del mundo ni hace E/S en View. Estados: cargando
-// (detail==nil) y el panel con la semilla y la ayuda (vacío cuando no hay semilla
-// definida).
+// worldsShortcut es la línea de atajos de la pestaña Mundos.
+const worldsShortcut = "[G] Regenerar el mundo (borra el actual) · [L] Cargar desde un archivo (.zip)"
+
+// browseShortcut es la línea de atajos del explorador de archivos.
+const browseShortcut = "[J/K] mover · [Enter] abrir carpeta o cargar el .zip · [←/H/Retroceso] subir · [Esc] cerrar"
+
+// worldsView dibuja la pestaña Mundos dentro de un panel (§5.7): la semilla del
+// Spec, el aviso de pérdida de datos de [G] y la biblioteca de mundos compartida
+// (que llega por worldsLibMsg). Con el explorador abierto muestra sus archivos.
+// Solo representa estado: aquí no se hace ninguna E/S.
 func (s *instanceScreen) worldsView(w, h int) string {
 	if w < 2 {
 		w = 2
@@ -2492,32 +2816,433 @@ func (s *instanceScreen) worldsView(w, h int) string {
 	if h < 4 {
 		h = 4
 	}
-	inner := w - 2
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
 	if s.detail == nil || s.detail.Spec == nil {
 		return components.Panel("MUNDO", "", muted.Render("cargando…"), w, h, false, s.pal, s.ascii)
 	}
-	spec := s.detail.Spec
-	var body []string
-	body = append(body, "Semilla: "+orDash(spec.Seed))
-	if strings.TrimSpace(spec.Seed) == "" {
-		body = append(body, muted.Render("(sin semilla; el mundo se genera aleatorio)"))
+	if s.browsing {
+		return s.browseView(w, h)
 	}
+	return components.Panel("MUNDO", "", s.worldsBody(w-2, h), w, h, false, s.pal, s.ascii)
+}
+
+// worldsBody compone el cuerpo del panel de Mundos. El espacio se reparte por
+// prioridad: primero la semilla y el aviso de pérdida de datos, después la
+// biblioteca (que cede líneas) y por último el pie de teclas.
+func (s *instanceScreen) worldsBody(inner, h int) string {
+	spec := s.detail.Spec
+	max := bodyLines(h)
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
+	warn := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn))
+	seed := []string{"Semilla: " + orDash(spec.Seed)}
+	if strings.TrimSpace(spec.Seed) == "" {
+		seed = append(seed, muted.Render("(sin semilla; el mundo se genera aleatorio)"))
+	}
+	var avisos []string
+	for _, ln := range wrapWords(components.Warn(s.ascii)+" [G] Regenerar borra el mundo actual: se pierden Overworld, Nether y End.", inner) {
+		avisos = append(avisos, warn.Render(ln))
+	}
+	foot := s.worldsFoot(inner)
+	lib := append([]string{lipgloss.NewStyle().Bold(true).Render("Biblioteca de mundos")}, s.worldsLibraryLines(inner)...)
+	slot := max - len(seed) - 2 - len(avisos) - len(foot)
+	if slot < 1 {
+		// Sin sitio para todo, el pie de teclas es lo primero que se sacrifica:
+		// el aviso de pérdida de datos nunca se omite.
+		foot = nil
+		slot = max - len(seed) - 2 - len(avisos)
+	}
+	if slot < 1 {
+		slot = 1
+	}
+	if len(lib) > slot {
+		lib = windowRows(lib, slot, 0)
+	}
+	body := append([]string{}, seed...)
 	body = append(body, "")
-	body = append(body, lipgloss.NewStyle().Bold(true).Render("Biblioteca de mundos (CLI)"))
-	body = append(body, wrapWords("Guardar, importar o cambiar el mundo se hace desde el CLI:", inner)...)
-	for _, cmd := range []string{
-		"badomens world list",
-		"badomens -i " + spec.Slug + " world save <nombre>",
-		"badomens -i " + spec.Slug + " world use <nombre>",
-		"badomens -i " + spec.Slug + " world export [nombre]",
-		"badomens world import <zip> <nombre>",
-	} {
-		for _, ln := range wrapWords("  "+cmd, inner) {
-			body = append(body, ln)
+	body = append(body, avisos...)
+	body = append(body, "")
+	body = append(body, lib...)
+	if pad := max - len(body) - len(foot); pad > 0 {
+		body = append(body, make([]string, pad)...)
+	}
+	body = append(body, foot...)
+	return strings.Join(body, "\n")
+}
+
+// worldsLibraryLines es la sección de la biblioteca: cargando, error, vacío con la
+// acción que lo resuelve (§8) o la lista de mundos guardados.
+func (s *instanceScreen) worldsLibraryLines(inner int) []string {
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
+	switch {
+	case s.worldsLibErr != "":
+		bad := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad))
+		out := []string{bad.Render(components.Cross(s.ascii) + " no se pudo leer la biblioteca")}
+		for _, ln := range wrapWords(s.worldsLibErr, inner) {
+			out = append(out, muted.Render(ln))
+		}
+		return out
+	case !s.worldsLibLoaded:
+		return []string{muted.Render("cargando…")}
+	case len(s.worldsLib) == 0:
+		return []string{muted.Render("○ (biblioteca vacía) · [L] Cargar un mundo desde un .zip")}
+	}
+	out := make([]string, 0, len(s.worldsLib))
+	for _, name := range s.worldsLib {
+		out = append(out, "  "+components.Pointer(s.ascii)+" "+name)
+	}
+	return out
+}
+
+// worldsFoot son los atajos del pie de la pestaña Mundos.
+func (s *instanceScreen) worldsFoot(inner int) []string {
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
+	out := make([]string, 0, 3)
+	for _, l := range packTokens(worldsShortcut, inner) {
+		out = append(out, muted.Render(l))
+	}
+	return out
+}
+
+// worldsKey atiende los atajos de la pestaña Mundos: [G] regenerar el mundo y [L]
+// cargar uno desde un archivo.
+func (s *instanceScreen) worldsKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
+	switch msg.String() {
+	case "g":
+		return s, s.Invoke("instance.world.regen")
+	case "l":
+		return s, s.Invoke("instance.world.load")
+	}
+	return s, nil
+}
+
+// worldsLibCmd lee la biblioteca de mundos compartida fuera de View.
+func (s *instanceScreen) worldsLibCmd() tea.Cmd {
+	ref := s.svc
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		names, err := ref.Worlds.Library(ctx)
+		return worldsLibMsg{names: names, err: err}
+	}
+}
+
+// startRegenPrompt pide la semilla del mundo regenerado (vacío = aleatoria).
+func (s *instanceScreen) startRegenPrompt() tea.Cmd {
+	s.prompt = true
+	s.promptAct = "__regen__"
+	s.promptLabel = "Nueva semilla del mundo (vacío = aleatoria)"
+	s.input.Placeholder = "p. ej. 42"
+	s.input.SetValue("")
+	return s.input.Focus()
+}
+
+// openRegenModal advierte de la pérdida de datos antes de regenerar el mundo: el
+// mundo actual se borra y no se puede recuperar. El foco arranca en el botón
+// seguro, nunca en el destructivo (§5.15).
+func (s *instanceScreen) openRegenModal(seed string) {
+	seedText := "una semilla aleatoria"
+	if seed != "" {
+		seedText = "la semilla «" + seed + "»"
+	}
+	body := "Se BORRARÁ el mundo actual de «" + s.slug + "» (Overworld, Nether y End) y se generará otro con " +
+		seedText + ". Esta acción no se puede deshacer."
+	if s.detail != nil && s.detail.State == "running" {
+		body += " El servidor está en marcha: se detendrá y volverá a arrancar."
+	}
+	m := components.Modal{
+		Title: "Regenerar el mundo (se pierde el actual)",
+		Body:  body,
+		Actions: []components.Action{
+			{ID: "confirm", Verb: "Sí, regenerar", Object: "el mundo", Key: "y", Hint: "Borra el mundo actual y lo genera de nuevo.", Kind: components.Destructive},
+			{ID: "cancel", Verb: "No, conservar", Object: "el mundo actual", Key: "n", Hint: "Cierra sin tocar el mundo.", Kind: components.Secondary},
+		},
+		Focused: 1,
+	}
+	s.modal = &m
+	s.modalKind, s.modalValue, s.modalName = "world_regen", seed, ""
+}
+
+// worldsRegenCmd regenera el mundo activo con la semilla indicada (vacío =
+// aleatoria). El servicio detiene el servidor si estaba en marcha y lo reanuda;
+// el resultado llega por worldsOpMsg.
+func (s *instanceScreen) worldsRegenCmd(seed string) tea.Cmd {
+	ref, slug := s.svc, s.slug
+	return tea.Batch(busyCmd(true), func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		defer cancel()
+		return worldsOpMsg{what: "regenerar", slug: slug, seed: seed, err: ref.Worlds.Regenerate(ctx, slug, seed)}
+	})
+}
+
+// handleWorldsOp publica el desenlace de una operación de Mundos y, si fue bien,
+// recarga el detalle y la biblioteca (el mundo activo cambió). Importar cierra
+// además el explorador: ya no hay nada que elegir.
+func (s *instanceScreen) handleWorldsOp(msg worldsOpMsg) tea.Cmd {
+	if msg.err != nil {
+		text := "✖ no se pudo " + msg.what + " el mundo de «" + msg.slug + "»: " + msg.err.Error()
+		return func() tea.Msg { return toastMsg{Text: text, Kind: components.Destructive} }
+	}
+	if msg.what == "importar" {
+		s.closeBrowse()
+	}
+	return tea.Batch(
+		func() tea.Msg { return toastMsg{Text: msg.text()} },
+		s.load(),
+		s.worldsLibCmd(),
+	)
+}
+
+// startBrowse abre el explorador de archivos en la carpeta personal del usuario o,
+// si no se puede resolver, en los datos de la app o en el directorio actual.
+func (s *instanceScreen) startBrowse() tea.Cmd {
+	s.browsing = true
+	s.browseEntries = nil
+	s.browseCursor = 0
+	s.browseErr = ""
+	s.browseLoading = true
+	dir, err := os.UserHomeDir()
+	if err != nil || strings.TrimSpace(dir) == "" {
+		dir = s.svc.DataDir
+	}
+	if strings.TrimSpace(dir) == "" {
+		dir = "."
+	}
+	s.browseDir = dir
+	return s.browseCmd(dir)
+}
+
+// browseCmd lee un directorio (subcarpetas y archivos .zip) fuera de View.
+func (s *instanceScreen) browseCmd(dir string) tea.Cmd {
+	return func() tea.Msg {
+		entries, err := listBrowseEntries(dir)
+		return worldsBrowseMsg{dir: dir, entries: entries, err: err}
+	}
+}
+
+// listBrowseEntries lista las subcarpetas y los archivos .zip de un directorio,
+// con las carpetas primero y en orden alfabético estable (sin distinguir
+// mayúsculas: el orden no debe depender del sistema).
+func listBrowseEntries(dir string) ([]browseEntry, error) {
+	des, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var dirs, zips []browseEntry
+	for _, de := range des {
+		name := de.Name()
+		full := filepath.Join(dir, name)
+		if de.IsDir() {
+			dirs = append(dirs, browseEntry{Name: name, Path: full, IsDir: true})
+			continue
+		}
+		if strings.EqualFold(filepath.Ext(name), ".zip") {
+			zips = append(zips, browseEntry{Name: name, Path: full})
 		}
 	}
-	return components.Panel("MUNDO", "", strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
+	byNameFold := func(list []browseEntry) {
+		sort.SliceStable(list, func(i, j int) bool {
+			return strings.ToLower(list[i].Name) < strings.ToLower(list[j].Name)
+		})
+	}
+	byNameFold(dirs)
+	byNameFold(zips)
+	return append(dirs, zips...), nil
+}
+
+// browseKey atiende el explorador: moverse, entrar en una carpeta o cargar un
+// .zip, subir al directorio padre y cerrar.
+func (s *instanceScreen) browseKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
+	switch msg.String() {
+	case "j", "down":
+		if s.browseCursor < len(s.browseEntries)-1 {
+			s.browseCursor++
+		}
+	case "k", "up":
+		if s.browseCursor > 0 {
+			s.browseCursor--
+		}
+	case "enter":
+		return s, s.browseEnter()
+	case "left", "h", "backspace":
+		return s, s.browseUp()
+	case "esc":
+		s.closeBrowse()
+	}
+	return s, nil
+}
+
+// browseEnter entra en la carpeta señalada o, si la entrada es un .zip, abre la
+// confirmación de importación: nunca se importa sin confirmar.
+func (s *instanceScreen) browseEnter() tea.Cmd {
+	if s.browseCursor < 0 || s.browseCursor >= len(s.browseEntries) {
+		return nil
+	}
+	e := s.browseEntries[s.browseCursor]
+	if e.IsDir {
+		return s.browseOpen(e.Path)
+	}
+	s.openImportModal(e.Path, worldNameOf(e.Name))
+	return nil
+}
+
+// browseUp sube al directorio padre. En la raíz del volumen no hay padre: se
+// cierra el explorador.
+func (s *instanceScreen) browseUp() tea.Cmd {
+	parent := filepath.Dir(s.browseDir)
+	if parent == s.browseDir {
+		s.closeBrowse()
+		return nil
+	}
+	return s.browseOpen(parent)
+}
+
+// browseOpen cambia de carpeta y lanza su lectura.
+func (s *instanceScreen) browseOpen(dir string) tea.Cmd {
+	s.browseDir = dir
+	s.browseEntries = nil
+	s.browseCursor = 0
+	s.browseErr = ""
+	s.browseLoading = true
+	return s.browseCmd(dir)
+}
+
+// closeBrowse cierra el explorador y descarta su estado: una respuesta que llegue
+// después no lo reabre.
+func (s *instanceScreen) closeBrowse() {
+	s.browsing = false
+	s.browseEntries = nil
+	s.browseCursor = 0
+	s.browseErr = ""
+	s.browseLoading = false
+}
+
+// worldNameOf deriva el nombre del mundo del nombre del archivo, sin extensión.
+func worldNameOf(file string) string {
+	base := filepath.Base(strings.TrimSpace(file))
+	return strings.TrimSpace(strings.TrimSuffix(base, filepath.Ext(base)))
+}
+
+// openImportModal confirma la importación avisando de que el mundo actual se
+// pierde. El foco arranca en el botón seguro.
+func (s *instanceScreen) openImportModal(archive, name string) {
+	if strings.TrimSpace(name) == "" {
+		name = worldNameOf(archive)
+	}
+	body := "Se BORRARÁ el mundo actual de «" + s.slug + "» (Overworld, Nether y End) y se sustituirá por «" +
+		name + "». Esta acción no se puede deshacer."
+	if s.detail != nil && s.detail.State == "running" {
+		body += " El servidor está en marcha: se detendrá y volverá a arrancar."
+	}
+	m := components.Modal{
+		Title: "Cargar un mundo (se pierde el actual)",
+		Body:  body,
+		Actions: []components.Action{
+			{ID: "confirm", Verb: "Sí, cargar", Object: "el mundo", Key: "y", Hint: "Importa el .zip y lo deja como mundo activo.", Kind: components.Destructive},
+			{ID: "cancel", Verb: "No, conservar", Object: "el mundo actual", Key: "n", Hint: "Cierra sin tocar el mundo.", Kind: components.Secondary},
+		},
+		Focused: 1,
+	}
+	s.modal = &m
+	s.modalKind, s.modalValue, s.modalName = "world_import", archive, name
+}
+
+// worldsImportCmd importa el .zip indicado como mundo activo de la instancia.
+func (s *instanceScreen) worldsImportCmd(archive, name string) tea.Cmd {
+	if strings.TrimSpace(archive) == "" {
+		return nil
+	}
+	ref, slug := s.svc, s.slug
+	return tea.Batch(busyCmd(true), func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		defer cancel()
+		return worldsOpMsg{what: "importar", slug: slug, name: name, err: ref.Worlds.ImportZip(ctx, slug, archive, name)}
+	})
+}
+
+// browseView dibuja el explorador de archivos de Mundos: la carpeta actual, sus
+// subcarpetas y .zip (con puntero y banda en la señalada) y las teclas. Solo
+// representa estado: la lectura del directorio llega por worldsBrowseMsg.
+func (s *instanceScreen) browseView(w, h int) string {
+	if w < 2 {
+		w = 2
+	}
+	if h < 4 {
+		h = 4
+	}
+	inner := w - 2
+	max := bodyLines(h)
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
+	head := []string{layout.Truncate("Carpeta: "+s.browseDir, inner)}
+	switch {
+	case s.browseErr != "":
+		head = append(head, lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).
+			Render(layout.Truncate(components.Cross(s.ascii)+" no se pudo abrir la carpeta: "+s.browseErr, inner)))
+	case s.browseLoading:
+		head = append(head, muted.Render("cargando…"))
+	}
+	rows := s.browseRows(inner)
+	if len(rows) == 0 && s.browseErr == "" && !s.browseLoading {
+		rows = []string{muted.Render("○ (sin subcarpetas ni archivos .zip aquí) · [←] subir")}
+	}
+	foot := s.browseFoot(inner)
+	slot := max - len(head) - len(foot)
+	if slot < 1 {
+		slot = 1
+	}
+	if len(rows) > slot {
+		rows = windowRows(rows, slot, s.browseCursor)
+	}
+	body := append([]string{}, head...)
+	body = append(body, rows...)
+	if pad := max - len(body) - len(foot); pad > 0 {
+		body = append(body, make([]string, pad)...)
+	}
+	body = append(body, foot...)
+	return components.Panel("CARGAR MUNDO", s.browseTag(), strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
+}
+
+// browseRows pinta las entradas del explorador: carpetas primero y luego .zip.
+func (s *instanceScreen) browseRows(inner int) []string {
+	if len(s.browseEntries) == 0 {
+		return nil
+	}
+	band := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent))
+	out := make([]string, 0, len(s.browseEntries))
+	for i, e := range s.browseEntries {
+		tag := "[zip] "
+		if e.IsDir {
+			tag = "[dir] "
+		}
+		row := tag + e.Name
+		if i == s.browseCursor {
+			row = components.Pointer(s.ascii) + " " + row
+			out = append(out, band.Render(padLine(row, inner)))
+			continue
+		}
+		out = append(out, "  "+row)
+	}
+	return out
+}
+
+// browseFoot son los atajos del explorador.
+func (s *instanceScreen) browseFoot(inner int) []string {
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
+	out := make([]string, 0, 3)
+	for _, l := range packTokens(browseShortcut, inner) {
+		out = append(out, muted.Render(l))
+	}
+	return out
+}
+
+// browseTag es el contador derecho del explorador: cuántas entradas hay.
+func (s *instanceScreen) browseTag() string {
+	if s.browseLoading || len(s.browseEntries) == 0 {
+		return ""
+	}
+	if len(s.browseEntries) == 1 {
+		return "1 entrada"
+	}
+	return itoa(len(s.browseEntries)) + " entradas"
 }
 
 // --- Plugins/Mods (§5.8) ---
@@ -2790,10 +3515,11 @@ func (s *instanceScreen) idleTag() string {
 	return "desactivado"
 }
 
-// settingsView dibuja la pestaña Ajustes dentro de un panel (§5.11): el estado
-// del guardado, los campos con su valor (el que se edita muestra el input con
-// foco) y el aviso «Requiere reiniciar». Solo representa estado: el guardado
-// llega por instanceSavedMsg y el Spec no se muta antes de persistir.
+// settingsView dibuja la pestaña Ajustes dentro de un panel (§5.11): el estado del
+// guardado, los campos con su valor (el que se edita muestra el campo de texto con
+// foco), el selector abierto como lista de opciones y el aviso «Requiere
+// reiniciar». Solo representa estado: el guardado llega por instanceSavedMsg y el
+// Spec no se muta antes de persistir.
 func (s *instanceScreen) settingsView(w, h int) string {
 	if w < 2 {
 		w = 2
@@ -2807,32 +3533,50 @@ func (s *instanceScreen) settingsView(w, h int) string {
 	if len(fields) == 0 {
 		return components.Panel("AJUSTES", "", muted.Render("cargando…"), w, h, false, s.pal, s.ascii)
 	}
-	var body []string
+	budget := bodyLines(h)
+	// El estado del guardado va arriba; la ayuda de teclas va después de los
+	// campos (abajo), para que en alturas pequeñas el foco y las opciones tengan
+	// prioridad y no queden fuera del panel.
+	var head []string
 	if line := s.settingsStateLine(inner); line != "" {
-		body = append(body, line, "")
+		head = append(head, line)
 	}
-	if s.editing {
-		body = append(body, muted.Render("Enter: guardar · Esc: cancelar"), "")
+	var hint []string
+	switch {
+	case s.editing:
+		hint = append(hint, muted.Render("Enter: guardar · Esc: cancelar"))
+	case s.selecting:
+		hint = append(hint, muted.Render("↑/↓: elegir · Enter: guardar"), muted.Render("Esc: cancelar"))
 	}
 	// La ayuda de cada campo solo se dibuja cuando hay alto para todos: en
 	// compacto se sacrifica antes que dejar campos fuera del panel.
-	showHelp := bodyLines(h) >= len(fields)*2
+	showHelp := budget >= len(fields)*2
+	var rows []string
+	focus := 0
 	for i, f := range fields {
 		marker := "  "
 		if i == s.setCursor {
 			marker = components.Pointer(s.ascii) + " "
 		}
 		prefix := marker + f.label + ": "
-		val := f.value
+		val := f.display()
 		if s.editing && s.editKey == f.key {
 			// El campo activo usa el ancho que queda tras la etiqueta para que el
 			// cursor siga visible (§9).
 			if bw := inner - layout.Width(prefix) - 1; bw > 8 {
-				s.input.Width = bw
+				s.settingsInput.Width = bw
 			}
-			val = s.input.View()
+			val = s.settingsInput.View()
 		}
 		line := prefix + val
+		// Un select enfocado y cerrado dice con qué tecla se cambia (Enter): el
+		// panel no invita a usar ←/→, que aquí no hacen nada.
+		if f.kind == "select" && i == s.setCursor && !s.selecting && !s.editing {
+			mark := muted.Render("  (Enter para cambiar)")
+			if layout.Width(line)+layout.Width(mark) <= inner {
+				line += mark
+			}
+		}
 		if f.requires {
 			// El aviso se acorta solo si no cabe: primero el texto completo y, en
 			// último término, el icono con la acción imprescindible.
@@ -2845,14 +3589,65 @@ func (s *instanceScreen) settingsView(w, h int) string {
 				}
 			}
 		}
-		body = append(body, padLine(line, inner))
+		if i == s.setCursor {
+			focus = len(rows)
+		}
+		rows = append(rows, padLine(line, inner))
+		if s.selecting && s.selectKey == f.key {
+			// El foco sigue a la opción elegida dentro del selector abierto.
+			focus = len(rows) + s.selectCursor
+			rows = append(rows, s.optionLines(f, inner)...)
+		}
 		if showHelp {
 			if hlp, ok := help.Get(f.key); ok {
-				body = append(body, padLine("    "+muted.Render(hlp.Short), inner))
+				rows = append(rows, padLine("    "+muted.Render(hlp.Short), inner))
 			}
 		}
 	}
+	// La ayuda de teclas se reserva solo si, aun con ella, el foco queda visible;
+	// si no, se sacrifica (Esc es un cancelar universal y el panel ya marca el
+	// estado con «eligiendo»/«editando»).
+	fieldBudget := budget - len(head) - len(hint)
+	if fieldBudget < focus+1 {
+		hint = nil
+		fieldBudget = budget - len(head)
+	}
+	if fieldBudget < 1 {
+		fieldBudget = 1
+	}
+	body := append([]string{}, head...)
+	body = append(body, windowLines(rows, focus, fieldBudget)...)
+	if len(hint) > 0 && len(body)+len(hint) <= budget {
+		body = append(body, hint...)
+	}
 	return components.Panel("AJUSTES", s.settingsTag(), strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
+}
+
+// optionLines pinta las opciones del selector abierto debajo de su campo: la
+// elegida lleva puntero y banda (la selección se ve sin depender del color) y la
+// que está guardada se marca como «(actual)».
+func (s *instanceScreen) optionLines(f settingField, inner int) []string {
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
+	band := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent))
+	out := make([]string, 0, len(f.options))
+	for i := range f.options {
+		label := f.optionLabel(i)
+		actual := strings.EqualFold(f.options[i], f.value)
+		if i == s.selectCursor {
+			row := "    " + components.Pointer(s.ascii) + " " + label
+			if actual {
+				row += "  (actual)"
+			}
+			out = append(out, band.Render(padLine(row, inner)))
+			continue
+		}
+		row := "    " + label
+		if actual {
+			row += "  (actual)"
+		}
+		out = append(out, padLine(muted.Render(row), inner))
+	}
+	return out
 }
 
 // settingsStateLine describe el estado del formulario (guardando, guardado o
@@ -2875,9 +3670,12 @@ func (s *instanceScreen) settingsStateLine(inner int) string {
 }
 
 // settingsTag es el contador derecho del panel de Ajustes: el estado del
-// formulario mientras se edita o se guarda (el foco nunca depende solo del color).
+// formulario mientras se elige, se edita o se guarda (el foco nunca depende solo
+// del color).
 func (s *instanceScreen) settingsTag() string {
 	switch {
+	case s.selecting:
+		return "eligiendo"
 	case s.editing:
 		return "editando"
 	case strings.HasPrefix(s.status, "guardando"):
@@ -2901,9 +3699,11 @@ func (s *instanceScreen) Actions() []components.Action {
 		{ID: "instance.start", Verb: "Iniciar", Object: name, Key: "s", Hint: "Arranca el servidor.", Kind: components.Primary, Disabled: running, DisabledReason: "Ya está en marcha"},
 		{ID: "instance.stop", Verb: "Detener", Object: name, Key: "p", Hint: "Apaga guardando el mundo.", Kind: components.Secondary, Disabled: !running, DisabledReason: "No está en marcha"},
 		{ID: "instance.restart", Verb: "Reiniciar", Object: name, Key: "r", Hint: "Recrea el contenedor aplicando cambios.", Kind: components.Secondary, Disabled: restartDisabled, DisabledReason: restartWhy},
-		{ID: "instance.console", Verb: "Escribir", Object: "en la consola", Key: "e", Hint: "Envía un comando al servidor.", Kind: components.Secondary},
+		{ID: "instance.console", Verb: "Escribir", Object: "en la consola", Key: "/", Hint: "Escribe un comando para el servidor.", Kind: components.Secondary},
 		{ID: "instance.copy", Verb: "Copiar", Object: "dirección de conexión", Key: "c", Hint: "Copia ip:puerto al portapapeles.", Kind: components.Secondary},
 		{ID: "instance.version", Verb: "Cambiar", Object: "la versión de " + name, Key: "v", Hint: "Hace un backup y cambia la versión (reinicia para aplicar).", Kind: components.Secondary},
+		{ID: "instance.world.regen", Verb: "Regenerar", Object: "el mundo", Key: "g", Hint: "Pide una semilla y borra el mundo actual (se pierde Overworld, Nether y End).", Kind: components.Secondary},
+		{ID: "instance.world.load", Verb: "Cargar", Object: "un mundo desde .zip", Key: "l", Hint: "Explora tus archivos e importa un .zip como mundo activo.", Kind: components.Secondary},
 		{ID: "instance.delete", Verb: "Eliminar", Object: name + " para siempre", Key: "D", Hint: "Borra el contenedor y sus datos; pide escribir el nombre.", Kind: components.Destructive},
 		{ID: "instance.back", Verb: "Volver", Object: "a la lista", Key: "esc", Hint: "Cierra el detalle.", Kind: components.Navigation},
 	}
@@ -2921,9 +3721,16 @@ func (s *instanceScreen) Invoke(id string) tea.Cmd {
 	case "instance.console":
 		s.tab = 1
 		s.focus = true
+		s.resetConsoleInput()
 		return s.input.Focus()
 	case "instance.version":
 		return s.startVersionPrompt()
+	case "instance.world.regen":
+		s.tab = 4
+		return s.startRegenPrompt()
+	case "instance.world.load":
+		s.tab = 4
+		return s.startBrowse()
 	case "instance.delete":
 		return s.startDeletePrompt()
 	case "instance.back":
@@ -2970,9 +3777,10 @@ func (s *instanceScreen) Status() string {
 }
 
 // CapturesInput: el detalle captura las teclas cuando hay un campo de texto, un
-// prompt o una confirmación con foco, para no disparar atajos globales (§5).
+// prompt, una confirmación con foco, un selector abierto o el explorador de
+// archivos de Mundos, para no disparar atajos globales (§5).
 func (s *instanceScreen) CapturesInput() bool {
-	return s.prompt || s.modal != nil || s.focus || s.editing
+	return s.prompt || s.modal != nil || s.browsing || s.focus || s.editing || s.selecting
 }
 
 func logColor(line string, pal theme.Palette) string {

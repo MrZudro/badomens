@@ -17,6 +17,7 @@ import (
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/execx"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/mcuuid"
 	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/tailscale"
 )
@@ -143,8 +144,8 @@ func (r *Runtime) Render(spec *instance.Spec, cfg *config.Config, hostIP string)
 		OnlineMode:    boolVal(spec.OnlineMode),
 		SecureProfile: "FALSE",
 		WLEnabled:     boolVal(spec.WhitelistEnabled),
-		Whitelist:     strings.Join(spec.Whitelist, ","),
-		Ops:           strings.Join(spec.Ops, ","),
+		Whitelist:     entriesValue(spec.Whitelist, spec.OnlineMode),
+		Ops:           entriesValue(spec.Ops, spec.OnlineMode),
 		HostIP:        hostIP,
 		Port:          spec.Port,
 	}
@@ -157,6 +158,37 @@ func (r *Runtime) Render(spec *instance.Spec, cfg *config.Config, hostIP string)
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// entriesValue convierte una lista de jugadores en el valor de una variable de
+// entorno de la imagen (WHITELIST/OPS).
+//
+// En modo online se envían los nombres tal cual (la imagen los resuelve contra
+// PlayerDB). En modo offline hay que enviar el UUID offline (versión 3) de cada
+// nombre: con el nombre, la imagen resolvería un UUID premium contra PlayerDB
+// que no coincide con el del servidor sin autenticación y el jugador sería
+// expulsado al entrar.
+//
+// Se ignoran las entradas vacías y se deduplica de forma exacta conservando el
+// orden; el resultado se une con comas.
+func entriesValue(names []string, online bool) string {
+	seen := make(map[string]struct{}, len(names))
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		value := name
+		if !online {
+			value = mcuuid.Offline(name)
+		}
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		if _, dup := seen[value]; dup {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return strings.Join(out, ",")
 }
 
 // imageFor elige la imagen del contenedor según el Java que requiere la versión

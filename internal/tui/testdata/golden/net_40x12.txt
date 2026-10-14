@@ -9,4 +9,4 @@
 │ │✓ Puerto 25565 · libre            │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
-└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘
+└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘

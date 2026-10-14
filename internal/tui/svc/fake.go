@@ -242,6 +242,10 @@ type FakeOptions struct {
 	// AccessVerifyFail hace que las mutaciones de acceso apliquen localmente
 	// pero no puedan verificarse en vivo (Source=saved).
 	AccessVerifyFail bool
+	// WorldLibrary son los mundos que devuelve la biblioteca falsa.
+	WorldLibrary []string
+	// WorldErr hace que toda operación de mundos falle con este error.
+	WorldErr error
 }
 
 // NewFakeWith construye una fachada falsa con opciones.
@@ -271,5 +275,6 @@ func NewFakeWith(specs []*instance.Spec, opts FakeOptions) *Services {
 		Catalog: &fakeCatalog{items: []engines.Version{{Version: "1.21.4", Channel: engines.ChannelRelease, Recommended: true, Compatible: true, JavaMajor: 21}}},
 		Creator: &fakeCreator{},
 		Access:  newFakeAccess(specs, opts),
+		Worlds:  newFakeWorlds(specs, opts),
 	}
 }

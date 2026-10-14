@@ -17,4 +17,4 @@
 │ │ Escribe para filtrar…  Enter ejecutar · Esc cerrar         │     │
 │ │                                                            │     │
 │ Comandos                                                           │
-└─ F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ──────────────────────┘
+└─ F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ──────────────────────┘

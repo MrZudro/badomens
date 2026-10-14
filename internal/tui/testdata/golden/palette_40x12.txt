@@ -9,4 +9,4 @@
 │ │ Escribe para filtrar…  Enter   │   │
 │ │ ejecutar · Esc cerrar          │   │
 │ Comandos                             │
-└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘
+└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘

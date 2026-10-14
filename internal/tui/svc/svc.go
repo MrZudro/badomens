@@ -23,6 +23,7 @@ import (
 	"github.com/MrZudro/badomens/internal/runtime"
 	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tps"
+	"github.com/MrZudro/badomens/internal/worlds"
 )
 
 func engineNames() []string {
@@ -143,6 +144,7 @@ type Services struct {
 	Catalog      Catalog
 	Creator      Creator
 	Access       Access
+	Worlds       Worlds
 }
 
 // New construye los adaptadores reales sobre los paquetes de dominio.
@@ -195,6 +197,7 @@ func New(cfg *config.Config) (*Services, error) {
 		Catalog:      &realCatalog{cache: engines.NewCache(cfg.DataDir, resolver)},
 		Creator:      &realCreator{cfg: cfg, m: m, rt: rt, resolver: resolver, alloc: alloc},
 		Access:       &realAccess{m: m, rt: rt},
+		Worlds:       &realWorlds{cfg: cfg, m: m, rt: rt, wm: &worlds.Manager{DataDir: cfg.DataDir}},
 	}, nil
 }
 

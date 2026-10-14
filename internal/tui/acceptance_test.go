@@ -174,16 +174,16 @@ func TestKEY05CrearSoloDesdeInicio(t *testing.T) {
 	}
 }
 
-// KEY-06: con la consola enfocada, letras imprimibles se escriben y no cambian
-// de pantalla ni abren ayuda ni salen.
+// KEY-06: con la consola enfocada (con «/»), letras imprimibles se escriben y no
+// cambian de pantalla ni abren ayuda ni salen.
 func TestKEY06ConsolaCapturaLetras(t *testing.T) {
 	a := testApp()
 	resize(a, 120, 40)
 	inst := openInstance(t, a, "survival")
 	inst.tab = 1
-	a.Update(press("e"))
+	a.Update(press("/"))
 	if !inst.focus {
-		t.Fatal("'e' debe enfocar la consola")
+		t.Fatal("«/» debe enfocar la consola")
 	}
 	for _, r := range []string{"N", "A", "q", "?"} {
 		a.Update(press(r))
@@ -199,13 +199,14 @@ func TestKEY06ConsolaCapturaLetras(t *testing.T) {
 	}
 }
 
-// KEY-07: Enter con el campo vacío no envía comando ni muestra éxito.
+// KEY-07: con la consola enfocada con «/», Enter con el campo vacío no envía
+// comando ni muestra éxito.
 func TestKEY07ConsolaEnterVacio(t *testing.T) {
 	a := testApp()
 	resize(a, 120, 40)
 	inst := openInstance(t, a, "survival")
 	inst.tab = 1
-	a.Update(press("e"))
+	a.Update(press("/"))
 	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Fatal("Enter con el campo vacío no debe lanzar ningún comando")
@@ -221,7 +222,7 @@ func TestKEY08ConsolaEnviaComando(t *testing.T) {
 	resize(a, 120, 40)
 	inst := openInstance(t, a, "survival")
 	inst.tab = 1
-	a.Update(press("e"))
+	a.Update(press("/"))
 	for _, r := range "list" {
 		a.Update(press(string(r)))
 	}
@@ -1184,19 +1185,48 @@ func TestBackupsEstadosYFilas(t *testing.T) {
 	assertWithinSize(t, stripANSI(a.View()), 120, 40)
 }
 
-// §5.11: ←/→ ciclan el valor del campo enfocado y el cambio se persiste al
-// guardar, anunciando el estado (guardando → guardado) sin mutar el Spec antes.
+// §5.11/WS-3: el campo enfocado se abre con Enter (selector para la dificultad), se
+// elige con ↓ y se confirma con Enter, que persiste el cambio y anuncia el estado
+// (guardando → guardado) sin mutar el Spec antes de guardar.
 func TestAjustesCicloYGuardado(t *testing.T) {
 	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
 	resize(a, 120, 40)
 	inst := openInstance(t, a, "survival")
 	inst.tab = 8
-	inst.setCursor = 1 // Dificultad: campo de ciclo
+	inst.setCursor = 1 // Dificultad: campo con selector
 	antes := inst.detail.Spec.Difficulty
 
-	_, cmd := a.Update(press("right"))
+	// Enter abre el selector del campo enfocado (todavía no guarda nada).
+	if _, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter}); cmd != nil {
+		t.Fatal("abrir el selector no debe pedir ningún guardado")
+	}
+	if !inst.selecting || inst.selectKey != "difficulty" {
+		t.Fatalf("Enter debe abrir el selector de dificultad; selecting=%v key=%q", inst.selecting, inst.selectKey)
+	}
+	if inst.selectCursor != 2 { // «normal» es la tercera opción
+		t.Fatalf("el selector debe arrancar en el valor actual (normal), tengo %d", inst.selectCursor)
+	}
+	vistaSelector := stripANSI(inst.settingsView(106, 24))
+	for _, want := range []string{"Pacífico", "Fácil", "Normal", "Difícil", "elegir", "Enter: guardar", "(actual)"} {
+		if !strings.Contains(vistaSelector, want) {
+			t.Fatalf("el selector debe mostrar %q:\n%s", want, vistaSelector)
+		}
+	}
+	if !strings.Contains(vistaSelector, components.Pointer(false)) {
+		t.Fatalf("la opción señalada debe llevar puntero:\n%s", vistaSelector)
+	}
+
+	// ↓ mueve la selección y Enter aplica la opción y pide el guardado.
+	a.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if inst.selectCursor != 3 {
+		t.Fatalf("↓ debe mover la selección a la opción siguiente, tengo %d", inst.selectCursor)
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
-		t.Fatal("→ en un campo de ciclo debe pedir el guardado")
+		t.Fatal("confirmar el selector debe pedir el guardado")
+	}
+	if inst.selecting {
+		t.Fatal("confirmar debe cerrar el selector")
 	}
 	// El Spec persistido no se muta antes de que el guardado se confirme (§5.11).
 	if inst.detail.Spec.Difficulty != antes {
@@ -1207,7 +1237,7 @@ func TestAjustesCicloYGuardado(t *testing.T) {
 	}
 	nuevo := inst.pendingSave.Difficulty
 	if nuevo == antes {
-		t.Fatalf("el ciclo debe cambiar el valor preparado (sigue en %q)", antes)
+		t.Fatalf("el selector debe cambiar el valor preparado (sigue en %q)", antes)
 	}
 	if inst.status != "guardando…" {
 		t.Fatalf("el estado debe indicar el guardado, tengo %q", inst.status)
@@ -1219,8 +1249,8 @@ func TestAjustesCicloYGuardado(t *testing.T) {
 	if !strings.Contains(vista, "Requiere reiniciar") {
 		t.Fatalf("el aviso de reinicio debe seguir visible:\n%s", vista)
 	}
-	if !strings.Contains(vista, nuevo) {
-		t.Fatalf("el panel debe mostrar el valor preparado %q:\n%s", nuevo, vista)
+	if !strings.Contains(vista, "Dificultad: Difícil") {
+		t.Fatalf("el panel debe mostrar el valor preparado:\n%s", vista)
 	}
 
 	msg := ejecutaCmd(cmd)
@@ -1253,10 +1283,84 @@ func TestAjustesCicloYGuardado(t *testing.T) {
 		t.Fatalf("la dificultad persistida debe ser %q, tengo %q", nuevo, d.Spec.Difficulty)
 	}
 
+	// Esc cierra el selector sin guardar ni mutar nada.
+	inst.setCursor = 1
+	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	a.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if _, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEsc}); cmd != nil {
+		t.Fatal("Esc no debe guardar nada")
+	}
+	if inst.selecting || inst.pendingSave != nil {
+		t.Fatal("Esc debe cerrar el selector sin dejar cambios preparados")
+	}
+	if inst.detail.Spec.Difficulty != nuevo {
+		t.Fatalf("Esc no debe mutar el Spec, tengo %q", inst.detail.Spec.Difficulty)
+	}
+
 	// Un fallo de guardado se queda visible en el panel.
 	a.Update(instanceSavedMsg{err: errors.New("disco lleno")})
 	if out := stripANSI(inst.settingsView(106, 24)); !strings.Contains(out, "no se pudo guardar") {
 		t.Fatalf("el error de guardado debe verse en el panel:\n%s", out)
+	}
+}
+
+// WS-3/1.2.1: dentro de una instancia ←/→ cambian de pestaña (también en
+// Ajustes), pero NUNCA actúan como Enter: no cambian el valor del campo, no
+// guardan y no abren la edición ni el selector. Tampoco mueven la selección de un
+// selector abierto.
+func TestAjustesFlechasNoMutanNiGuardan(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	inst.tab = 8
+	inst.setCursor = 1 // Dificultad
+	antes := inst.detail.Spec.Difficulty
+
+	// → cambia de pestaña (sale de Ajustes) sin pedir ningún guardado.
+	if _, cmd := a.Update(tea.KeyMsg{Type: tea.KeyRight}); cmd != nil {
+		t.Fatal("←/→ no deben pedir ningún guardado")
+	}
+	if inst.tab == 8 {
+		t.Fatal("→ debe cambiar de pestaña dentro de la instancia")
+	}
+	// ← vuelve a Ajustes, tampoco guarda nada.
+	a.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	if inst.tab != 8 {
+		t.Fatalf("← debe volver a Ajustes, tengo %d", inst.tab)
+	}
+	if inst.pendingSave != nil {
+		t.Fatal("←/→ no deben preparar ningún cambio")
+	}
+	if inst.status == "guardando…" {
+		t.Fatal("←/→ no deben anunciar un guardado")
+	}
+	if inst.editing || inst.selecting {
+		t.Fatal("←/→ no deben abrir la edición ni el selector")
+	}
+	if inst.detail.Spec.Difficulty != antes {
+		t.Fatalf("←/→ no deben mutar la dificultad, tengo %q", inst.detail.Spec.Difficulty)
+	}
+	d, err := a.svc.Instances.Detail(context.Background(), "survival")
+	if err != nil {
+		t.Fatalf("detalle: %v", err)
+	}
+	if d.Spec.Difficulty != antes {
+		t.Fatalf("←/→ no deben persistir nada, tengo %q", d.Spec.Difficulty)
+	}
+
+	// Con el selector abierto tampoco mueven la selección ni lo cierran.
+	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !inst.selecting {
+		t.Fatal("Enter debe abrir el selector")
+	}
+	sel := inst.selectCursor
+	a.Update(tea.KeyMsg{Type: tea.KeyRight})
+	a.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	if inst.selectCursor != sel {
+		t.Fatalf("←/→ no deben mover la selección (%d → %d)", sel, inst.selectCursor)
+	}
+	if !inst.selecting {
+		t.Fatal("←/→ no deben cerrar el selector")
 	}
 }
 
@@ -1286,11 +1390,12 @@ func TestResumenAsciiSinBloquesUnicode(t *testing.T) {
 
 // --- Fase E: Mundos, Plugins/Mods, Red y Auto-apagado (§5.7–§5.10) ---
 
-// §5.7: la pestaña Mundos muestra la semilla del Spec y las instrucciones del CLI
-// (list/save/use/export/import), con estado de carga cuando el detalle aún no
-// llegó y sin desbordar en los tamaños de referencia.
+// §5.7: la pestaña Mundos muestra la semilla del Spec, el aviso de pérdida de
+// datos al regenerar y la biblioteca de mundos (que llega por mensaje, nunca con
+// E/S en View). La TUI ya no delega en el CLI: [G] regenera el mundo y [L] carga
+// un .zip. Sin desbordes en los tamaños de referencia.
 func TestMundosSemillaEInstrucciones(t *testing.T) {
-	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	a := NewApp(svc.NewFakeWith([]*instance.Spec{goldenSpec()}, svc.FakeOptions{WorldLibrary: []string{"arena", "ciudad"}}), darkOpts())
 	resize(a, 120, 40)
 	inst := openInstance(t, a, "survival")
 	inst.tab = 4
@@ -1302,29 +1407,38 @@ func TestMundosSemillaEInstrucciones(t *testing.T) {
 	}
 
 	inst.detail = &svc.Detail{Spec: goldenSpec(), State: "running", Host: "100.64.0.1"}
+	// La biblioteca se lee con un comando (nunca en View): se inyecta su respuesta.
+	inst.Update(worldsLibMsg{names: []string{"arena", "ciudad"}})
 	conSemilla := stripANSI(inst.worldsView(106, 24))
-	for _, want := range []string{"MUNDO", "Semilla: 42", "badomens world list", "world save", "world use", "world export", "world import"} {
+	for _, want := range []string{
+		"MUNDO", "Semilla: 42", "Biblioteca de mundos", "arena", "ciudad",
+		"se pierden Overworld, Nether y End", "[G] Regenerar", "[L] Cargar",
+	} {
 		if !strings.Contains(conSemilla, want) {
 			t.Fatalf("la vista de mundos debe contener %q:\n%s", want, conSemilla)
+		}
+	}
+	for _, viejo := range []string{"badomens world list", "world save", "world use", "world export", "world import"} {
+		if strings.Contains(conSemilla, viejo) {
+			t.Fatalf("la vista ya no debe delegar en el CLI (%q):\n%s", viejo, conSemilla)
 		}
 	}
 	if n := len(strings.Split(conSemilla, "\n")); n != 24 {
 		t.Fatalf("el panel de mundos debe ocupar 24 líneas, tengo %d", n)
 	}
 
-	// Estado vacío: sin semilla se explica que el mundo se genera aleatorio y se
-	// mantienen las instrucciones.
+	// Estado vacío: sin semilla se explica que el mundo se genera aleatorio.
 	inst.detail.Spec.Seed = ""
 	vacio := stripANSI(inst.worldsView(106, 24))
-	if !strings.Contains(vacio, "sin semilla") || !strings.Contains(vacio, "world list") {
-		t.Fatalf("sin semilla debe verse el aviso y las instrucciones:\n%s", vacio)
+	if !strings.Contains(vacio, "sin semilla") {
+		t.Fatalf("sin semilla debe verse el aviso:\n%s", vacio)
 	}
 	if !strings.Contains(vacio, "Semilla: —") {
 		t.Fatalf("la semilla vacía debe mostrarse como —:\n%s", vacio)
 	}
 
 	inst.detail.Spec.Seed = "42"
-	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}} {
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}, {132, 40}} {
 		resize(a, sz[0], sz[1])
 		inst.tab = 4
 		assertWithinSize(t, stripANSI(a.View()), sz[0], sz[1])
@@ -1527,5 +1641,51 @@ func TestAutoApagadoPresetsYAplicar(t *testing.T) {
 		resize(a, sz[0], sz[1])
 		inst.tab = 7
 		assertWithinSize(t, stripANSI(a.View()), sz[0], sz[1])
+	}
+}
+
+// WS-3: [c] copia la dirección de conexión en cualquier pestaña del detalle (no solo
+// en Red, donde [C] sigue funcionando). El aviso llega por toast y no depende del
+// portapapeles real: si el copiado falla se dice, nunca un falso «copiado».
+func TestCopiarDireccionEnCualquierPestana(t *testing.T) {
+	a := NewApp(svc.NewFake([]*instance.Spec{goldenSpec()}), darkOpts())
+	resize(a, 120, 40)
+	inst := openInstance(t, a, "survival")
+	direccion := connectionFromSpecWithHost(inst.detail.Spec, inst.detail.Host).Preferred()
+	if strings.TrimSpace(direccion) == "" {
+		t.Fatal("el escenario debe tener una dirección de conexión")
+	}
+	for _, tab := range []int{0, 1, 2, 3, 5, 7, 8} {
+		inst.tab = tab
+		_, cmd := a.Update(press("c"))
+		if cmd == nil {
+			t.Fatalf("«c» en la pestaña %d debe copiar la dirección", tab)
+		}
+		msg := ejecutaCmd(cmd)
+		aviso, ok := msg.(toastMsg)
+		if !ok {
+			t.Fatalf("la pestaña %d debe avisar del copiado, tengo %T", tab, msg)
+		}
+		if strings.HasPrefix(aviso.Text, "✓") && !strings.Contains(aviso.Text, direccion) {
+			t.Fatalf("el aviso de éxito debe citar %q, tengo %q", direccion, aviso.Text)
+		}
+	}
+
+	// En la pestaña Red, [C] sigue copiando además de [c].
+	inst.tab = 6
+	if _, cmd := a.Update(press("C")); cmd == nil {
+		t.Fatal("C debe seguir copiando en la pestaña Red")
+	}
+
+	// La barra de acciones anuncia las teclas que de verdad funcionan.
+	teclas := map[string]string{}
+	for _, act := range inst.Actions() {
+		teclas[act.ID] = act.Key
+	}
+	if teclas["instance.copy"] != "c" {
+		t.Fatalf("Copiar debe anunciarse con [c], tengo %q", teclas["instance.copy"])
+	}
+	if teclas["instance.console"] != "/" {
+		t.Fatalf("Escribir en la consola debe anunciarse con [/], tengo %q", teclas["instance.console"])
 	}
 }

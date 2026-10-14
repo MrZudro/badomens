@@ -10,7 +10,7 @@
 │ │  Modo de juego: survival                                                                                                                 ││Ejemplo: 20                                           │ │
 │ │    Survival, Creativo, Aventura o Espectador para quienes entran por primera vez.                                                        ││                                                      │ │
 │ │  Cuentas premium (modo online): no                                                                                                       ││Afecta al rendimiento                                 │ │
-│ │    Activo: solo cuentas oficiales. Inactivo: entra cualquiera con cualquier nombre.                                                      ││                                                      │ │
+│ │    Premium: solo cuentas oficiales. Crackeado: entra cualquiera con cualquier nombre.                                                    ││                                                      │ │
 │ │  Lista blanca: no                                                                                                                        ││                                                      │ │
 │ │    Solo entran los jugadores que apruebes. Muy recomendada si el modo online está inactivo.                                              ││                                                      │ │
 │ │  Operadores:                                                                                                                             ││                                                      │ │
@@ -47,4 +47,4 @@
 │ │                                                                                                                                          ││                                                      │ │
 │ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                                                                                                                                                      │
-└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Ctrl+P · F2 Salud · Ctrl+Q Salir ───────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ───────────────────────────────────────────────────────────────────────────────────────────────────────────┘

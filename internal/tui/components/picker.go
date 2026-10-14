@@ -151,10 +151,18 @@ func (p *Picker) Render(w, h int, pal theme.Palette, ascii bool) string {
 			line += "  " + lipgloss.NewStyle().Foreground(lipgloss.Color(pal.Muted)).Render(it.Detail)
 		}
 		if i == p.cursor {
-			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(pal.AccentText)).Background(lipgloss.Color(pal.Accent)).Render(Pointer(ascii) + " " + it.Label))
+			// La fila enfocada resalta toda la línea (etiqueta + atajo) y rellena
+			// hasta el ancho: así el atajo queda dentro de la banda y alineado con
+			// el de las demás filas, sin «saltar» fuera del resaltado.
+			text := Pointer(ascii) + " " + it.Label
 			if it.Detail != "" {
-				b.WriteString("  " + it.Detail)
+				text += "  " + it.Detail
 			}
+			text = layout.Truncate(text, w)
+			if pad := w - layout.Width(text); pad > 0 {
+				text += strings.Repeat(" ", pad)
+			}
+			b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(pal.AccentText)).Background(lipgloss.Color(pal.Accent)).Render(text))
 		} else {
 			b.WriteString(layout.Truncate(line, w))
 		}

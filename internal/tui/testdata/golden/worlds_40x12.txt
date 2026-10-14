@@ -5,8 +5,8 @@
 │ ╭─ MUNDO ──────────────────────────╮ │
 │ │Semilla: 42                       │ │
 │ │                                  │ │
-│ │Biblioteca de mundos (CLI)        │ │
-│ │Guardar, importar o cambiar el    │ │
+│ │⚠ [G] Regenerar borra el mundo    │ │
+│ │actual: se pierden Overworld,     │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
-└─ F1 Ayuda · ^P · F2 · ^Q Salir ──────┘
+└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘
