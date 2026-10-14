@@ -13,4 +13,4 @@ INSTANCIAS (2/5 · 1/3 en marc…  Survival · paper 1.21.4                     
                                                                                                                                                                                                         
                                 · Iniciar «survival» — Ya está en marcha  [P] Detener «survival» (guarda el mundo)  [R] Reiniciar «survival»                                                            
                                 [B] Crear backup ahora  [C] Copiar dirección de conexión  [ENTER] Ver detalle de «survival»                                                                             
-  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS
+  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS

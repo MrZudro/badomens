@@ -8,11 +8,11 @@
 │   Crear backup ahora  b                                    │
 │   Copiar dirección de conexión  c                          │
 │   Ver detalle de «survival»  enter                         │
-│   Abrir Salud del sistema  H                               │
+│   Abrir Salud del sistema  F2                              │
 │   Crear una instancia nueva  ctrl+n                        │
-│   Ver la ayuda de esta pantalla  ?                         │
+│   Ver la ayuda de esta pantalla  F1                        │
 │                                                            │
 │                                                            │
 │                                                            │
 ╰────────────────────────────────────────────────────────────╯
-  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS
+  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS

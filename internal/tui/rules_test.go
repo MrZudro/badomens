@@ -48,9 +48,9 @@ func TestLintDeBotonesReales(t *testing.T) {
 		name    string
 		actions []components.Action
 	}{"globales", []components.Action{
-		{ID: "global.health", Verb: "Abrir", Object: "Salud del sistema", Key: "H", Hint: "Muestra Docker, Tailscale, disco y RAM.", Kind: components.Navigation},
-		{ID: "global.new", Verb: "Crear", Object: "una instancia nueva", Key: "n", Hint: "Abre el asistente.", Kind: components.Primary},
-		{ID: "global.help", Verb: "Ver", Object: "la ayuda", Key: "?", Hint: "Muestra los atajos.", Kind: components.Navigation},
+		{ID: "global.health", Verb: "Abrir", Object: "Salud del sistema", Key: "F2", Hint: "Muestra Docker, Tailscale, disco y RAM.", Kind: components.Navigation},
+		{ID: "global.new", Verb: "Crear", Object: "una instancia nueva", Key: "ctrl+n", Hint: "Abre el asistente.", Kind: components.Primary},
+		{ID: "global.help", Verb: "Ver", Object: "la ayuda", Key: "F1", Hint: "Muestra los atajos.", Kind: components.Navigation},
 	}})
 
 	for _, sc := range screens {

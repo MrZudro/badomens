@@ -11,4 +11,4 @@ Salud del sistema
   ✓ Plan  3 en paralelo · 5 registradas  límites
 
   [D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nuevo
-  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS
+  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS

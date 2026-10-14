@@ -258,22 +258,13 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, a.router.Update(msg)
 	}
 	switch key {
-	case "ctrl+c":
+	case "ctrl+c", "ctrl+q":
 		if a.busy {
 			return a.askQuit()
 		}
 		a.quitting = true
 		a.stopWatch()
 		return a, tea.Quit
-	case "q":
-		if a.router.Overlay() == nil {
-			if a.busy {
-				return a.askQuit()
-			}
-			a.quitting = true
-			a.stopWatch()
-			return a, tea.Quit
-		}
 	case "esc":
 		if a.router.Overlay() != nil && a.router.Overlay().ID() != "palette" {
 			if a.router.Overlay().ID() == "help" {
@@ -285,19 +276,19 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.toasts = nil
 			return a, nil
 		}
-	case "?":
+	case "f1":
 		if a.router.Overlay() != nil && a.router.Overlay().ID() == "help" {
 			a.router.ClearOverlay()
 			return a, nil
 		}
 		a.router.SetOverlay(newHelpScreen(a.keys, a.pal, a.ascii))
 		return a, nil
-	case "H":
+	case "f2":
 		if a.router.Overlay() == nil {
 			a.router.Push(newHealthScreen(a.svc, a.pal, a.ascii))
 			return a, a.svcInit()
 		}
-	case "ctrl+p", ":":
+	case "ctrl+p":
 		if a.router.Overlay() == nil {
 			a.router.SetOverlay(newPaletteScreen(a.actions(), a.pal, a.ascii))
 		}
@@ -408,9 +399,9 @@ func (a *App) svcInit() tea.Cmd { return a.router.Top().Init() }
 // marca deshabilitadas si Docker no está listo (guarda de prerrequisitos).
 func (a *App) actions() []components.Action {
 	globals := []components.Action{
-		{ID: "global.health", Verb: "Abrir", Object: a.cat.T("global.health.obj"), Key: "H", Hint: a.cat.T("global.health.hint"), Kind: components.Navigation},
+		{ID: "global.health", Verb: "Abrir", Object: a.cat.T("global.health.obj"), Key: "F2", Hint: a.cat.T("global.health.hint"), Kind: components.Navigation},
 		{ID: "global.new", Verb: "Crear", Object: a.cat.T("global.new.obj"), Key: "ctrl+n", Hint: a.cat.T("global.new.hint"), Kind: components.Primary, Disabled: a.dockerDown(), DisabledReason: a.cat.T("app.disabled.docker")},
-		{ID: "global.help", Verb: "Ver", Object: a.cat.T("global.help.obj"), Key: "?", Hint: a.cat.T("global.help.hint"), Kind: components.Navigation},
+		{ID: "global.help", Verb: "Ver", Object: a.cat.T("global.help.obj"), Key: "F1", Hint: a.cat.T("global.help.hint"), Kind: components.Navigation},
 	}
 	out := append([]components.Action{}, a.router.Active().Actions()...)
 	// Guarda de prerrequisitos: si Docker no está listo, las acciones que
@@ -664,13 +655,25 @@ func (a *App) View() string {
 		}
 		toasts = strings.Join(lines, "\n") + "\n"
 	}
-	// Reserva fija: 1 línea de cabecera + 1 de barra de atajos/envío; el resultado
-	// nunca puede desplazar el footer fuera de la pantalla (§4).
+	// Franja fija de la pantalla (título y pestañas), si la expone (§4).
+	chrome := ""
+	if a.router.Overlay() == nil && a.confirm == nil {
+		if c, ok := a.router.Top().(Chromed); ok {
+			chrome = c.Chrome(w)
+		}
+	}
+	chromeLines := 0
+	if chrome != "" {
+		chromeLines = strings.Count(chrome, "\n") + 1
+	}
+	// Reserva fija: 1 línea de cabecera + 1 de barra de atajos + banners + toasts
+	// + pestañas. El cuerpo es el único que se desplaza (§4).
 	extra := 0
 	if banners != "" {
 		extra++
 	}
 	extra += len(a.toasts)
+	extra += chromeLines
 	bodyH := h - 2 - extra
 	if bodyH < 1 {
 		bodyH = 1
@@ -684,7 +687,11 @@ func (a *App) View() string {
 	}
 	// Guarda de tamaño: el cuerpo nunca puede superar el ancho ni el alto útil.
 	body = clampWidth(body, w)
-	middle := banners + toasts + body
+	middle := banners + toasts
+	if chrome != "" {
+		middle += chrome + "\n"
+	}
+	middle += body
 	middle = clampLines(middle, h-2)
 	view := strings.Join([]string{header, middle, footer}, "\n")
 	// Guarda final de ancho: ninguna línea puede superar w.

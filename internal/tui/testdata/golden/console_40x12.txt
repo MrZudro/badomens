@@ -1,7 +1,5 @@
 ┌ badomens        Docker sin comprobar ┐
-Survival   Resumen   Consola   Jugadore…
-
-ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+Survival  Consola  2/9  ←/→
 ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
 ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
 ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
@@ -9,4 +7,4 @@ ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
 , type "help"
 seguir=sí  pausa=no  filtro=—
 > comando para la consola (ej. say hola)
-  ? Ayuda · Ctrl+P Comandos · Tab Panel…
+  F1 Ayuda · Ctrl+P Comandos · Tab Pane…

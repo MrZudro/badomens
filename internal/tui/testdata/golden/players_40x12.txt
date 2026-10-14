@@ -1,6 +1,5 @@
 ┌ badomens        Docker sin comprobar ┐
-Survival   Resumen   Consola   Jugadore…
-
+Survival  Jugadores  3/9  ←/→
 En línea: no se pudo medir (¿servidor a…
 
 Lista blanca
@@ -9,4 +8,5 @@ Lista blanca
 Jugadores permitidos
   ▶ ana
   ▶ luis
-  ? Ayuda · Ctrl+P Comandos · Tab Panel…
+
+  F1 Ayuda · Ctrl+P Comandos · Tab Pane…

@@ -34,6 +34,13 @@ type homeLogsMsg struct {
 
 type openInstanceMsg struct{ slug string }
 
+// homeDetailDebounceMsg dispara la carga del detalle tras el debounce que evita
+// consultas repetidas al recorrer instancias rápido (§7).
+type homeDetailDebounceMsg struct{ gen int }
+
+// homeNavDebounce es la espera antes de cargar el detalle de la selección.
+const homeNavDebounce = 150 * time.Millisecond
+
 type homeReqMsg struct {
 	dockerOK bool
 	tsIP     string
@@ -135,6 +142,11 @@ func (s *homeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		s.status = ""
 		s.detailGen++
 		return s, s.detailCmd()
+	case homeDetailDebounceMsg:
+		if msg.gen != s.detailGen {
+			return s, nil // la selección cambió: tick obsoleto
+		}
+		return s, s.detailCmd()
 	case homeDetailMsg:
 		// Descarta respuestas de otra instancia o de una selección ya cambiada.
 		if msg.slug != "" && (msg.slug != s.selected() || msg.gen != s.detailGen) {
@@ -227,8 +239,12 @@ func (s *homeScreen) move(d int) (Screen, tea.Cmd) {
 	if s.cursor >= len(s.rows) {
 		s.cursor = len(s.rows) - 1
 	}
+	// Debounce: no se lanza la carga de detalle en cada pulsación (§7).
 	s.detailGen++
-	return s, s.detailCmd()
+	gen := s.detailGen
+	return s, tea.Tick(homeNavDebounce, func(time.Time) tea.Msg {
+		return homeDetailDebounceMsg{gen: gen}
+	})
 }
 
 func (s *homeScreen) selectedSlug() (string, bool) {
@@ -431,7 +447,7 @@ func (s *homeScreen) emptyView(w int, class layout.Class) string {
 	b.WriteString("\n")
 	if s.reqs {
 		s.reqRow(&b, "Docker", s.dockerOK, "instalado y en marcha", "instálalo o arráncalo", "Ctrl+R")
-		s.reqRow(&b, "Tailscale", s.tsOK, "IP "+s.tsIP, "sin IP del tailnet ('tailscale up')", "H")
+		s.reqRow(&b, "Tailscale", s.tsOK, "IP "+s.tsIP, "sin IP del tailnet ('tailscale up')", "F2")
 	} else {
 		b.WriteString("  " + lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("comprobando Docker y Tailscale…"))
 	}

@@ -7,6 +7,6 @@
 │   ↓/j  bajar                       │
 │   Enter  abrir/confirmar           │
 │   Esc  volver                      │
-│   ?  ayuda                         │
+│   F1  ayuda                        │
 │   Ctrl+P  comandos                 │
-  ? Ayuda · Ctrl+P Comandos · Tab Panel…
+  F1 Ayuda · Ctrl+P Comandos · Tab Pane…

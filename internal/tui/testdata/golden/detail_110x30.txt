@@ -1,6 +1,5 @@
 ┌ badomens                                                                              Docker sin comprobar ┐
 Survival   Resumen   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado   Ajustes  
-
 Motor:      paper 1.21.4
 Memoria:    4G
 Puerto:     25565
@@ -15,4 +14,4 @@ Estado:     ● En línea
 │ ⚠ MagicDNS desactivado: falta el nombre de conexión; usa la  │
 │ dirección IP                                                 │
 ╰──────────────────────────────────────────────────────────────╯
-  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS
+  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS

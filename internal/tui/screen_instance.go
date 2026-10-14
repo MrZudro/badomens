@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
+	"github.com/mattn/go-runewidth"
 
 	"github.com/MrZudro/badomens/internal/backup"
 	"github.com/MrZudro/badomens/internal/idle"
@@ -1040,31 +1040,14 @@ func (s *instanceScreen) saveCmd() tea.Cmd {
 	}
 }
 
-// View pinta el detalle con pestañas.
+// View pinta el contenido de la pestaña activa. El título y la fila de pestañas
+// los dibuja Chrome y el App los reserva como franja fija (§4).
 func (s *instanceScreen) View(w, h int) string {
 	// El ancho del campo sigue al terminal (nada de anchos fijos desconectados).
 	if w > 4 {
 		s.input.Width = w - 2
 	}
 	var b strings.Builder
-	name := s.slug
-	if s.detail != nil && s.detail.Spec != nil {
-		name = s.detail.Spec.Name
-	}
-	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render(name))
-	b.WriteString("  ")
-	tabLine := ""
-	for i, tab := range instanceTabs {
-		style := lipgloss.NewStyle()
-		if i == s.tab {
-			style = style.Bold(true).Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent))
-		} else {
-			style = style.Foreground(lipgloss.Color(s.pal.Muted))
-		}
-		tabLine += style.Render(" "+tab+" ") + " "
-	}
-	b.WriteString(layout.Truncate(tabLine, w-lipgloss.Width(name)-2))
-	b.WriteString("\n\n")
 	switch s.tab {
 	case 0:
 		b.WriteString(s.summaryView())
@@ -1096,6 +1079,34 @@ func (s *instanceScreen) View(w, h int) string {
 			"⚠ Se hará un backup y se cambiará la versión a «"+s.confirmValue+"». Bajar de versión puede corromper el mundo. [Enter] Confirmar · [Esc] Cancelar"))
 	}
 	return b.String()
+}
+
+// Chrome devuelve el nombre de la instancia y la fila de pestañas. En terminales
+// compactas muestra el nombre completo de la pestaña activa con un indicador
+// «n/9» y navegación izquierda/derecha (§3), sin truncar todo hasta lo ilegible.
+func (s *instanceScreen) Chrome(w int) string {
+	name := s.slug
+	if s.detail != nil && s.detail.Spec != nil {
+		name = s.detail.Spec.Name
+	}
+	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render(name)
+	if layout.ClassifyWidth(w) == layout.Compact {
+		ind := " " + itoa(s.tab+1) + "/" + itoa(len(instanceTabs))
+		label := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent)).Render(" " + instanceTabs[s.tab] + " ")
+		muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(ind + "  ←/→")
+		return layout.Truncate(title+" "+label+muted, w)
+	}
+	tabLine := ""
+	for i, tab := range instanceTabs {
+		style := lipgloss.NewStyle()
+		if i == s.tab {
+			style = style.Bold(true).Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent))
+		} else {
+			style = style.Foreground(lipgloss.Color(s.pal.Muted))
+		}
+		tabLine += style.Render(" "+tab+" ") + " "
+	}
+	return title + "  " + layout.Truncate(tabLine, w-lipgloss.Width(title)-2)
 }
 
 func (s *instanceScreen) summaryView() string {
@@ -1163,33 +1174,34 @@ func (s *instanceScreen) consoleView(w, h int) string {
 }
 
 // wrapWidth envuelve el texto de log (sin ANSI) en líneas de ancho visual `w`,
-// de modo que ninguna línea desborde ni desplace el footer (UI-04).
+// de modo que ninguna línea desborde ni desplace el footer (UI-04). Se recorre
+// runa a runa con el ancho de celda incremental para ser O(n) (PERF-05).
 func wrapWidth(text string, w int) []string {
 	if w < 8 {
 		w = 8
 	}
 	raw := strings.Split(stripANSI(text), "\n")
 	out := make([]string, 0, len(raw))
+	buf := make([]rune, 0, w)
+	width := 0
+	flush := func() {
+		out = append(out, string(buf))
+		buf = buf[:0]
+		width = 0
+	}
 	for _, ln := range raw {
-		runes := []rune(ln)
-		if len(runes) == 0 {
-			out = append(out, "")
-			continue
-		}
-		for len(runes) > 0 {
-			cut := 0
-			for i := 1; i <= len(runes); i++ {
-				if ansi.StringWidth(string(runes[:i])) > w {
-					break
-				}
-				cut = i
+		for _, r := range ln {
+			rw := runewidth.RuneWidth(r)
+			if rw < 0 {
+				rw = 0
 			}
-			if cut == 0 {
-				cut = 1
+			if width > 0 && width+rw > w {
+				flush()
 			}
-			out = append(out, string(runes[:cut]))
-			runes = runes[cut:]
+			buf = append(buf, r)
+			width += rw
 		}
+		flush()
 	}
 	return out
 }

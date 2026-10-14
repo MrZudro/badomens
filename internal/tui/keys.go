@@ -26,26 +26,26 @@ var DefaultKeys = KeyMap{
 	Down:     key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "bajar")),
 	Enter:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("Enter", "abrir/confirmar")),
 	Back:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("Esc", "volver")),
-	Help:     key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "ayuda")),
-	Palette:  key.NewBinding(key.WithKeys("ctrl+p", ":"), key.WithHelp("Ctrl+P", "comandos")),
+	Help:     key.NewBinding(key.WithKeys("f1"), key.WithHelp("F1", "ayuda")),
+	Palette:  key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("Ctrl+P", "comandos")),
 	NextPane: key.NewBinding(key.WithKeys("tab"), key.WithHelp("Tab", "cambiar panel")),
 	PrevPane: key.NewBinding(key.WithKeys("shift+tab")),
 	New:      key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("Ctrl+N", "nueva instancia")),
-	Health:   key.NewBinding(key.WithKeys("H"), key.WithHelp("H", "salud del sistema")),
+	Health:   key.NewBinding(key.WithKeys("f2"), key.WithHelp("F2", "salud del sistema")),
 	Copy:     key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copiar")),
-	Quit:     key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "salir")),
+	Quit:     key.NewBinding(key.WithKeys("ctrl+q", "ctrl+c"), key.WithHelp("Ctrl+Q", "salir")),
 	Yes:      key.NewBinding(key.WithKeys("y")),
 	No:       key.NewBinding(key.WithKeys("n")),
 }
 
 // ShortHelp es la barra de ayuda global (siempre visible en la última línea).
 func (k KeyMap) ShortHelp() string {
-	return "? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir"
+	return "F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir"
 }
 
 // ShortHelpASCII es la barra de ayuda en modo ASCII (separadores planos).
 func (k KeyMap) ShortHelpASCII() string {
-	return "? Ayuda | Ctrl+P Comandos | Tab Panel | H Salud | Q Salir"
+	return "F1 Ayuda | Ctrl+P Comandos | Tab Panel | F2 Salud | Ctrl+Q Salir"
 }
 
 // FullHelp devuelve la hoja de atajos completa de la pantalla actual.

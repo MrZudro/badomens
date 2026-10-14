@@ -7,4 +7,4 @@ Crea tu primer servidor y badomens te dirá cómo conectarte.
 
 Requisitos
   comprobando Docker y Tailscale…
-  ? Ayuda | Ctrl+P Comandos | Tab Panel | H Salud | Q Salir    INSTANCIAS
+  F1 Ayuda | Ctrl+P Comandos | Tab Panel | F2 Salud | Ctrl+Q Salir    INSTANCIAS

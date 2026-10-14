@@ -43,5 +43,12 @@ type InputCaptor interface {
 	CapturesInput() bool
 }
 
+// Chromed lo implementan las pantallas que dibujan una franja fija (título y
+// pestañas) que el App reserva por encima del cuerpo desplazable (§4: la altura
+// del cuerpo es alto − cabecera − pestañas − estado − barra de atajos).
+type Chromed interface {
+	Chrome(w int) string
+}
+
 // popScreenMsg pide al App que desapile la pantalla actual.
 type popScreenMsg struct{}

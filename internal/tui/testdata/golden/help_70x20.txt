@@ -7,14 +7,14 @@
 │   ↓/j  bajar                                               │
 │   Enter  abrir/confirmar                                   │
 │   Esc  volver                                              │
-│   ?  ayuda                                                 │
+│   F1  ayuda                                                │
 │   Ctrl+P  comandos                                         │
 │   Tab  cambiar panel                                       │
 │                                                            │
 │   Ctrl+N  nueva instancia                                  │
-│   H  salud del sistema                                     │
+│   F2  salud del sistema                                    │
 │   c  copiar                                                │
-│   q  salir                                                 │
+│   Ctrl+Q  salir                                            │
 │                                                            │
 │   Esc  cerrar ayuda                                        │
-  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTAN…
+  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir   …

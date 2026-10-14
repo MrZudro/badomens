@@ -92,13 +92,13 @@ func TestAppHomeMuestraFilasYConectar(t *testing.T) {
 func TestAppAyudaYPaleta(t *testing.T) {
 	a := testApp()
 	resize(a, 100, 30)
-	a.Update(press("?"))
+	a.Update(tea.KeyMsg{Type: tea.KeyF1})
 	if a.router.Overlay() == nil || a.router.Overlay().ID() != "help" {
-		t.Fatal("? debe abrir la ayuda")
+		t.Fatal("F1 debe abrir la ayuda")
 	}
-	a.Update(press("?"))
+	a.Update(tea.KeyMsg{Type: tea.KeyF1})
 	if a.router.Overlay() != nil {
-		t.Fatal("? de nuevo cierra la ayuda")
+		t.Fatal("F1 de nuevo cierra la ayuda")
 	}
 	a.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	if a.router.Overlay() == nil || a.router.Overlay().ID() != "palette" {
@@ -160,7 +160,7 @@ func TestAppAbreDetalleDeInstancia(t *testing.T) {
 	}
 	// Simular carga del detalle.
 	a.Update(homeDetailMsg{d: &svc.Detail{Spec: &instance.Spec{Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4", Port: 25565}, State: "running"}})
-	if !strings.Contains(a.router.Top().View(100, 30), "Survival") {
+	if !strings.Contains(a.View(), "Survival") {
 		t.Fatal("el detalle debe mostrar el nombre")
 	}
 }

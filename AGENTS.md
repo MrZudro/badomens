@@ -70,22 +70,26 @@ internal/uninstall/      desinstalación del binario y la configuración
 Antes de tocar `internal/tui/**`, **lee la skill `skills/tui-engineering/SKILL.md`**
 y el contrato de rediseño en `docs/TUI_REDESIGN.md` / `docs/TUI_ACCEPTANCE_TESTS.md`.
 
-- Ruta de producción: `Run → NewApp (app_v2.go) → Router → Screen → Services`.
-  No basta con que pasen los tests del modelo legacy (`model.go`, `views.go`):
-  los flujos de teclado/estado deben probarse contra `App`+`Router`+`svc`.
+- **Ruta de producción única**: `Run → NewApp (app_v2.go) → Router → Screen →
+  Services`. El modelo legacy (`model.go`, `views.go`, `backend.go`, `create.go`,
+  `styles.go`, `types.go`) fue **retirado**; no lo reintroduzcas. Los flujos de
+  teclado/estado se prueban contra `App`+`Router`+`svc` (ver `acceptance_test.go`,
+  `perf_test.go`).
 - Precedencia de teclado: modal/confirmación → campo de texto con foco →
   control de la pestaña → pantalla activa → atajos globales. Las letras
   imprimibles **no** son atajos globales mientras un formulario captura el foco;
   los atajos globales usan combinaciones no imprimibles (`Ctrl+N`, `Ctrl+P`,
-  `Ctrl+R`, `Ctrl+T`, `Ctrl+C`).
+  `Ctrl+R`, `Ctrl+T`, `F1`, `F2`, `Ctrl+Q`, `Ctrl+C`).
 - La whitelist/operadores se leen del servicio (`svc.Access`) con **read-back**:
   no se afirma éxito por haber enviado un comando. Se distingue estado en vivo
   (`live`) de configuración guardada (`saved`) y de consulta no disponible.
-- Cabecera, pestañas, estado y barra de atajos reservan su altura; solo el
-  cuerpo se desplaza. Nada de logs crudos fuera de la pestaña Consola.
+- Layout por regiones reservadas: cabecera, franja de pestañas (`Chromed`),
+  estado y barra de atajos conservan su altura; solo el cuerpo se desplaza. Nada
+  de logs crudos fuera de la pestaña Consola.
 - Antes de cerrar un cambio: `gofmt -w`, `go build ./...`, `go vet ./...`,
   `go test ./...` (y `-race` si el entorno lo permite). Actualiza los snapshots
-  con `make golden` **tras revisar el diff**, nunca a ciegas.
+  con `make golden` **tras revisar el diff**, nunca a ciegas. Hay benchmarks de
+  render en `perf_test.go` (`go test -bench BenchmarkView ./internal/tui/`).
 
 ## Reglas
 

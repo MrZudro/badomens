@@ -18,6 +18,14 @@ versionado es [semántico](https://semver.org/lang/es/).
 - **Captura de teclado por foco (§5)**: modal → campo de texto → control →
   pantalla → global. Las letras imprimibles ya no disparan atajos globales
   mientras un formulario tiene el foco (p. ej. escribir `n` en la consola).
+- **Franja de pestañas reservada (§4)**: la pantalla expone `Chrome(w)` y el App
+  reserva su altura; en terminales compactas se muestra el nombre completo de la
+  pestaña activa con un indicador `n/9` y navegación `←/→`.
+- **Debounce de navegación en Inicio (§7)**: recorrer instancias no lanza una
+  consulta de detalle por pulsación; los ticks obsoletos se descartan.
+- **Benchmarks y pruebas de rendimiento/layout**: `PERF-01..05`
+  (`BenchmarkViewHome`, `BenchmarkViewConsolaGrande`) y `UI-07` (resize con la
+  consola activa).
 - **Capturas doradas de Consola y Jugadores/Acceso** en 40×12, 70×20, 110×30 y
   200×50, incluida una línea de log de 240 caracteres.
 - **Tests de aceptación `KEY-*`, `ACL-*`, `UI-*`** sobre la ruta de producción
@@ -25,16 +33,25 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ### 🔧 Cambiado
 
-- **Atajos globales explícitos**: crear instancia pasa a `Ctrl+N` (en Inicio
-  sigue valiendo `n`), reparar Docker a `Ctrl+R` y cambiar de tema a `Ctrl+T`;
-  así `d`, `t` y `T` dejan de chocar con las teclas de las pantallas.
-- **Layout con alturas reservadas**: la cabecera y la barra de atajos nunca se
-  desplazan por banners, toasts o logs; el cuerpo recibe `alto − reservas`.
-- **Consola**: envuelve las líneas al ancho visual (sin desbordar ni desplazar
-  el footer) y el input sigue el ancho del terminal.
+- **Atajos globales no imprimibles (§5)**: crear instancia `Ctrl+N`, comandos
+  `Ctrl+P`, reparar Docker `Ctrl+R`, tema `Ctrl+T`, ayuda `F1`, salud `F2` y
+  salir `Ctrl+Q`/`Ctrl+C`. Desaparecen `q`, `?`, `H`, `:` como atajos globales;
+  `n` solo crea desde Inicio y la pantalla de Salud atiende sus propias teclas.
+- **Layout con alturas reservadas**: cabecera, pestañas y barra de atajos nunca
+  se desplazan por banners, toasts o logs; el cuerpo recibe `alto − reservas`.
+- **Consola**: envuelve las líneas al ancho visual con un recorrido O(n) por
+  runa (de ~46 ms a ~2 ms en 2.000 líneas) y el input sigue el ancho del terminal.
 - **Inicio**: la zona de actividad muestra estado derivado, no logs crudos.
 - **Respuestas tardías**: el detalle del Home lleva `slug` y generación y se
   descartan las respuestas de una selección ya cambiada.
+
+### 🗑️ Retirado
+
+- **Modelo legacy de la TUI**: se eliminan `model.go`, `views.go`, `backend.go`,
+  `create.go`, `styles.go`, `types.go` y sus tests (`model_test.go`,
+  `views_test.go`). Queda una **única ruta probada** (`Run → NewApp → Router →
+  Screen → Services`); los helpers compartidos (`stripANSI`, `humanBytes`,
+  `shortSha`, `intValue`) pasan a `text.go`.
 
 ## [1.0.1] — 2026-10-14
 

@@ -21,4 +21,4 @@ Revisar y crear                                    ¿Qué es esto?
   Arrancar al crear: sí                                                                    
                                                                                            
 [Enter] Crear y arrancar · [Esc] Volver a editar                                           
-  ? Ayuda · Ctrl+P Comandos · Tab Panel · H Salud · Q Salir    INSTANCIAS
+  F1 Ayuda · Ctrl+P Comandos · Tab Panel · F2 Salud · Ctrl+Q Salir    INSTANCIAS
