@@ -122,6 +122,31 @@ func TestClientHTTP200ConValidadores(t *testing.T) {
 	}
 }
 
+// TestAcceptHeaderUsaRangosValidos: los rangos de medios deben ser tipo/subtipo
+// (RFC 9110 §12.5.1). Formas como `*/*+json` no son válidas y hacen que algunos
+// servidores (Spring/Hangar) respondan 406.
+func TestAcceptHeaderUsaRangosValidos(t *testing.T) {
+	for _, kind := range []ContentType{ContentJSON, ContentXML} {
+		header := acceptHeader(kind)
+		if header == "" {
+			t.Fatalf("Accept vacío para %v", kind)
+		}
+		for _, parte := range strings.Split(header, ",") {
+			rango := strings.TrimSpace(strings.SplitN(parte, ";", 2)[0])
+			tipo, sub, ok := strings.Cut(rango, "/")
+			token := func(s string) bool {
+				if s == "*" {
+					return true
+				}
+				return s != "" && !strings.ContainsAny(s, "*+")
+			}
+			if !ok || !token(tipo) || !token(sub) {
+				t.Errorf("rango de medios inválido %q en %q", rango, header)
+			}
+		}
+	}
+}
+
 func TestClientHTTPCompatibilidadHistorica(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/manifest" {

@@ -855,13 +855,16 @@ func decodeXML(raw []byte, out any) error {
 	return xml.NewDecoder(bytes.NewReader(raw)).Decode(out)
 }
 
-// acceptHeader devuelve la cabecera Accept del formato esperado.
+// acceptHeader devuelve la cabecera Accept del formato esperado. Los rangos
+// deben ser válidos (RFC 9110 §12.5.1): `tipo/subtipo`. Formas como `*/*+json`
+// NO son válidas y algunos servidores (Spring/Hangar) responden 406, así que se
+// usa `*/*` con menos prioridad.
 func acceptHeader(kind ContentType) string {
 	switch kind {
 	case ContentJSON:
-		return "application/json, */*+json;q=0.9"
+		return "application/json, */*;q=0.9"
 	case ContentXML:
-		return "application/xml, text/xml;q=0.9, */*+xml;q=0.8"
+		return "application/xml, text/xml;q=0.9, */*;q=0.8"
 	default:
 		return ""
 	}
