@@ -189,22 +189,42 @@ func runSetup(cmd *cobra.Command, e *Env, o *createOpts, interactive bool) (*res
 		Start:            !o.noStart,
 	}
 
+	// Ruta ÚNICA de resolución (T-01): provision resuelve por el servicio de
+	// catálogo y hereda la validación de pins obligatorios (AC-06).
+	catalog, err := e.CatalogService()
+	if err != nil {
+		return result.FromError("setup", err), err
+	}
 	pr, err := provision.Create(cmd.Context(), provision.Deps{
 		Cfg:      cfg,
 		Manager:  m,
-		Resolver: reg(),
+		Resolver: catalog,
 		Runtime:  rt,
 		Ports:    alloc,
 	}, req)
 	if err != nil {
 		res := result.FromError("setup", err)
 		if pr != nil && pr.Spec != nil {
-			res.Data = specSummary(pr.Spec)
+			// Estado PARCIAL (AC-10): la instancia quedó escrita y hay que
+			// decir qué falta (plugins o arranque).
+			data := specSummary(pr.Spec)
+			data["outcome"] = string(pr.Outcome)
+			data["compatibility"] = string(pr.Compatibility)
+			data["follow_up"] = "reintenta 'badomens -i " + pr.Spec.Slug + " start' cuando el entorno esté listo"
+			res.Data = data
+			res.WithPhases([]result.Phase{
+				result.PhaseFor("created", result.OutcomeApplied),
+				result.PhaseFor("runtime", result.OutcomePartial),
+			})
 		}
 		return res, err
 	}
 
 	data := specSummary(pr.Spec)
+	data["outcome"] = string(pr.Outcome)
+	data["compatibility"] = string(pr.Compatibility)
+	data["java_major"] = pr.JavaMajor
+	data["java_status"] = pr.JavaStatus
 	if len(pr.Warnings) > 0 {
 		data["warnings"] = pr.Warnings
 	}

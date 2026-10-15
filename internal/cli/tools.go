@@ -2,9 +2,12 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/netip"
+	"sort"
 	"strconv"
-	"time"
+	"strings"
 
 	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/doctor"
@@ -139,10 +142,10 @@ func buildRegistry(e *Env) (*tools.Registry, error) {
 		},
 		{
 			Name:        "badomens_engine_versions",
-			Description: "Versiones disponibles y compatibles de un motor (RF-5). Lista solo versiones que el motor publica.",
+			Description: "Versiones disponibles y compatibles de un motor (RF-5), con los campos normalizados (compatibility, java_major, java_status, loader_version, build, source, fetched_at, stale, warning) y el estado del catálogo. Misma ruta que 'engine versions'.",
 			ReadOnly:    true,
 			Params: []tools.Param{
-				{Name: "engine", Type: tools.TypeString, Description: "paper|fabric|forge|neoforge|vanilla", Required: true, Enum: []string{"paper", "fabric", "forge", "neoforge", "vanilla"}},
+				{Name: "engine", Type: tools.TypeString, Description: "paper|fabric|forge|neoforge|vanilla", Required: true, Enum: catalogEngineEnum()},
 				{Name: "all", Type: tools.TypeBool, Description: "incluir snapshots/betas"},
 			},
 			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
@@ -151,30 +154,183 @@ func buildRegistry(e *Env) (*tools.Registry, error) {
 					return nil, err
 				}
 				all, _ := args.Bool("all")
-				cache := engines.NewCache(cfg.DataDir, reg())
-				if d, derr := time.ParseDuration(cfg.Versions.CacheTTL); derr == nil && d > 0 {
-					cache.TTL = d
+				service, serr := e.CatalogService()
+				if serr != nil {
+					return nil, serr
 				}
-				versions, stale, verr := cache.Versions(ctx, engine, engines.VersionOpts{IncludeUnstable: all})
-				if verr != nil {
-					return nil, verr
+				// Misma ruta que `engine versions` (CLI) y que el asistente (TUI): T-01.
+				res, lerr := service.ListVersions(ctx, engine, engines.Filters{IncludeUnstable: all})
+				if lerr != nil {
+					return nil, lerr
 				}
-				engineLabel := engine
-				if en, ok := engines.ByName(engine); ok {
+				engineLabel := res.Engine
+				if en, ok := engines.ByName(res.Engine); ok {
 					engineLabel = en.Label
 				}
-				out := make([]map[string]any, 0, len(versions))
-				for _, v := range versions {
-					out = append(out, map[string]any{
-						"id": v.ID(), "channel": string(v.Channel), "recommended": v.Recommended,
-						"java_major": v.JavaMajor, "build": v.Build, "released_at": v.ReleasedAt,
-						"compatible": v.Compatible, "incompatible_why": v.IncompatibleWhy,
-					})
+				out := make([]map[string]any, 0, len(res.Versions))
+				for _, v := range res.Versions {
+					out = append(out, engineVersionData(v))
+				}
+				data := map[string]any{
+					"engine":   res.Engine,
+					"stale":    res.Stale,
+					"versions": out,
+					"catalog":  catalogStatusData(res.Status),
+				}
+				if res.Warning != "" {
+					data["warning"] = res.Warning
 				}
 				return &tools.Result{
-					Text: itoa(len(versions)) + " versiones de " + engineLabel,
-					Data: map[string]any{"engine": engine, "stale": stale, "versions": out},
+					Text: itoa(len(res.Versions)) + " versiones de " + engineLabel,
+					Data: data,
 				}, nil
+			},
+		},
+		{
+			Name:        "badomens_engine_resolve",
+			Description: "Resuelve una versión de Minecraft a los pins finales del motor (misma ruta que 'engine use'): version, pins, build, loader_version, java_major, java_status, compatibility, source y el estado del catálogo. Una versión inexistente es un error tipado (not_found).",
+			ReadOnly:    true,
+			Params: []tools.Param{
+				{Name: "engine", Type: tools.TypeString, Description: "paper|fabric|forge|neoforge|vanilla", Required: true, Enum: catalogEngineEnum()},
+				{Name: "version", Type: tools.TypeString, Description: "versión de Minecraft (vacío = la última estable)"},
+			},
+			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
+				engine, err := args.String("engine")
+				if err != nil {
+					return nil, err
+				}
+				version, err := args.OptionalString("version")
+				if err != nil {
+					return nil, err
+				}
+				service, serr := e.CatalogService()
+				if serr != nil {
+					return nil, serr
+				}
+				resolved, rerr := service.ResolveVersion(ctx, engine, version)
+				if rerr != nil {
+					return nil, rerr
+				}
+				status, _ := service.GetCatalogStatus(ctx, engine)
+				name := engine
+				if en, ok := engines.ByName(engine); ok {
+					name = en.Name
+				}
+				data := catalogResolvedData(name, resolved, status)
+				text := name + " " + resolved.Version + " · pins " + catalogPinsText(resolved.Pins)
+				if resolved.Warning != "" {
+					text += " · aviso: " + resolved.Warning
+				}
+				return &tools.Result{Text: text, Data: data}, nil
+			},
+		},
+		{
+			Name:        "badomens_catalog_status",
+			Description: "Estado del catálogo de versiones de cada motor (fresh, stale, invalid, unavailable) SIN tocar la red: fuente, antigüedad, versión recomendada y aviso.",
+			ReadOnly:    true,
+			Params: []tools.Param{
+				{Name: "engine", Type: tools.TypeString, Description: "paper|fabric|forge|neoforge|vanilla (vacío = todos)", Enum: catalogEngineEnum()},
+			},
+			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
+				name, err := args.OptionalString("engine")
+				if err != nil {
+					return nil, err
+				}
+				service, serr := e.CatalogService()
+				if serr != nil {
+					return nil, serr
+				}
+				names := engineNames()
+				if strings.TrimSpace(name) != "" {
+					names = []string{name}
+				}
+				out := make([]map[string]any, 0, len(names))
+				for _, n := range names {
+					st, serr := service.GetCatalogStatus(ctx, n)
+					if serr != nil {
+						return nil, serr
+					}
+					out = append(out, catalogStatusData(st))
+				}
+				return &tools.Result{
+					Text: itoa(len(out)) + " catálogo(s) consultado(s)",
+					Data: map[string]any{"catalogs": out},
+				}, nil
+			},
+		},
+		{
+			Name:        "badomens_engine_compat",
+			Description: "Cruza Minecraft + motor + loader + Java + imagen Docker + plugins y devuelve la compatibilidad TRIVALENTE (compatible|incompatible|unknown). Un dato desconocido NUNCA se convierte en compatible.",
+			ReadOnly:    true,
+			Params: []tools.Param{
+				{Name: "engine", Type: tools.TypeString, Description: "paper|fabric|forge|neoforge|vanilla", Required: true, Enum: catalogEngineEnum()},
+				{Name: "version", Type: tools.TypeString, Description: "versión de Minecraft"},
+				{Name: "loader_version", Type: tools.TypeString, Description: "versión exacta del loader (Fabric)"},
+				{Name: "build", Type: tools.TypeString, Description: "build exacto del motor"},
+				{Name: "java_major", Type: tools.TypeInt, Description: "Java requerido (0 = desconocido)"},
+				{Name: "image", Type: tools.TypeString, Description: "imagen Docker que se va a usar (itzg/minecraft-server:javaN)"},
+				{Name: "fill", Type: tools.TypeBool, Description: "completa con el catálogo los datos que falten (consulta la red)"},
+				{Name: "plugins", Type: tools.TypeArray, Description: "plugins declarados", Items: &tools.Param{
+					Type: tools.TypeObject,
+					Properties: []tools.Param{
+						{Name: "name", Type: tools.TypeString, Description: "nombre del plugin", Required: true},
+						{Name: "loaders", Type: tools.TypeArray, Description: "ecosistemas declarados (paper, bukkit, spigot, fabric, forge, neoforge)"},
+						{Name: "minecraft", Type: tools.TypeArray, Description: "versiones de Minecraft declaradas como compatibles"},
+					},
+				}},
+			},
+			Handler: func(ctx context.Context, args tools.Args) (*tools.Result, error) {
+				engine, err := args.String("engine")
+				if err != nil {
+					return nil, err
+				}
+				version, err := args.OptionalString("version")
+				if err != nil {
+					return nil, err
+				}
+				loader, err := args.OptionalString("loader_version")
+				if err != nil {
+					return nil, err
+				}
+				build, err := args.OptionalString("build")
+				if err != nil {
+					return nil, err
+				}
+				image, err := args.OptionalString("image")
+				if err != nil {
+					return nil, err
+				}
+				javaMajor, err := args.OptionalInt("java_major", 0)
+				if err != nil {
+					return nil, err
+				}
+				fill, _ := args.Bool("fill")
+				plugins, perr := catalogPluginRequirements(args)
+				if perr != nil {
+					return nil, perr
+				}
+				service, serr := e.CatalogService()
+				if serr != nil {
+					return nil, serr
+				}
+				res, cerr := service.CheckCompatibility(ctx, engines.CompatibilityRequest{
+					Engine:           engine,
+					MinecraftVersion: version,
+					LoaderVersion:    loader,
+					Build:            build,
+					JavaMajor:        javaMajor,
+					DockerImage:      image,
+					Plugins:          plugins,
+					Fill:             fill,
+				})
+				if cerr != nil {
+					return nil, cerr
+				}
+				text := string(res.Compatibility) + " · " + res.Engine + " " + res.MinecraftVersion
+				if res.Reason != "" {
+					text += " (" + res.Reason + ")"
+				}
+				return &tools.Result{Text: text, Data: catalogCompatibilityData(res)}, nil
 			},
 		},
 		{
@@ -271,4 +427,86 @@ func idleStatusHandler(e *Env) tools.Handler {
 		data["running"] = running
 		return &tools.Result{Text: "idle de " + slug + ": " + enabledText(spec.Idle), Data: data}, nil
 	}
+}
+
+// catalogEngineEnum es la lista de motores admitidos por las herramientas MCP.
+func catalogEngineEnum() []string { return engines.Names() }
+
+// catalogResolvedData serializa una resolución normalizada. MCP y la CLI publican
+// SIEMPRE los mismos campos estructurados, sin depender de mensajes visuales.
+func catalogResolvedData(engine string, res engines.Resolved, status engines.CatalogStatus) map[string]any {
+	pins := res.Pins
+	if pins == nil {
+		pins = map[string]string{}
+	}
+	data := map[string]any{
+		"engine":        engine,
+		"version":       res.Version,
+		"pins":          pins,
+		"compatibility": string(res.Compatibility),
+		"java_major":    res.JavaMajor,
+		"java_status":   res.JavaStatus,
+		"source":        res.Source,
+		"stale":         status.State != engines.CatalogFresh && status.State != engines.CatalogStale,
+		"catalog":       catalogStatusData(status),
+	}
+	if res.Build != "" {
+		data["build"] = res.Build
+	}
+	if res.LoaderVersion != "" {
+		data["loader_version"] = res.LoaderVersion
+	}
+	if res.Image != "" {
+		data["image"] = res.Image
+	}
+	if !status.FetchedAt.IsZero() {
+		data["fetched_at"] = status.FetchedAt
+	}
+	if res.Warning != "" {
+		data["warning"] = res.Warning
+	}
+	return data
+}
+
+// catalogPinsText redacta los pins de forma legible (clave=valor).
+func catalogPinsText(pins map[string]string) string {
+	if len(pins) == 0 {
+		return "(ninguno)"
+	}
+	keys := make([]string, 0, len(pins))
+	for k := range pins {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, k+"="+pins[k])
+	}
+	return strings.Join(parts, " ")
+}
+
+// catalogPluginRequirements interpreta el array de plugins declarados de una llamada MCP.
+func catalogPluginRequirements(args tools.Args) ([]engines.PluginRequirement, error) {
+	raw, ok := args["plugins"]
+	if !ok || len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+	var list []struct {
+		Name      string   `json:"name"`
+		Loaders   []string `json:"loaders"`
+		Minecraft []string `json:"minecraft"`
+	}
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return nil, fmt.Errorf("el argumento %q debe ser una lista de plugins: %w", "plugins", err)
+	}
+	out := make([]engines.PluginRequirement, 0, len(list))
+	for _, p := range list {
+		if strings.TrimSpace(p.Name) == "" {
+			return nil, fmt.Errorf("hay un plugin sin nombre en %q", "plugins")
+		}
+		out = append(out, engines.PluginRequirement{
+			Name: p.Name, Loaders: p.Loaders, MinecraftVersions: p.Minecraft,
+		})
+	}
+	return out, nil
 }

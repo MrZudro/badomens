@@ -20,6 +20,7 @@ import (
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/provision"
+	"github.com/MrZudro/badomens/internal/result"
 	"github.com/MrZudro/badomens/internal/runtime"
 	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tps"
@@ -118,14 +119,24 @@ type IdleCtrl interface {
 	Watch(ctx context.Context, emit func(events.Event)) error
 }
 
-// Catalog consulta las versiones disponibles de un motor (RF-5).
+// Catalog es la fachada del catálogo unificado (T-01): la MISMA lista, la MISMA
+// resolución y el MISMO estado que consumen CLI y MCP. La TUI NO reimplementa
+// reglas de versiones ni de pines: pide y aplica lo que devuelve el servicio.
 type Catalog interface {
+	// Versions lista las versiones del motor (includeUnstable incluye
+	// snapshots/betas) por la ruta única del servicio.
 	Versions(ctx context.Context, engine string, includeUnstable bool) ([]engines.Version, error)
+	// Resolve resuelve motor+versión a los pins finales, ya validados.
+	Resolve(ctx context.Context, engine, version string) (engines.Resolved, error)
+	// Status devuelve el estado del catálogo SIN tocar la red.
+	Status(ctx context.Context, engine string) (engines.CatalogStatus, error)
 }
 
-// Creator crea instancias con el núcleo compartido (provision).
+// Creator crea instancias con el núcleo compartido (provision). El DESENLACE
+// (applied/partial/failed) viaja al llamante para poder informar de que la
+// operación quedó parcialmente aplicada (AC-10).
 type Creator interface {
-	Create(ctx context.Context, req provision.Request) (slug string, err error)
+	Create(ctx context.Context, req provision.Request) (slug string, outcome result.Outcome, err error)
 }
 
 // Services es la fachada que la TUI conoce.
@@ -183,6 +194,15 @@ func New(cfg *config.Config) (*Services, error) {
 
 	alloc := ports.NewAllocator(cfg.DataDir, checker, rng)
 
+	// Servicio de catálogo ÚNICO (T-01): lo comparten la fachada de la TUI y el
+	// creador de instancias, de modo que ambos ven la MISMA caché, el MISMO
+	// orden y los MISMOS pins.
+	cache := engines.NewCache(cfg.DataDir, resolver)
+	if d, derr := time.ParseDuration(cfg.Versions.CacheTTL); derr == nil && d > 0 {
+		cache.TTL = d
+	}
+	catalog := engines.NewCatalogService(cache)
+
 	return &Services{
 		MaxParallel:  cfg.MaxParallel,
 		MaxInstances: cfg.MaxInstances,
@@ -195,8 +215,8 @@ func New(cfg *config.Config) (*Services, error) {
 		Ports:        &allocPorts{a: alloc},
 		DockerState:  &realDocker{cfg: cfg},
 		Idle:         &realIdle{cfg: cfg, m: m, rt: rt, be: be},
-		Catalog:      &realCatalog{cache: engines.NewCache(cfg.DataDir, resolver)},
-		Creator:      &realCreator{cfg: cfg, m: m, rt: rt, resolver: resolver, alloc: alloc},
+		Catalog:      NewCatalog(catalog),
+		Creator:      &realCreator{cfg: cfg, m: m, rt: rt, catalog: catalog, alloc: alloc},
 		Access:       &realAccess{m: m, rt: rt},
 		Worlds:       &realWorlds{cfg: cfg, m: m, rt: rt, wm: &worlds.Manager{DataDir: cfg.DataDir}},
 		Infra:        newRealInfra(cfg),
@@ -425,34 +445,50 @@ func (c *runtimeIdleController) Backup(ctx context.Context, instance string) err
 	return err
 }
 
-// realCatalog consulta las versiones con caché y respaldo embebido (RF-5).
-type realCatalog struct{ cache *engines.Cache }
+// realCatalog adapta el servicio de catálogo unificado a la fachada de la TUI.
+type realCatalog struct{ svc *engines.CatalogService }
+
+// NewCatalog construye la fachada de catálogo de la TUI sobre el servicio
+// unificado (T-01). También la usan las pruebas de paridad con el servicio real.
+func NewCatalog(service *engines.CatalogService) Catalog { return &realCatalog{svc: service} }
 
 func (c *realCatalog) Versions(ctx context.Context, engine string, includeUnstable bool) ([]engines.Version, error) {
-	list, _, err := c.cache.Versions(ctx, engine, engines.VersionOpts{IncludeUnstable: includeUnstable})
-	return list, err
+	res, err := c.svc.ListVersions(ctx, engine, engines.Filters{IncludeUnstable: includeUnstable})
+	if err != nil {
+		return nil, err
+	}
+	return res.Versions, nil
 }
 
-// realCreator crea instancias con el núcleo compartido.
+func (c *realCatalog) Resolve(ctx context.Context, engine, version string) (engines.Resolved, error) {
+	return c.svc.ResolveVersion(ctx, engine, version)
+}
+
+func (c *realCatalog) Status(ctx context.Context, engine string) (engines.CatalogStatus, error) {
+	return c.svc.GetCatalogStatus(ctx, engine)
+}
+
+// realCreator crea instancias con el núcleo compartido (provision), que resuelve
+// por el MISMO servicio de catálogo.
 type realCreator struct {
-	cfg      *config.Config
-	m        *instance.Manager
-	rt       *runtime.Runtime
-	resolver provision.Resolver
-	alloc    *ports.Allocator
+	cfg     *config.Config
+	m       *instance.Manager
+	rt      *runtime.Runtime
+	catalog provision.Resolver
+	alloc   *ports.Allocator
 }
 
-func (c *realCreator) Create(ctx context.Context, req provision.Request) (string, error) {
+func (c *realCreator) Create(ctx context.Context, req provision.Request) (string, result.Outcome, error) {
 	res, err := provision.Create(ctx, provision.Deps{
-		Cfg: c.cfg, Manager: c.m, Resolver: c.resolver, Runtime: c.rt, Ports: c.alloc,
+		Cfg: c.cfg, Manager: c.m, Resolver: c.catalog, Runtime: c.rt, Ports: c.alloc,
 	}, req)
 	if err != nil {
 		if res != nil && res.Spec != nil {
-			return res.Spec.Slug, err
+			return res.Spec.Slug, res.Outcome, err
 		}
-		return "", err
+		return "", result.OutcomeFailed, err
 	}
-	return res.Spec.Slug, nil
+	return res.Spec.Slug, res.Outcome, nil
 }
 
 type realInstances struct {

@@ -16,6 +16,7 @@ import (
 	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/provision"
+	"github.com/MrZudro/badomens/internal/result"
 	"github.com/MrZudro/badomens/internal/tui/components"
 	"github.com/MrZudro/badomens/internal/tui/help"
 	"github.com/MrZudro/badomens/internal/tui/layout"
@@ -25,12 +26,18 @@ import (
 
 type wizardCreatedMsg struct {
 	slug string
-	err  error
+	// outcome dice si la creación terminó, falló o quedó parcialmente aplicada
+	// (AC-10): la configuración puede estar escrita aunque falle el arranque.
+	outcome result.Outcome
+	err     error
 }
 
 type wizardVersionsMsg struct {
-	engine   string
-	snaps    bool
+	engine string
+	snaps  bool
+	// seq es el número de secuencia de la petición: permite DESCARTAR una
+	// respuesta tardía de una consulta que ya quedó obsoleta (§7).
+	seq      int
 	versions []engines.Version
 	err      error
 }
@@ -95,6 +102,9 @@ type wizardScreen struct {
 	// verCache guarda las listas ya pedidas, por motor + snapshots: volver a un
 	// motor ya visto no repite la petición.
 	verCache map[string][]engines.Version
+	// verSeq numera las peticiones de catálogo: las respuestas de una petición
+	// anterior se descartan (§7).
+	verSeq int
 
 	// Ayuda larga del campo (F1/?).
 	helpOpen bool
@@ -219,25 +229,32 @@ func (w *wizardScreen) loadVersions() tea.Cmd {
 	return w.versionsCmd()
 }
 
-// versionsCmd pide el catálogo del motor actual con contexto y timeout.
+// versionsCmd pide el catálogo del motor actual con contexto y timeout. Cada
+// petición lleva su número de secuencia: al recibirla, la pantalla descarta las
+// respuestas que ya no corresponden a la selección vigente, de modo que una
+// respuesta TARDÍA no sustituye el estado de otra instancia/motor elegido
+// después (§7). El servicio, además, cancela la consulta con el contexto.
 func (w *wizardScreen) versionsCmd() tea.Cmd {
 	ref, engine, all := w.svc, w.engine.Name, w.showSNAPS
+	w.verSeq++
+	seq := w.verSeq
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 		defer cancel()
 		list, err := ref.Catalog.Versions(ctx, engine, all)
-		return wizardVersionsMsg{engine: engine, snaps: all, versions: list, err: err}
+		return wizardVersionsMsg{engine: engine, snaps: all, seq: seq, versions: list, err: err}
 	}
 }
 
 // noteVersions cachea el catálogo recibido y lo aplica solo si sigue
-// correspondiendo al motor y al modo snapshots vigentes (las respuestas
-// tardías se descartan, §7).
+// correspondiendo a la ÚLTIMA petición (secuencia) y al motor + snapshots
+// vigentes: las respuestas tardías se descartan en silencio (§7). La lista sí se
+// guarda en la caché por motor, porque es válida para la clave que la pidió.
 func (w *wizardScreen) noteVersions(msg wizardVersionsMsg) {
 	if msg.err == nil && msg.versions != nil {
 		w.verCache[verKeyOf(msg.engine, msg.snaps)] = msg.versions
 	}
-	if msg.engine != w.engine.Name || msg.snaps != w.showSNAPS {
+	if msg.seq != w.verSeq || msg.engine != w.engine.Name || msg.snaps != w.showSNAPS {
 		return
 	}
 	w.versions, w.verLoading, w.versionsSeen = msg.versions, false, true
@@ -292,8 +309,9 @@ func (w *wizardScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		return w, nil
 	case wizardCreatedMsg:
 		if msg.err != nil {
-			// El error de creación se queda visible en el paso Revisar (§8).
-			w.err = "no se pudo crear: " + msg.err.Error()
+			// El error de creación se queda visible en el paso Revisar (§8),
+			// diciendo si la instancia quedó APLICADA en parte (AC-10).
+			w.err = createErrorText(msg)
 			w.step = len(w.steps) - 1
 			w.cur = 0
 			w.syncInput()
@@ -880,15 +898,24 @@ func (w *wizardScreen) create() tea.Cmd {
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 		defer cancel()
-		slug, err := ref.Creator.Create(ctx, req)
+		slug, outcome, err := ref.Creator.Create(ctx, req)
 		if err != nil {
-			return wizardCreatedMsg{slug: slug, err: err}
+			return wizardCreatedMsg{slug: slug, outcome: outcome, err: err}
 		}
 		if wantIdle {
 			_ = ref.Idle.Set(ctx, slug, cfg)
 		}
-		return wizardCreatedMsg{slug: slug}
+		return wizardCreatedMsg{slug: slug, outcome: outcome}
 	})
+}
+
+// createErrorText redacta el fallo de creación distinguiendo un fallo total de
+// uno PARCIAL (la instancia ya quedó escrita) (AC-10).
+func createErrorText(msg wizardCreatedMsg) string {
+	if msg.outcome == result.OutcomePartial {
+		return "no se pudo terminar de crear (quedó parcialmente aplicada; revisa «" + msg.slug + "»): " + msg.err.Error()
+	}
+	return "no se pudo crear: " + msg.err.Error()
 } // --- Vista (§5.12): todo dentro de paneles y ajustado a width×height ---
 
 // View pinta el asistente: el modo, el paso actual o la ayuda larga, siempre

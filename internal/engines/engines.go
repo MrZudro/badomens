@@ -220,14 +220,24 @@ type Registry struct {
 
 // NewRegistry construye el registro con los proveedores por defecto.
 func NewRegistry(client *Client) *Registry {
-	reg := &Registry{providers: map[string]Provider{}}
-	for _, p := range []Provider{
+	return NewRegistryFrom(
 		&paperProvider{engine: Paper, client: client},
 		&fabricProvider{engine: Fabric, client: client},
 		&forgeProvider{engine: Forge, client: client},
 		&neoforgeProvider{engine: NeoForge, client: client},
 		&vanillaProvider{engine: Vanilla, client: client},
-	} {
+	)
+}
+
+// NewRegistryFrom construye el registro con los proveedores dados. Lo usan las
+// pruebas de integración y las fachadas que sustituyen el catálogo en línea por
+// uno controlado; un motor sin proveedor falla al resolver, nunca en silencio.
+func NewRegistryFrom(providers ...Provider) *Registry {
+	reg := &Registry{providers: make(map[string]Provider, len(providers))}
+	for _, p := range providers {
+		if p == nil {
+			continue
+		}
 		reg.providers[p.Engine().Name] = p
 	}
 	return reg

@@ -4,16 +4,19 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/MrZudro/badomens/internal/backup"
 	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/engines"
+	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/events"
 	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/provision"
+	"github.com/MrZudro/badomens/internal/result"
 )
 
 // fakeInstances es un adaptador en memoria.
@@ -175,11 +178,53 @@ func (f *fakeIdle) Watch(ctx context.Context, emit func(events.Event)) error {
 	return nil
 }
 
-// fakeCatalog devuelve unas versiones fijas por motor.
-type fakeCatalog struct{ items []engines.Version }
+// fakeCatalog devuelve unas versiones fijas por motor y resuelve sin red. Es un
+// stub determinista: la validación real (pins obligatorios, versión existente)
+// vive en el servicio de catálogo.
+type fakeCatalog struct {
+	items []engines.Version
+	// resolveErr, si no es nil, hace fallar toda resolución.
+	resolveErr error
+}
 
 func (f *fakeCatalog) Versions(context.Context, string, bool) ([]engines.Version, error) {
 	return f.items, nil
+}
+
+// Resolve imita al servicio: devuelve la versión pedida (o la recomendada) con
+// TODOS los pins obligatorios del motor.
+func (f *fakeCatalog) Resolve(_ context.Context, engine, version string) (engines.Resolved, error) {
+	if f.resolveErr != nil {
+		return engines.Resolved{}, f.resolveErr
+	}
+	e, ok := engines.ByName(engine)
+	if !ok {
+		return engines.Resolved{}, errx.Usage("motor desconocido "+engine, "usa uno de los conocidos")
+	}
+	v := strings.TrimSpace(version)
+	if v == "" {
+		for i := len(f.items) - 1; i >= 0; i-- {
+			if f.items[i].Recommended {
+				v = f.items[i].Version
+				break
+			}
+		}
+	}
+	if v == "" {
+		return engines.Resolved{}, errx.NotFound("no hay ninguna versión que resolver", "")
+	}
+	pins := map[string]string{}
+	for _, dep := range engines.RequiredPins(e) {
+		pins[dep] = "1"
+	}
+	return engines.Resolved{Version: v, Pins: pins, Source: e.Name}, nil
+}
+
+// Status informa de un catálogo fresco (los fakes no usan disco).
+func (f *fakeCatalog) Status(context.Context, string) (engines.CatalogStatus, error) {
+	return engines.CatalogStatus{
+		State: engines.CatalogFresh, Source: "fake", Versions: len(f.items),
+	}, nil
 }
 
 // fakePorts informa de que todo está libre (o del resultado guionizado).
@@ -209,15 +254,27 @@ type fakeCreator struct {
 	calls int
 }
 
-func (f *fakeCreator) Create(_ context.Context, req provision.Request) (string, error) {
+func (f *fakeCreator) Create(_ context.Context, req provision.Request) (string, result.Outcome, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
 	slug, err := instance.NormalizeSlug(req.Name)
 	if err != nil {
-		return "", err
+		return "", result.OutcomeFailed, err
 	}
-	return slug, nil
+	return slug, result.OutcomeApplied, nil
+}
+
+// fakeCatalogItems es el catálogo por defecto de los fakes: la recomendada y una
+// alternativa, para poder cambiar de versión en los tests.
+func fakeCatalogItems(opts FakeOptions) []engines.Version {
+	if len(opts.CatalogVersions) > 0 {
+		return opts.CatalogVersions
+	}
+	return []engines.Version{
+		{Version: "1.21.4", Channel: engines.ChannelRelease, Recommended: true, Compatible: true, JavaMajor: 21},
+		{Version: "1.20.1", Channel: engines.ChannelRelease, Compatible: true, JavaMajor: 17},
+	}
 }
 
 // NewFake construye una fachada falsa para los tests de la TUI.
@@ -253,6 +310,12 @@ type FakeOptions struct {
 	InfraDaemonDown bool
 	// InfraDaemonInstalled simula el servicio persistente ya instalado.
 	InfraDaemonInstalled bool
+	// CatalogResolveErr hace que el catálogo falso no pueda resolver (rutas de
+	// error del cambio de versión).
+	CatalogResolveErr error
+	// CatalogVersions, si no está vacío, sustituye la lista de versiones del
+	// catálogo falso.
+	CatalogVersions []engines.Version
 }
 
 // NewFakeWith construye una fachada falsa con opciones.
@@ -279,7 +342,7 @@ func NewFakeWith(specs []*instance.Spec, opts FakeOptions) *Services {
 			watchEvents: opts.IdleEvents,
 			watchErr:    opts.IdleWatchErr,
 		},
-		Catalog: &fakeCatalog{items: []engines.Version{{Version: "1.21.4", Channel: engines.ChannelRelease, Recommended: true, Compatible: true, JavaMajor: 21}}},
+		Catalog: &fakeCatalog{items: fakeCatalogItems(opts), resolveErr: opts.CatalogResolveErr},
 		Creator: &fakeCreator{},
 		Access:  newFakeAccess(specs, opts),
 		Worlds:  newFakeWorlds(specs, opts),

@@ -168,6 +168,24 @@ func (c *countingCatalog) Versions(_ context.Context, engine string, snaps bool)
 	return c.items[catKey(engine, snaps)], nil
 }
 
+// Resolve y Status completan la fachada de catálogo (T-01) sin red: la versión
+// pedida se resuelve con los pins obligatorios del motor.
+func (c *countingCatalog) Resolve(_ context.Context, engine, version string) (engines.Resolved, error) {
+	e, ok := engines.ByName(engine)
+	if !ok {
+		return engines.Resolved{}, errors.New("motor desconocido " + engine)
+	}
+	pins := map[string]string{}
+	for _, dep := range engines.RequiredPins(e) {
+		pins[dep] = "1"
+	}
+	return engines.Resolved{Version: version, Pins: pins, Source: e.Name}, nil
+}
+
+func (c *countingCatalog) Status(context.Context, string) (engines.CatalogStatus, error) {
+	return engines.CatalogStatus{State: engines.CatalogFresh, Source: "fake"}, nil
+}
+
 func (c *countingCatalog) count(engine string, snaps bool) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()

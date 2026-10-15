@@ -886,22 +886,36 @@ func (s *instanceScreen) deleteCmd() tea.Cmd {
 }
 
 // changeVersionCmd hace un backup previo obligatorio y cambia la versión (P-03).
+// La versión y sus PINS los resuelve el SERVICIO de catálogo (svc.Catalog): la
+// pantalla no reconstruye reglas de resolución y nunca guarda media resolución
+// (AC-06). Primero se resuelve, después se hace el backup y por último se
+// guarda: un fallo deja intactos la versión y los pins anteriores.
 func (s *instanceScreen) changeVersionCmd(v string) tea.Cmd {
 	if s.detail == nil || s.detail.Spec == nil || strings.TrimSpace(v) == "" {
 		return nil
 	}
 	ref, spec := s.svc, s.detail.Spec
+	requested := strings.TrimSpace(v)
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 		defer cancel()
+		resolved, err := ref.Catalog.Resolve(ctx, spec.Engine, requested)
+		if err != nil {
+			return toastMsg{Text: "✖ No se pudo resolver " + requested + ": " + err.Error(), Kind: components.Destructive}
+		}
 		if err := ref.Backups.Create(ctx, spec.Slug); err != nil {
 			return toastMsg{Text: "✖ Backup previo falló: " + err.Error(), Kind: components.Destructive}
 		}
-		spec.Version = strings.TrimSpace(v)
+		spec.Version = resolved.Version
+		spec.Pins = resolved.Pins
 		if err := ref.Instances.Save(ctx, spec); err != nil {
 			return toastMsg{Text: "✖ No se pudo cambiar la versión: " + err.Error(), Kind: components.Destructive}
 		}
-		return toastMsg{Text: "✓ «" + spec.Slug + "»: backup hecho · versión " + spec.Version + " (reinicia para aplicar)"}
+		text := "✓ «" + spec.Slug + "»: backup hecho · versión " + spec.Version + " (reinicia para aplicar)"
+		if resolved.Warning != "" {
+			text += " · aviso: " + resolved.Warning
+		}
+		return toastMsg{Text: text}
 	})
 }
 

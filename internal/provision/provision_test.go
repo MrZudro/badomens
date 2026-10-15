@@ -2,59 +2,51 @@ package provision
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
 	"github.com/MrZudro/badomens/internal/config"
 	"github.com/MrZudro/badomens/internal/engines"
+	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/instance"
 )
 
-// fakeProvider devuelve una versión fija sin red.
-type fakeProvider struct {
-	engine  engines.Engine
-	version string
-}
+// fakeService resuelve motor+versión como el servicio de catálogo, sin red: la
+// versión pedida (o una fija) con TODOS los pins obligatorios del motor, igual
+// que haría la ruta real (AC-06).
+type fakeService struct{ version string }
 
-func (p fakeProvider) Engine() engines.Engine { return p.engine }
-func (p fakeProvider) ListVersions(context.Context) ([]engines.Version, error) {
-	return []engines.Version{{Version: p.version}}, nil
-}
-
-func (p fakeProvider) Resolve(_ context.Context, version string) (engines.Resolved, error) {
-	v := p.version
+func (s fakeService) ResolveVersion(_ context.Context, engine, version string) (engines.Resolved, error) {
+	e, ok := engines.ByName(engine)
+	if !ok {
+		return engines.Resolved{}, errx.Usage("motor desconocido "+engine, "")
+	}
+	v := s.version
 	if version != "" {
 		v = version
 	}
-	return engines.Resolved{Version: v}, nil
-}
-
-// fakeResolver sirve proveedores por nombre sin HTTP.
-type fakeResolver struct{ m map[string]engines.Provider }
-
-func (r fakeResolver) Provider(name string) (engines.Provider, error) {
-	p, ok := r.m[name]
-	if !ok {
-		return nil, fmt.Errorf("motor desconocido %q", name)
+	pins := map[string]string{}
+	for _, dep := range engines.RequiredPins(e) {
+		pins[dep] = "1"
 	}
-	return p, nil
+	return engines.Resolved{
+		Version: v, Pins: pins, Source: e.Name,
+		Compatibility: engines.CompatibilityCompatible,
+	}, nil
 }
 
 func testDeps(t *testing.T) (Deps, string) {
 	t.Helper()
 	dir := t.TempDir()
 	names := make([]string, 0, len(engines.Order))
-	prov := map[string]engines.Provider{}
 	for _, e := range engines.Order {
 		names = append(names, e.Name)
-		prov[e.Name] = fakeProvider{engine: e, version: "1.21.6"}
 	}
 	cfg := &config.Config{DataDir: dir, DefaultMemory: "4G"}
 	return Deps{
 		Cfg:      cfg,
 		Manager:  instance.New(dir, names),
-		Resolver: fakeResolver{m: prov},
+		Resolver: fakeService{version: "1.21.6"},
 	}, dir
 }
 

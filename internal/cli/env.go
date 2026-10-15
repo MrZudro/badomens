@@ -8,8 +8,10 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/MrZudro/badomens/internal/config"
+	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/output"
 	"github.com/MrZudro/badomens/internal/result"
 	"github.com/MrZudro/badomens/internal/tools"
@@ -32,6 +34,39 @@ type Env struct {
 	cfg      *config.Config
 	cfgErr   error
 	registry *tools.Registry
+
+	// catalogSvc es el servicio de catálogo ÚNICO del proceso (T-01) y
+	// catalogFactory permite inyectarlo en las pruebas.
+	catalogSvc     *engines.CatalogService
+	catalogFactory func() (*engines.CatalogService, error)
+}
+
+// CatalogService devuelve el servicio de catálogo ÚNICO (T-01) construido sobre
+// el data dir configurado: la MISMA caché, el MISMO orden y los MISMOS errores
+// normalizados para todos los comandos y para las herramientas MCP. Se construye
+// una sola vez por proceso.
+func (e *Env) CatalogService() (*engines.CatalogService, error) {
+	if e.catalogSvc != nil {
+		return e.catalogSvc, nil
+	}
+	if e.catalogFactory != nil {
+		svc, err := e.catalogFactory()
+		if err != nil {
+			return nil, err
+		}
+		e.catalogSvc = svc
+		return svc, nil
+	}
+	cfg, err := e.requireConfig()
+	if err != nil {
+		return nil, err
+	}
+	cache := engines.NewCache(cfg.DataDir, reg())
+	if d, derr := time.ParseDuration(cfg.Versions.CacheTTL); derr == nil && d > 0 {
+		cache.TTL = d
+	}
+	e.catalogSvc = engines.NewCatalogService(cache)
+	return e.catalogSvc, nil
 }
 
 func (e *Env) setup() error {

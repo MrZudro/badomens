@@ -15,6 +15,7 @@ import (
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/plugins"
 	"github.com/MrZudro/badomens/internal/ports"
+	"github.com/MrZudro/badomens/internal/result"
 	"github.com/MrZudro/badomens/internal/runtime"
 	"github.com/MrZudro/badomens/internal/setup"
 )
@@ -42,10 +43,12 @@ type Request struct {
 	Start            bool
 }
 
-// Resolver resuelve un motor a su proveedor de catálogo. engines.Registry lo
-// cumple; en pruebas se puede inyectar un fake sin red.
+// Resolver resuelve motor+versión a los pines finales por la RUTA ÚNICA del
+// servicio de catálogo (engines.CatalogService la cumple). provision NUNCA llama
+// a provider.Resolve directamente: así hereda la validación del invariante de
+// pins obligatorios (AC-06) y los errores normalizados (T-01).
 type Resolver interface {
-	Provider(name string) (engines.Provider, error)
+	ResolveVersion(ctx context.Context, engine, version string) (engines.Resolved, error)
 }
 
 // Deps son las dependencias necesarias para crear una instancia.
@@ -59,17 +62,25 @@ type Deps struct {
 	Ports *ports.Allocator
 }
 
-// Result resume lo creado.
+// Result resume lo creado y, sobre todo, CÓMO terminó (AC-10): un fallo al
+// instalar plugins o al arrancar no oculta que la instancia ya quedó escrita.
 type Result struct {
 	Spec     *instance.Spec
 	Warnings []string
 	Started  bool
+	// Outcome clasifica el desenlace: applied, partial o failed.
+	Outcome result.Outcome
+	// Compatibility y JavaRequirement describen la resolución aplicada.
+	Compatibility engines.Compatibility
+	JavaMajor     int
+	JavaStatus    string
 }
 
 // Create valida la petición, crea la instancia, instala los plugins y, si se
 // pide, la arranca. Devuelve el spec guardado y avisos (por ejemplo, de TPS).
-// En caso de fallo al arrancar devuelve igualmente el spec ya guardado para que
-// el llamador pueda describir el estado parcial.
+// En caso de fallo parcial (plugins o arranque) devuelve igualmente el resultado
+// con Outcome=partial y el spec ya guardado, para que el llamador pueda
+// describir con exactitud qué quedó aplicado.
 func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 	if d.Cfg == nil || d.Manager == nil || d.Resolver == nil {
 		return nil, errx.New(errx.CodeGeneral, "dependencias incompletas para crear la instancia", "")
@@ -93,13 +104,16 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 	if engineName == "" {
 		engineName = "paper"
 	}
-	provider, err := d.Resolver.Provider(engineName)
-	if err != nil {
-		return nil, err
+	eng, ok := engines.ByName(engineName)
+	if !ok {
+		return nil, errx.Usage("motor desconocido "+engineName,
+			"usa uno de: "+strings.Join(engines.Names(), ", "))
 	}
 
-	// 3) Versión (resolución en línea).
-	resolved, err := provider.Resolve(ctx, req.Version)
+	// 3) Versión: ruta ÚNICA de resolución (T-01). El servicio valida antes de
+	// devolver que la resolución identifica la versión y trae TODOS los pines
+	// obligatorios del motor (AC-06).
+	resolved, err := d.Resolver.ResolveVersion(ctx, eng.Name, req.Version)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +179,7 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 	spec := &instance.Spec{
 		Slug:             slug,
 		Name:             name,
-		Engine:           provider.Engine().Name,
+		Engine:           eng.Name,
 		Version:          resolved.Version,
 		Pins:             resolved.Pins,
 		Memory:           memory,
@@ -191,33 +205,45 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 		return nil, err
 	}
 
-	// 8) Plugins/mods.
+	// La instancia ya está escrita: a partir de aquí, cualquier fallo deja un
+	// estado PARCIAL recuperable (la configuración no se pierde).
 	warnings := []string{}
+	res := &Result{
+		Spec:          spec,
+		Warnings:      warnings,
+		Outcome:       result.OutcomeApplied,
+		Compatibility: resolved.Compatibility,
+		JavaMajor:     resolved.JavaMajor,
+		JavaStatus:    resolved.JavaStatus,
+	}
+
+	// 8) Plugins/mods.
 	if len(req.Plugins) > 0 {
 		inst := &plugins.Installer{DataDir: d.Cfg.DataDir}
 		names := make([]string, 0, len(req.Plugins))
 		for _, src := range req.Plugins {
 			added, aerr := inst.Add(ctx, spec, src)
 			if aerr != nil {
-				return &Result{Spec: spec, Warnings: warnings}, aerr
+				res.Outcome = result.OutcomePartial
+				return res, aerr
 			}
 			names = append(names, added)
 		}
 		spec.Plugins = append(spec.Plugins, names...)
 		_ = d.Manager.Save(spec)
 		if w := plugins.WarnFor(names); w != "" {
-			warnings = append(warnings, w)
+			res.Warnings = append(res.Warnings, w)
 		}
 	}
-
-	res := &Result{Spec: spec, Warnings: warnings}
 
 	// 9) Arranque opcional.
 	if req.Start {
 		if d.Runtime == nil {
+			res.Outcome = result.OutcomePartial
 			return res, errx.New(errx.CodeGeneral, "no se puede arrancar: falta el runtime", "")
 		}
 		if err := d.Runtime.Start(ctx, spec); err != nil {
+			res.Outcome = result.OutcomePartial
 			return res, err
 		}
 		res.Started = true

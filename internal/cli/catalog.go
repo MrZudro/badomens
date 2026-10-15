@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/errx"
@@ -23,41 +22,27 @@ func newCatalogCmd(e *Env) *cobra.Command {
 	return cmd
 }
 
-// catalogCache construye la caché de catálogos sobre el data dir configurado.
-// Es la MISMA ruta que usan `engine list` y `engine versions`.
-func (e *Env) catalogCache() (*engines.Cache, error) {
-	cfg, err := e.requireConfig()
-	if err != nil {
-		return nil, err
-	}
-	cache := engines.NewCache(cfg.DataDir, reg())
-	if d, derr := time.ParseDuration(cfg.Versions.CacheTTL); derr == nil && d > 0 {
-		cache.TTL = d
-	}
-	return cache, nil
-}
-
-// loadCatalog devuelve las versiones de un motor por la ruta ÚNICA de caché y
-// normalización. Con refresh=true se fuerza una consulta al proveedor y se
-// valida antes de escribir (conservando el último catálogo válido si falla).
+// loadCatalog devuelve las versiones de un motor por la ruta ÚNICA del servicio
+// de catálogo (T-01): la misma caché, la misma validación y el mismo orden que
+// usan la TUI y MCP. Con refresh=true se fuerza la consulta al proveedor.
 func (e *Env) loadCatalog(ctx context.Context, engine string, opts engines.VersionOpts, refresh bool) ([]engines.Version, bool, engines.CatalogStatus, error) {
-	cache, err := e.catalogCache()
+	service, err := e.CatalogService()
 	if err != nil {
 		return nil, false, engines.CatalogStatus{}, err
 	}
 	if refresh {
-		all, status, rerr := cache.Refresh(ctx, engine)
+		res, rerr := service.RefreshCatalog(ctx, engine)
 		if rerr != nil {
 			// El catálogo previo (si lo hay) sigue disponible: el estado lo dice.
-			return nil, status.State == engines.CatalogStale, status, rerr
+			return nil, res.Status.State == engines.CatalogStale, res.Status, rerr
 		}
-		return engines.Filter(all, opts), status.State == engines.CatalogStale, status, nil
+		return engines.Filter(res.Versions, opts), res.Status.State == engines.CatalogStale, res.Status, nil
 	}
-	versions, stale, verr := cache.Versions(ctx, engine, opts)
-	if verr != nil {
-		return nil, false, cache.Status(engine), verr
+	res, lerr := service.ListVersions(ctx, engine, engines.Filters{IncludeUnstable: opts.IncludeUnstable})
+	if lerr != nil {
+		return nil, false, res.Status, lerr
 	}
-	return versions, stale, cache.Status(engine), nil
+	return res.Versions, res.Stale, res.Status, nil
 }
 
 // catalogEngineNames valida el motor pedido o devuelve todos en orden estable.
@@ -128,7 +113,7 @@ func newCatalogStatusCmd(e *Env) *cobra.Command {
 		Short: "Estado del catálogo en caché (fresca, vencida, inválida, no disponible)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cache, err := e.catalogCache()
+			service, err := e.CatalogService()
 			if err != nil {
 				return e.finish(result.FromError("catalog status", err), "")
 			}
@@ -140,7 +125,10 @@ func newCatalogStatusCmd(e *Env) *cobra.Command {
 			human := "Catálogo:"
 			degraded := false
 			for _, name := range names {
-				st := cache.Status(name)
+				st, serr := service.GetCatalogStatus(cmd.Context(), name)
+				if serr != nil {
+					return e.finish(result.FromError("catalog status", serr), "")
+				}
 				out = append(out, catalogStatusData(st))
 				human += "\n" + catalogStatusHuman(st)
 				if st.State == engines.CatalogInvalid || st.State == engines.CatalogUnavailable {
@@ -165,7 +153,7 @@ func newCatalogRefreshCmd(e *Env) *cobra.Command {
 		Short: "Fuerza la descarga, validación y guardado del catálogo",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cache, err := e.catalogCache()
+			service, err := e.CatalogService()
 			if err != nil {
 				return e.finish(result.FromError("catalog refresh", err), "")
 			}
@@ -183,18 +171,22 @@ func newCatalogRefreshCmd(e *Env) *cobra.Command {
 			human := "Refresco del catálogo:"
 			failures := make([]string, 0)
 			for _, name := range names {
-				versions, st, rerr := cache.Refresh(cmd.Context(), name)
-				entry := catalogStatusData(st)
+				res, rerr := service.RefreshCatalog(cmd.Context(), name)
+				entry := catalogStatusData(res.Status)
 				entry["engine"] = name
 				if rerr != nil {
+					// Estado PARCIAL: el catálogo previo (si lo había) sigue en
+					// pie y el estado consultable lo refleja (AC-10).
 					entry["error"] = rerr.Error()
+					entry["outcome"] = string(result.OutcomePartial)
 					failures = append(failures, name)
 					human += fmt.Sprintf("\n  %-9s ✖ %s", name, rerr)
 					out = append(out, entry)
 					continue
 				}
-				entry["versions"] = len(versions)
-				human += fmt.Sprintf("\n  %-9s ✔ %d versiones (%s)", name, len(versions), st.State)
+				entry["versions"] = len(res.Versions)
+				entry["outcome"] = string(result.OutcomeApplied)
+				human += fmt.Sprintf("\n  %-9s ✔ %d versiones (%s)", name, len(res.Versions), res.Status.State)
 				out = append(out, entry)
 			}
 			data := map[string]any{"catalogs": out}

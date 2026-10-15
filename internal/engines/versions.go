@@ -261,6 +261,16 @@ func (c *Cache) loadUncached(ctx context.Context, engine string, force bool) loa
 		// orden y recomendada. Un documento anterior a la Fase 3 trae
 		// `compatible: true` sin el campo trivalente y se migra aquí.
 		doc.Versions = Enrich(engine, doc.Versions)
+		// La procedencia de las filas servidas desde disco se rellena aquí: el
+		// consumidor (CLI/TUI/MCP) necesita saber de dónde salió cada dato.
+		for i := range doc.Versions {
+			if doc.Versions[i].Source == "" {
+				doc.Versions[i].Source = engine
+			}
+			if doc.Versions[i].FetchedAt.IsZero() {
+				doc.Versions[i].FetchedAt = doc.Fetched
+			}
+		}
 		c.seedBaseline(engine, doc)
 	}
 	if !force && doc != nil && len(doc.Versions) > 0 && doc.Fetched.After(now.Add(-c.TTL)) {
