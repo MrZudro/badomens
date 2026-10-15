@@ -146,10 +146,21 @@ func (s *Server) toolCall(ctx context.Context, req *request) response {
 		if hint != "" {
 			text += " (" + hint + ")"
 		}
+		// Los errores tipados viajan también como DATOS (plan 12.3): el agente
+		// decide con `_meta.code` y, si existe, con el diagnóstico estructurado
+		// (`provider`, `operation`, `status`, `http_status`, `cache_state`,
+		// `resolution_complete`, `retryable`), sin leer el texto.
+		meta := map[string]any{"code": code}
+		if hint != "" {
+			meta["hint"] = hint
+		}
+		if details := errx.Details(err); details != nil {
+			meta["details"] = details
+		}
 		return response{ID: req.ID, Result: map[string]any{
 			"content": []map[string]any{{"type": "text", "text": text}},
 			"isError": true,
-			"_meta":   map[string]any{"code": code},
+			"_meta":   meta,
 		}}
 	}
 	content := []map[string]any{{"type": "text", "text": result.Text}}

@@ -5,9 +5,11 @@ package doctor
 import (
 	"context"
 	"os"
+	"strings"
 
 	"github.com/MrZudro/badomens/internal/config"
 	"github.com/MrZudro/badomens/internal/dockerx"
+	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/host"
 	"github.com/MrZudro/badomens/internal/infra"
 	"github.com/MrZudro/badomens/internal/tailscale"
@@ -48,6 +50,7 @@ func Run(ctx context.Context, cfg *config.Config) Report {
 	checkDocker(ctx, add)
 	checkTailscale(ctx, cfg, add)
 	checkDaemon(cfg, add)
+	checkCatalogs(cfg, add)
 
 	// Capacidad del host.
 	cap := host.Detect(ctx)
@@ -212,6 +215,35 @@ func checkDaemon(cfg *config.Config, add func(name, status, message string)) {
 			msg += " — " + st.Hint
 		}
 		add("Daemon", StatusWarn, msg)
+	}
+}
+
+// checkCatalogs informa, por motor, de cuándo se consultó el catálogo por última
+// vez y de si los datos provienen de caché (plan 12.3 · AC-12). No toca la red:
+// usa el estado consultable de la caché (engines.Cache.Status).
+func checkCatalogs(cfg *config.Config, add func(name, status, message string)) {
+	if cfg == nil || strings.TrimSpace(cfg.DataDir) == "" {
+		return
+	}
+	cache := engines.NewCache(cfg.DataDir, nil)
+	for _, e := range engines.Order {
+		st := cache.Status(e.Name)
+		msg := string(st.State) + " · " + itoa(st.Versions) + " versiones"
+		if st.Warning != "" {
+			msg += " · " + st.Warning
+		}
+		when := ""
+		if st.Age != "" {
+			when = " · consultada " + st.Age
+		}
+		switch st.State {
+		case engines.CatalogFresh:
+			add("Catálogo "+e.Name, StatusOK, msg+when)
+		case engines.CatalogStale:
+			add("Catálogo "+e.Name, StatusWarn, "datos de caché vencida (etiquetados); "+msg+when)
+		default:
+			add("Catálogo "+e.Name, StatusWarn, "sin datos utilizables: "+msg)
+		}
 	}
 }
 

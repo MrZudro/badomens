@@ -282,6 +282,9 @@ type LogRecord struct {
 	RetryIn time.Duration
 	// NotModified indica que la respuesta fue 304.
 	NotModified bool
+	// ContentType es la cabecera Content-Type de la respuesta. Alimenta el
+	// diagnóstico (formato de la respuesta) sin guardar el cuerpo.
+	ContentType string
 }
 
 // Logger recibe los diagnósticos del transporte. Puede ser nil.
@@ -685,6 +688,7 @@ func (c *Client) logAttempt(opts RequestOpts, meta Meta, err error, retryIn time
 		Attempt:     meta.Attempts,
 		RetryIn:     retryIn,
 		NotModified: meta.NotModified,
+		ContentType: meta.ContentType,
 	}
 	var typed *TransportError
 	if errors.As(err, &typed) {

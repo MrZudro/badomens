@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/MrZudro/badomens/internal/connection"
+	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/host"
 	"github.com/MrZudro/badomens/internal/idle"
 )
@@ -82,6 +84,21 @@ func NormalizeSlug(name string) (string, error) {
 	return s, nil
 }
 
+// ValidateSlug comprueba que un slug es SEGURO antes de construir cualquier
+// ruta. Un slug es un IDENTIFICADOR, nunca una ruta: no admite separadores,
+// "..", puntos ni espacios (plan 12.4 · spec 6.3). Todo slug que llegue del CLI
+// o del MCP pasa por aquí antes de tocar el disco.
+func ValidateSlug(slug string) error {
+	if strings.TrimSpace(slug) == "" {
+		return errx.Usage("nombre de instancia vacío", "indica la instancia con -i <slug>")
+	}
+	if slug != strings.TrimSpace(slug) || !slugRe.MatchString(slug) {
+		return errx.Usage("nombre de instancia inválido: "+strconv.Quote(slug),
+			"usa 2-24 caracteres a-z0-9 y guiones, sin barras, sin '..' y sin espacios")
+	}
+	return nil
+}
+
 // Validate comprueba la coherencia de la definición.
 func (s *Spec) Validate(engines []string) error {
 	if s.Slug == "" {
@@ -140,6 +157,9 @@ func (m *Manager) SpecPath(slug string) string { return filepath.Join(m.Dir(slug
 
 // Load lee una instancia.
 func (m *Manager) Load(slug string) (*Spec, error) {
+	if err := ValidateSlug(slug); err != nil {
+		return nil, err
+	}
 	raw, err := os.ReadFile(m.SpecPath(slug))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -170,6 +190,12 @@ func migrate(s *Spec) {
 
 // Save escribe la definición de la instancia.
 func (m *Manager) Save(s *Spec) error {
+	if s == nil {
+		return errx.Usage("no hay definición de instancia que guardar", "")
+	}
+	if err := ValidateSlug(s.Slug); err != nil {
+		return err
+	}
 	if s.SchemaVersion == 0 {
 		s.SchemaVersion = SchemaVersion
 	}
@@ -185,6 +211,9 @@ func (m *Manager) Save(s *Spec) error {
 
 // Remove borra la carpeta de la instancia (¡no el contenedor!).
 func (m *Manager) Remove(slug string) error {
+	if err := ValidateSlug(slug); err != nil {
+		return err
+	}
 	dir := m.Dir(slug)
 	if _, err := os.Stat(dir); err != nil {
 		return fmt.Errorf("la instancia %q no existe", slug)

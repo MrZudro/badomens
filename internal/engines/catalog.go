@@ -59,6 +59,15 @@ func isCancellation(err error) bool {
 // DeadlineExceeded), de forma que el consumidor la detecte con errors.Is y
 // DESCARTE el trabajo obsoleto sin mostrar ninguna alarma espuria (§7).
 func NormalizeError(engine, operation string, err error) error {
+	return NormalizeErrorWithCatalog(engine, operation, err, CatalogStatus{})
+}
+
+// NormalizeErrorWithCatalog es NormalizeError añadiendo el ESTADO DE CACHÉ al
+// diagnóstico estructurado (plan 12.3 · AC-12): el objeto
+// error.details.diagnostic lleva provider, operation, status, http_status,
+// cache_state, resolution_complete y retryable, además de la última fecha de
+// consulta del catálogo y si los datos proceden de caché. Es ADITIVO.
+func NormalizeErrorWithCatalog(engine, operation string, err error, cache CatalogStatus) error {
 	if err == nil {
 		return nil
 	}
@@ -92,7 +101,8 @@ func NormalizeError(engine, operation string, err error) error {
 	wrapped := errx.Wrap(kind, err, message, hint).
 		WithDetail("engine", engine).
 		WithDetail("catalog_code", code).
-		WithDetail("detail", err.Error())
+		WithDetail("detail", err.Error()).
+		WithDetail("diagnostic", Diagnose(engine, operation, err, cache))
 	if operation != "" {
 		wrapped.WithDetail("operation", operation)
 	}
@@ -168,7 +178,7 @@ func (s *CatalogService) ListVersions(ctx context.Context, engine string, f Filt
 	status := s.cache.Status(e.Name)
 	if verr != nil {
 		return ListResult{Engine: e.Name, Status: status, Warning: status.Warning},
-			NormalizeError(e.Name, "list", verr)
+			NormalizeErrorWithCatalog(e.Name, "list", verr, status)
 	}
 	if cerr := ctxErr(ctx); cerr != nil {
 		// Respuesta tardía de una consulta ya cancelada: no se entrega.
@@ -220,15 +230,15 @@ func (s *CatalogService) ResolveVersion(ctx context.Context, engine, mcVersion s
 	if v := strings.TrimSpace(mcVersion); v != "" {
 		if list, lerr := s.ListVersions(ctx, e.Name, Filters{IncludeUnstable: true}); lerr == nil && len(list.Versions) > 0 {
 			if !hasVersion(list.Versions, v) {
-				return Resolved{}, NormalizeError(e.Name, "resolve", catalogContentError(
+				return Resolved{}, NormalizeErrorWithCatalog(e.Name, "resolve", catalogContentError(
 					e.Name, CodeNotFound, "resolve", "", Meta{},
-					fmt.Errorf("la versión %q no existe para el motor %s", v, e.Name)))
+					fmt.Errorf("la versión %q no existe para el motor %s", v, e.Name)), list.Status)
 			}
 		}
 	}
 	res, rerr := s.registry().Resolve(ctx, e.Name, mcVersion)
 	if rerr != nil {
-		return Resolved{}, NormalizeError(e.Name, "resolve", rerr)
+		return Resolved{}, NormalizeErrorWithCatalog(e.Name, "resolve", rerr, s.cache.Status(e.Name))
 	}
 	if cerr := ctxErr(ctx); cerr != nil {
 		return Resolved{}, cerr
@@ -299,7 +309,7 @@ func (s *CatalogService) RefreshCatalog(ctx context.Context, engine string) (Ref
 	versions, status, rerr := s.cache.Refresh(ctx, e.Name)
 	out := RefreshResult{Engine: e.Name, Versions: versions, Status: status}
 	if rerr != nil {
-		return out, NormalizeError(e.Name, "refresh", rerr)
+		return out, NormalizeErrorWithCatalog(e.Name, "refresh", rerr, status)
 	}
 	if cerr := ctxErr(ctx); cerr != nil {
 		return RefreshResult{Engine: e.Name, Status: status}, cerr

@@ -18,7 +18,7 @@ func newDoctorCmd(e *Env) *cobra.Command {
 		Use:   "doctor",
 		Short: "Diagnóstico del entorno y de rendimiento (TPS)",
 	}
-	cmd.AddCommand(newDoctorTpsCmd(e))
+	cmd.AddCommand(newDoctorTpsCmd(e), newDoctorAPICmd(e), newDoctorPreflightCmd(e))
 	cmd.RunE = func(cobraCmd *cobra.Command, args []string) error {
 		return runDoctorEnv(e, cobraCmd)
 	}

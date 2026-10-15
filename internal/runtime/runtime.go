@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -125,6 +126,11 @@ func (r *Runtime) ComposePath(base, slug string) string {
 
 // Render construye el YAML del compose para un spec y una IP de host.
 func (r *Runtime) Render(spec *instance.Spec, cfg *config.Config, hostIP string) ([]byte, error) {
+	// La IP de publicación se valida ANTES de renderizar: nunca se genera un
+	// compose con el puerto abierto en todas las interfaces ni vacío.
+	if err := validatePublishIP(hostIP); err != nil {
+		return nil, err
+	}
 	data := composeData{
 		Image:         r.imageFor(spec),
 		Slug:          spec.Slug,
@@ -205,11 +211,57 @@ func (r *Runtime) imageFor(spec *instance.Spec) string {
 }
 
 // HostIP devuelve la IP de publicación del puerto según la configuración.
+//
+// Endurecimiento (plan 12.4 · spec 6.3): el puerto NUNCA se publica en todas las
+// interfaces. Si Tailscale está activado, la IP debe ser una IPv4 concreta —la
+// que el operador haya fijado en `tailscale.host_ip` o la del tailnet—; si no se
+// puede determinar, la operación falla con explicación en vez de dejar
+// `":puerto:25565"` en el compose (que Docker interpreta como 0.0.0.0).
 func (r *Runtime) HostIP(ctx context.Context) (string, error) {
-	if !r.Cfg.Tailscale.Enabled {
+	if r.Cfg == nil || !r.Cfg.Tailscale.Enabled {
 		return "127.0.0.1", nil
 	}
-	return tailscale.ResolveIPv4(ctx)
+	if ip := strings.TrimSpace(r.Cfg.Tailscale.HostIP); ip != "" {
+		if err := validatePublishIP(ip); err != nil {
+			return "", err
+		}
+		return ip, nil
+	}
+	ip, err := tailscale.ResolveIPv4(ctx)
+	if err != nil {
+		return "", err
+	}
+	if err := validatePublishIP(ip); err != nil {
+		return "", err
+	}
+	return ip, nil
+}
+
+// validatePublishIP rechaza una IP de publicación vacía, no-IPv4 o comodín. Es
+// la última barrera antes de escribir el compose: una cadena vacía se traduciría
+// en `"":25565:25565`, es decir, el servidor abierto en todas las interfaces.
+func validatePublishIP(ip string) error {
+	ip = strings.TrimSpace(ip)
+	if ip == "" {
+		return errx.Dependency(
+			"no se pudo determinar la IP de publicación del tailnet",
+			"ejecuta 'tailscale up' (o desactiva Tailscale) antes de arrancar la instancia",
+		).WithDetail("reason", "host_ip_desconocida")
+	}
+	parsed := net.ParseIP(ip)
+	if parsed == nil || parsed.To4() == nil {
+		return errx.Dependency(
+			"la IP de publicación no es una IPv4 válida: "+ip,
+			"revisa tailscale.host_ip o ejecuta 'tailscale up'",
+		).WithDetail("reason", "host_ip_invalida")
+	}
+	if parsed.IsUnspecified() {
+		return errx.Usage(
+			"la IP de publicación no puede ser 0.0.0.0: expondría el puerto en todas las interfaces",
+			"indica la IP del tailnet en tailscale.host_ip o desactiva Tailscale",
+		).WithDetail("reason", "host_ip_comodin")
+	}
+	return nil
 }
 
 // Prepare crea las carpetas de la instancia y copia el icono al volumen.

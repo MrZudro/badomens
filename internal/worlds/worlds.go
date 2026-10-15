@@ -48,6 +48,9 @@ func worldPath(instDir string) string { return filepath.Join(instDir, "server", 
 
 // SaveWorld guarda el mundo activo de la instancia como <name> en la biblioteca.
 func (m *Manager) SaveWorld(instDir, name string) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
 	src := worldPath(instDir)
 	if !isDir(src) {
 		return errx.NotFound("la instancia no tiene un mundo generado", "arranca la instancia al menos una vez")
@@ -61,6 +64,9 @@ func (m *Manager) SaveWorld(instDir, name string) error {
 
 // UseWorld despliega el mundo <name> como mundo activo de la instancia.
 func (m *Manager) UseWorld(instDir, name string) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
 	src := filepath.Join(m.LibraryDir(), name)
 	if !isDir(src) {
 		return errx.NotFound("el mundo %q no está en la biblioteca", "ejecuta 'world save' primero o 'world list'")
@@ -97,6 +103,9 @@ func (m *Manager) Export(instDir, name string) (path, sha string, err error) {
 // ImportFromZip extrae un zip en la biblioteca como <name>. Espera el contenido
 // del mundo en la raíz o dentro de una carpeta "world".
 func (m *Manager) ImportFromZip(archive, name string) error {
+	if err := ValidateName(name); err != nil {
+		return err
+	}
 	tmp, err := os.MkdirTemp("", "badomens-world-*")
 	if err != nil {
 		return err
