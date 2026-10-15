@@ -20,7 +20,12 @@ func newPluginCmd(e *Env) *cobra.Command {
 		Use:   "plugin",
 		Short: "Plugins/mods por instancia (según motor)",
 	}
-	cmd.AddCommand(newPluginAddCmd(e), newPluginListCmd(e), newPluginRemoveCmd(e))
+	cmd.AddCommand(
+		newPluginAddCmd(e), newPluginListCmd(e), newPluginRemoveCmd(e),
+		// Marketplaces (11.2) y actualizaciones (11.3): ver plugin_market.go.
+		newPluginSourcesCmd(e), newPluginSearchCmd(e), newPluginInfoCmd(e),
+		newPluginVersionsCmd(e), newPluginInstallCmd(e), newPluginUpdatesCmd(e),
+	)
 	return cmd
 }
 

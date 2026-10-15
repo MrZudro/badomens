@@ -21,11 +21,12 @@ Leyenda de la columna **TUI**:
 | `instance remove` | `instance` (modal destructivo con confirmación, Fase 5) |
 | `connect` | `connectcard` (tarjeta "Cómo conectarse", tecla `c` copia) |
 | `ports check\|list` | `wizard` + `instance/Red` (comprobación del puerto) |
-| `engine list\|current\|use\|versions` | `wizard` (picker de motor/versión) + `instance/Ajustes` |
+| `engine list\|current\|use\|versions\|compat` | `wizard` (picker de motor/versión) + `instance/Ajustes` |
 | `world list\|save\|use\|export\|import` | `instance/Mundos` (resumen + CLI enlazado) |
 | `backup create\|list\|restore\|prune` | `instance/Backups` (`b` crea, `x` restaura, `X` poda) |
 | `access whitelist-add\|remove\|ops-add\|remove` | `instance/Jugadores` (`a` añade, `o` op) |
 | `plugin add\|list\|remove` | `instance/Plugins/Mods` (resumen + CLI enlazado) |
+| `plugin sources\|search\|info\|versions\|install\|updates` | `instance/Plugins/Mods` (install/updates) + `solo-cli` (sources/search/info/versions) |
 | `logs` | `instance/Consola` (logs con filtro `/` y seguir `f`) |
 | `console` | `instance/Consola` (autocompletado `Tab`, historial ↑↓, aviso de peligro) |
 | `metrics` | `sparkline` en `home`/`instance` (Fase 5) |

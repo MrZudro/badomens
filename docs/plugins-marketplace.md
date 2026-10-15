@@ -398,47 +398,154 @@ propio, **debe** llevar esa cabecera.
 - Revalidación periódica de lo ya instalado (11.1 solo comprueba al instalar).
 - CurseForge con API key (ver §3).
 
-## 11. Qué queda por cablear en el CLI (no incluido en esta ola)
+## 11. Comandos del CLI (11.2/11.3)
 
-Los paquetes están listos y probados; falta el registro de comandos cobra (otra
-ola edita `internal/cli`). Propuesta:
+El cableado vive en `internal/cli/plugin_market.go` y se cuelga de `plugin`.
+Ninguno de estos comandos altera el contrato JSON: las claves nuevas van
+**dentro de `data`** y son aditivas.
 
-```
-badomens plugin sources                            # marketplaces registrados
+```bash
+badomens plugin sources
 badomens plugin search <texto> [-i <instancia>] [--source modrinth|hangar]
-                                             [--kind plugin|mod] [--limit N] [--offset N]
+                                            [--kind plugin|mod|...] [--limit N] [--offset N]
 badomens plugin info <proyecto> [--source <id>]
 badomens plugin versions <proyecto> [--source <id>] [--compatible]
 badomens plugin install <proyecto>[@<versión>] [-i <instancia>] [--source <id>]
-                                             [--channel release|beta|alpha] [--allow-prerelease]
-                                             [--allow-unverified] [--allow-missing-deps]
-                                             [--on-conflict fail|rename|replace] [--max-size N]
-                                             [--allow-http] [--allow-private] [--allow-loopback]
-badomens plugin updates [-i <instancia>] [--persist-targets] [--allow-prerelease]
+                                            [--channel release|beta|alpha]
+                                            [--allow-prerelease] [--allow-unverified]
+                                            [--allow-missing-deps]
+                                            [--on-conflict fail|rename|replace] [--max-size N]
+                                            [--allow-http] [--allow-private] [--allow-loopback]
+badomens plugin updates [-i <instancia>] [--persist-targets]
+                                            [--channel release|beta|alpha] [--allow-prerelease]
 ```
 
-Notas de cableado:
+`-i`/`--instance` es el flag global: selecciona la instancia de la que se toman
+**el motor (loader)** y **la versión de Minecraft**. Ejemplos:
 
-- `--json` debe mantener el contrato de siempre y añadir claves **aditivas** en
-  `data`: `source`, `project`, `version`, `compatibility`, `publication`,
-  `resolution_complete`, `hash`, `dependencies`, `provenance`.
-- Tras un `plugin install` correcto, el comando debe añadir el nombre a
-  `instance.Spec.Plugins` (convención de 11.1: el registro de la instancia lo
-  mantiene el llamador) **y** el instalador ya habrá escrito la procedencia.
-- `plugin updates` no debe instalar nada: informa y, si acaso, anota la versión
-  objetivo.
+```bash
+badomens plugin sources
+badomens plugin search viaversion -i demo
+badomens plugin search essentials --source hangar --kind plugin --limit 10
+badomens plugin info viaversion
+badomens plugin versions viaversion -i demo --compatible
+badomens plugin install viaversion -i demo                       # la más reciente release compatible
+badomens plugin install viaversion@5.5.0 -i demo --allow-prerelease
+badomens plugin install viaversion -i demo --allow-unverified --allow-missing-deps
+badomens plugin updates -i demo --persist-targets
+```
+
+### Claves añadidas en `data`
+
+| Comando | Claves |
+|---------|--------|
+| `sources` | `count`, `sources[]{id,label,status,live_checked,verified,endpoint,kinds,strongest_checksum}`, `note` |
+| `search` | `query`, `instance`?, `environment`?, `kind`?, `results[]{source,id,slug,title,kind,url,downloads,license,publication,compatibility,compatibility_reason,compatibility_verified,loaders?,game_versions?,categories?,total_matches}`, `count`, `total`, `filter_env`, `sources_queried`, `failures`?, `note` |
+| `info` | `source`, `project{id,slug,title,kind,url}`, `publication`, `published`, `loaders`, `game_versions`, `categories`, `compatibility`, `compatibility_reason`, `compatibility_verified`, `environment`?, `instance`?, `note` |
+| `versions` | `source`, `project{...}`, `versions[]{id,number,name,channel,prerelease,publication,published,compatibility,compatibility_reason,compatibility_verified,loaders?,game_versions?,file_count,file{name,size_bytes,primary,external,verifiable,hash?},dependencies?}`, `count`, `total`, `environment`?, `compatible_only`, `instance`?, `note` |
+| `install` (éxito) | `instance`, `source`, `project{id,slug,title,kind}`, `version`, `version_id`, `channel`, `compatibility`, `publication`, `resolution_complete`, `hash{algorithm,value}`?, `file{name,size_bytes,url,external}`, `installed{name,size_bytes,sha256,checksum_verified,archive,renamed_from?,replaced?}`, `dependencies[]{project_id,version_id,name,kind,status,detail}`, `provenance` (la entrada completa del registro), `warnings`?, `security_warning` |
+| `install` (fallo) | `instance`, `source`, `project`, `version_requested`, `stage`, `resolution_complete`, `problems[]{reason,message,hint,fatal}`?, `reason`? |
+| `updates` | `instance`, `updates[]` (el `install.UpdateCheck`: `name,version,target_version,target_version_id,target_channel,status,compatibility,publication,detail,reason,warnings`), `checked`, `available`, `blocked`, `unknown`, `persisted_targets`, `installed_modified:false`, `note` |
+
+### Decisiones de cableado
+
+- **`plugin sources` no consulta la red**: informa de lo REGISTRADO
+  (`status: "registrada"`, `live_checked: false`). Afirmar disponibilidad sin
+  preguntar sería inventar.
+- **`search`/`info` nunca afirman compatibilidad verificada**:
+  `compatibility_verified` es siempre `false` y `compatibility` es la DECLARADA
+  por el proveedor (normalmente `desconocido` en una búsqueda, porque la
+  búsqueda de Modrinth no publica loaders). `compatibility_reason` explica el
+  veredicto y `note` recuerda que un resultado no demuestra nada.
+- **Fuente por defecto**: la primera registrada del catálogo (Modrinth). El
+  resultado siempre lleva `source`, así que la elección es explícita.
+- **`publication` en una búsqueda suele ser `desconocido`**: el esquema de
+  búsqueda de Modrinth no publica el estado del proyecto. No se rellena con
+  datos de otra consulta.
+- **`--source` inexistente** ⇒ `error_usage` con `reason:
+  marketplace_no_registrado`.
+- **`search` con todas las fuentes caídas** ⇒ error (no una búsqueda vacía); con
+  solo algunas ⇒ aviso (`exit_code 1`) y `failures[]`.
+- **`--compatible` sin instancia** ⇒ `error_usage` con `reason:
+  entorno_incompleto`: sin entorno no hay con qué comparar.
+- **`install` (fallo) clasifica la etapa** en `stage`:
+  - `resolucion` ⇒ AC-06: `resolution_complete:false`, `problems[]` con los
+    motivos estables de `resolve.Problems` (duplicados en
+    `error.details.reason`) y **nada escrito** en disco;
+  - `consulta` ⇒ no se pudo hablar con el proveedor (tampoco hay resolución);
+  - `instalacion` ⇒ la resolución era completa y falló la descarga, el checksum,
+    el conflicto de nombre o el registro (`resolution_complete:true`).
+- **Un fallo nunca deja nada**: ni archivo, ni entrada de procedencia, ni
+  temporales (lo garantiza `install.Client`).
+- **Tras la instalación completa** se añade el nombre del archivo a
+  `instance.Spec.Plugins` (convención de 11.1). Si el guardado de la instancia
+  falla, se retira el archivo recién instalado **y** su entrada de procedencia
+  (`rollbackMarketInstall`), para no dejar disco, registro y procedencia
+  desincronizados.
+- **Avisos = `exit_code 1`** (`result.Warn`), igual que `plugin add` con un
+  plugin exigente: `--allow-unverified`, `--allow-missing-deps` y los plugins
+  conocidos por su coste. La instalación sigue siendo completa
+  (`resolution_complete:true`).
+- **Las dependencias nunca se instalan solas**: o bloquean (`error_usage`,
+  `dependencia_no_satisfecha`) o quedan como aviso con `--allow-missing-deps`,
+  con su estado (`satisfecha|ausente|incompatible|opcional|incluida|no_verificable`)
+  en `dependencies`.
+- **`plugin updates` no instala ni modifica nada**: `installed_modified:false`,
+  `exit_code 1` (aviso) cuando hay actualizaciones o comprobaciones bloqueadas,
+  `0` cuando no hay nada que revisar. `--persist-targets` solo escribe
+  `target_version` en el registro.
+- **`plugin add` (URL directa) no cambia**: sigue con la política de 11.1.
+
+### Paridad CLI ↔ TUI
+
+Los subcomandos nuevos tienen **su propia entrada** en el manifiesto
+(`badomens commands`) y en la tabla de paridad, separada de `plugin
+add|list|remove`: `plugin sources|search|info|versions|install|updates` →
+`instance/plugins` (install/updates) + `solo-cli` (sources/search/info/versions).
+Se eligió una entrada nueva, y no ampliar la existente, para no perder la
+correspondencia histórica de `add|list|remove` con la pantalla de plugins de la
+TUI ni romper el formato `familia.sub1|sub2`.
 
 ## 12. Cómo verificar
 
 ```bash
-gofmt -l internal/plugins
+gofmt -l internal/cli internal/plugins
 go build ./...
-go vet ./internal/plugins/...
+go vet ./internal/cli/ ./internal/plugins/...
 go test ./internal/plugins/... -count=1
 go test ./internal/plugins/marketplace/... -count=1 -v
+go test ./internal/cli/ -count=1
 ```
 
-Cobertura de AC-13/AC-14 (todas con `httptest` y fixtures, sin red real):
+Cobertura de AC-13/AC-14 (todas con `httptest` y fixtures, sin red real).
+
+En `internal/cli/plugin_market_test.go`, sobre un marketplace de Modrinth
+simulado con el MISMO esquema y el mismo filtrado en el servidor:
+
+- `plugin sources`: lista modrinth y hangar sin consultar la red
+  (`live_checked:false`).
+- `plugin search`: traduce los resultados sin afirmarlos compatibles
+  (`compatibility_verified:false`); sin resultados, mensaje claro y
+  `exit_code 0`; `--source` inexistente ⇒ `marketplace_no_registrado`.
+- `plugin versions`: con `-i` el proveedor filtra por loader y versión de
+  Minecraft y `--compatible` descarta el resto; sin instancia se listan todas con
+  compatibilidad `desconocido`; `--compatible` sin instancia ⇒
+  `entorno_incompleto`.
+- `plugin info`: compatibilidad declarada (nunca verificada); proyecto
+  inexistente ⇒ `error_not_found`/`no_encontrado`.
+- `plugin install` (AC-06): resolución incompleta ⇒ `exit_code 2`,
+  `resolution_complete:false`, `problems[0].reason` = `sin_version_compatible` /
+  `version_inexistente` / `checksum_ausente` / `dependencia_no_satisfecha` /
+  `proyecto_no_publicado`, y **ni archivo ni procedencia ni lista de la
+  instancia**.
+- `plugin install` correcto: archivo en destino, checksum `sha512` verificado,
+  procedencia y lista de la instancia actualizadas **una sola vez**; reinstalar
+  ⇒ `destino_existente` sin duplicar nada.
+- `plugin install` con dependencia obligatoria: sin `--allow-missing-deps`
+  bloquea; con el flag avisa (`exit_code 1`) y **no instala la dependencia**.
+- `plugin updates`: detecta la versión nueva sin tocar el archivo (bytes y fecha
+  idénticos), `--persist-targets` solo anota `target_version`; un archivo sin
+  procedencia queda `desconocida`.
 
 - **Modrinth**: búsqueda traducida sin afirmar compatibilidad; filtro por loader y
   versión de Minecraft como arrays JSON; proyecto inexistente ⇒ `not_found`;
