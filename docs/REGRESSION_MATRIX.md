@@ -267,3 +267,82 @@ en `docs/TUI_ACCEPTANCE_TESTS.md`; la matriz de TUI no se duplica).
 3. **Regeneración «programada»**: descartada a propósito (una sola política). Si
    el producto la quisiera, necesitaría estado persistente de «regenerar al
    arrancar» en el registro de instancias.
+
+> **Actualización de cierre:** el pendiente 2 quedó **resuelto** en la Fase 12
+> (`provision.Request` acepta `Pins` y la TUI inyecta los del `Resolved`; prueba
+> `TestCreateInyectaPinsExactos` y `PIN-01`). El pendiente 1 (RCON) sigue abierto
+> y es el único que queda, con el mismo motivo.
+
+---
+
+## 12. Cierre: defecto → prueba REAL
+
+> Añadido por el orquestador al cerrar la entrega, a partir de la auditoría
+> independiente (que señaló que algunos nombres de la columna «Prueba propuesta»
+> eran una propuesta y no coincidían con el test implementado). **Esta sección es
+> la que manda**: los nombres de aquí son los `func Test…` que existen en el
+> árbol. Donde un defecto se cubre por criterios de pantalla, la referencia es el
+> ID de `docs/TUI_ACCEPTANCE_TESTS.md`.
+
+### 12.1 Capa de datos (`spec 1.md`)
+
+| ID | Estado | Prueba real |
+|---|---|---|
+| API-01 (sin reintentos) | **resuelto** | `TestClientRetry5xx`, `TestClientRetrySeRecuperaTras5xx`, `TestClientTransportReintentaFalloDeConexion`, `TestClientRetry429ConRetryAfterSegundos`, `TestClientRetry429SinRetryAfter`, `TestClientRetryAfterFechaHTTP`, `TestClientRetryJitterDeterminista`, `TestClientMaxAttemptsConfigurable`, `TestClientHTTPErroresPermanentes`, `TestClientNoReintentaAunqueElTextoParezcaTransitorio`, `TestClientTransportLimiteTotalDelContexto` |
+| API-02 (`badomens/0`) | **resuelto** | `TestClientHTTP200ConValidadores` (comprueba UA real + versión), `TestAcceptHeaderUsaRangosValidos` |
+| API-03 (Paper v2 + error silenciado) | **resuelto** | `TestPaperListVersionsFillV3`, `TestPaperBasePorDefectoEsFillV3`, `TestPaperResolveVersionExplicitaConPinExacto`, `TestPaperResolveUltimaEstable`, `TestPaperDescartaBuildSinArtefacto`, `TestPaperListaDeBuildsVaciaFalla`, `TestPaperBuildsSinNingunArtefactoFalla`, `TestPaperBuildsHTTP404PropagaError`, `TestPaperBuildsHTTP500PropagaError`, `TestPaperEsquemaDistintoEsSchemaMismatch`, `TestPaperResolveVersionInexistenteEsNotFound`, `TestPaperPickStableBuildEsDeterminista` |
+| API-04 (loader general + error silenciado) | **resuelto** | `TestFabricLoaderPorGameVersion` (afirma la URL `/versions/loader/{game}`), `TestFabricResolveSinLoaderFalla`, `TestFabricGameVersionInexistenteFalla`, `TestFabricCatalogoDeJuegoFalla` |
+| API-05 (`latest` = último elemento) | **resuelto** | `TestPickVersionIndependienteDelOrden`, `TestPickVersionRechazaInexistenteOIncompatible`, `TestFabricLatestStableNoDependeDelOrden`, `TestFabricLoaderIndependienteDelOrden`, `TestRecomendadaEsLaUltimaEstableEnLosCincoMotores` |
+| API-06 (parser Maven compartido) | **resuelto** | `TestForgeResolucionExactaConPromocionesReales`, `TestForgeIndiceMavenVacioNoDejaCatalogoVacio`, `TestForgePromocionesSchemaDistintoFalla`, `TestForgePromocionesVaciasFalla`, `TestForgeBuildNoDescargableFalla`, `TestForgeVersionSinPromocionesFalla`, `TestNeoForgeXmlEsquemaAntiguoResuelveConPin`, `TestNeoForgeXmlEsquemaModernoResuelveConPin`, `TestNeoForgeXmlInvalidoFalla`, `TestNeoForgeVersionInexistenteFalla`, `TestMavenOrdenLexicograficoEngañoso`, `TestMavenSufijosBetaYRcNoGanan`, `TestNeoForgeAntiguoYModernoNormalizados`, `TestNeoForgeNoOrdenaAlfabeticamenteEntreEsquemas` |
+| API-07 (256 MiB en memoria, escritura directa) | **resuelto** | `TestInstallLimiteExcedido`, `TestInstallRechazaSSRF`, `TestInstallRedireccionAPrivada`, `TestInstallHTTPRequierePolitica`, `TestInstallJarInvalido`, `TestInstallChecksum`, `TestInstallConflictos`, `TestInstallNombresInvalidos`, `TestInstallCorrecto`, `TestInstallLimpiaTemporalesHuerfanos`, `TestPluginAddFallaSinRegistroNiArchivo`, `TestPluginAddRechazaSSRSinArchivo`, `TestPluginAddNoSobrescribe`, `TestPluginAddLimiteDeDescarga` |
+| API-08 (sin modelo normalizado / trivalente) | **resuelto** | `TestCompatibilidadTrivalente`, `TestEnrichNoConvierteDesconocidoEnCompatible`, `TestCatalogServiceListVersionsConFiltros`, `TestCatalogServiceResolveVersionHeredaJavaVerificado` |
+| (Java 8 por defecto — AC-05) | **resuelto** | `TestJavaMajorForNuncaAsumeOcho`, `TestJavaRequirementForExponeElOrigen`, `TestJavaImagenPorVersion`, `TestJavaTag`, `TestNormalizeJavaRespetaElDatoDelProveedor` |
+| (caché sobrescrita — AC-07) | **resuelto** | `TestCacheNoSobrescribeConCatalogoVacio`, `TestCacheDetectaReduccionAnomala`, `TestCacheEscrituraAtomica`, `TestCacheCorruptaNoSeSirveYSeRecupera`, `TestCacheSirveVencidaSinRed`, `TestCacheUsaETagYTrata304ComoSinCambios`, `TestCacheDeduplicaSolicitudesSimultaneas`, `TestCacheRefreshFuerzaConsulta` |
+
+### 12.2 Bugs y UX (`SPEC 2.md`) — cubiertos por la matriz de la TUI
+
+| ID | Estado | Criterios (en `docs/TUI_ACCEPTANCE_TESTS.md`) |
+|---|---|---|
+| QC-01, QC-02 | **resueltos** | `WIZ-01`, `WIZ-03` (`↓` no avanza de paso) |
+| QC-03, QC-04 | **resueltos** (causa técnica en Fases 2-5; UI en Fase 7) | `WIZ-06`, `WIZ-07`, `WIZ-09` + `TestRecomendadaEsLaUltimaEstableEnLosCincoMotores`, `TestPaperDescartaBuildSinArtefacto`, `TestForgeBuildNoDescargableFalla` |
+| QC-05 | **resuelto** | `WIZ-02`, `SEL-02`, `SEL-08`, `QA-09` |
+| AD-01 | **resuelto** | `WIZ-05` |
+| AD-02 / AD-02b | **resuelto** | `WIZ-04`, `WIZ-05`, `WIZ-08`, `PIN-01`, `TestParidadResolucionCLITUIMCP`, `TestEnrichNormalizaOrdenaYRecomiendaAlFinal`, `TestCreateInyectaPinsExactos` |
+| RG-01, RG-02, RG-03 / SEC-09 | **resueltos** | `REG-01`…`REG-04` |
+| SEC-01 (§1 barra) | **resuelto** | `BAR-01`…`BAR-03`, `HELP-03`, `QA-03`, `QA-06` |
+| SEC-04 (§4 daemon/Docker/Tailscale) | **resuelto** | `INFRA-01`…`INFRA-04`, `QA-05`, `QA-05b`, `QA-10` + `TestEnsureReadyNoAction`, `TestEnsureNotInstalledNoSilentInstall`, `TestEnsureStartsAndWaits`, `TestEnsureElevationRefusedDegrades`, `TestEnsureElevationAllowedRuns`, `TestEnsureTimeoutGivesCauseAndManual`, `TestNoShellConcatenationInPlans` |
+| SEC-05 (§5 MagicDNS) | **resuelto** | `MAGIC-01`, `MAGIC-02` + `TestMagicDNSFromStatus`, `TestProbeWith`; causa raíz en `docs/infra-fase8.md` |
+| SEC-06 (§6 salida del input) | **resuelto** | `ESC-01`, `ESC-02` |
+| SEC-07 (§7 Jugadores) | **resuelto** | `PLAY-01`…`PLAY-04` (queda RCON deshabilitado: pendiente 1 de §11) |
+| SEC-08 (§8 semáforo) | **resuelto** | `SEM-01`…`SEM-04`, `QA-07` |
+| SEC-10 (§10 copiar dirección) | **resuelto** | `COPY-01`…`COPY-04` |
+| SEC-11 (§11 borrar) | **resuelto** | `DEL-01`…`DEL-05` |
+| SEC-12 (§12 notificaciones) | **resuelto** | `NOT-01`…`NOT-04`, `QA-04` |
+| SEC-13 (§13 Ayuda) | **resuelto** | `HELP-01`…`HELP-04` |
+| SEC-14 (§14 Plugins SOON) | **resuelto** | `SOON-01` |
+| SEC-15 (§15 pestaña superior) | **resuelto** | `UI-TABS-01`, `NAV-01`, `NAV-03`, `NAV-04`, `ZONE-01`…`ZONE-03` |
+| (accesibilidad y rendimiento — Fase 12) | **resuelto** | `A11Y-01`…`A11Y-06`, `PERF-06`…`PERF-12` |
+
+### 12.3 Extras de las fases 11-12 y arreglos de cierre
+
+| Área | Estado | Prueba real |
+|---|---|---|
+| Marketplaces (AC-13/AC-14) | resuelto | `TestPluginSourcesListaLosRegistrados`, `TestPluginSearchListaYsinResultados`, `TestPluginInfoDeclaradoYNoEncontrado`, `TestPluginVersionsFiltraPorEntorno`, `TestPluginInstallResolucionIncompleta`, `TestPluginInstallCompletoRegistraUnaVez`, `TestPluginInstallDependenciaObligatoria`, `TestPluginUpdatesDetectaYNoModificaElArchivo`, `TestPluginUpdatesSinInstalaciones`, `TestProvenanceMigracionAditiva`, `TestProvenanceUpsertNoDuplica` |
+| Observabilidad (AC-12) | resuelto | `TestDiagnoseObjetoCompletoConCache`, `TestDiagnoseDistingueRedRespuestaVersionEIncompatibilidad`, `TestDiagnoseNoFiltraCredenciales`, `TestDoctorAPIInformeCompleto`, `TestDoctorAPIMatrizDeEstados`, `TestDoctorAPINoSacaSecretos`, `TestProbeReportaConectividadFormatoYEsquema`, `TestProbeMatrizHTTP`, `TestProbeTimeout` |
+| Seguridad del runtime (12.4) | resuelto | `TestValidateSlugRechazaRutasYEspacios`, `TestRutasNoEscapanDelDataDir`, `TestSlugInvalidoNoEscapaDelDataDir`, `TestNombresInvalidosRechazados`, `TestRestoreVerificaChecksumAntesDeTocarDatos`, `TestRestoreSinChecksumSeRechaza`, `TestRestoreZipCorruptoNoTocaLosDatos`, `TestCreatePermisos` |
+| Funciones P2 (12.5) | resuelto | `TestDoctorPreflightVeredictoTrivalente`, `TestExportManifestRechazaConfiguracionInvalida`, `TestManifestRoundTripReproduceExacto`, `TestManifestValidateRechazaNoReproducible`, `TestReproExportImportRecreaLaInstancia`, `TestImportManifestNoSobrescribeSinPermiso` |
+| Paridad CLI/TUI/MCP (T-01) | resuelto | `TestParidadResolucionCLITUIMCP`, `TestParidadErrorNormalizadoCLITUIMCP`, `TestParidadListadoCLIMCP`, `TestContratoJSONCatalogoAditivo`, `TestParidadCLITUI` |
+| `Accept` inválido (hallazgo del cierre) | resuelto | `TestAcceptHeaderUsaRangosValidos` |
+| Test de ratón intermitente (hallazgo del revisor) | resuelto | `TestAppClicDeRatonAbreDetalle` (determinista: 20/20 corridas) |
+| Defectos del QA visual (grid, modal 60×18, pie, barra de estado) | resueltos | `QA-01`…`QA-10` + `TestSelectorGridColumnasAlineadasConTextosDeDistintaLongitud`, `TestModalCompactoMantieneLasAccionesVisibles`, `TestFooterPrimerAtajoQueNoCabeSeDescartaEntero`, `TestQA04BarraEstadoNoRetieneAvisosCaducados` |
+
+### 12.4 Lo que NO tiene prueba específica (honestidad)
+
+- **AC-11 (`go test -race`)**: no ejecutable en este entorno (requiere cgo/gcc). La
+  concurrencia se cubre con contadores atómicos (`TestCacheDeduplicaSolicitudesSimultaneas`)
+  y `-count=3`; **debe ejecutarse en CI con cgo**.
+- **UX-06/UX-07 con servicios realmente apagados**: verificado por pruebas con
+  fakes de `execx`; no se levantaron servicios reales ni se pidió elevación.
+- **Consola con el servidor en marcha**: la revisión visual se hizo con una
+  instancia detenida (no se arrancó Docker), así que el scroll, el filtro y el
+  *read-back* en vivo de whitelist no se validaron visualmente (sí por pruebas).

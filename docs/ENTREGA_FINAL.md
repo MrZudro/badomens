@@ -41,6 +41,12 @@ seguridad, observabilidad y rendimiento.
 | 7 y 9 · Flujos e instancia | `f123139` | `feat(tui): flujos de creacion y funciones de instancia (Fases 7 y 9)` |
 | 12 · Observabilidad y seguridad | `4ccc917` | `feat(observabilidad): diagnostico por proveedor, doctor api, seguridad de runtime y funciones P2 (Fase 12)` |
 | 12.1-12.2 · Accesibilidad y rendimiento | `19c1d4c` | `perf(tui): accesibilidad, metricas, benchmarks y pins exactos en la creacion` |
+| Documentación de cierre | `669d3e3` | `docs: cierre del plan, changelog por fases y resumen de entrega` |
+| Correcciones del revisor y del E2E | `38b7b16` | `fix(lint): deja golangci-lint en verde, estabiliza el test de zonas y documenta el contrato JSON` |
+| Correcciones del QA visual | `268945d` | `fix(tui): corrige los hallazgos del QA visual (grid, modal compacto, pie y estado)` |
+
+Total: **20 commits** (los tres últimos son el cierre tras la validación
+independiente).
 
 ---
 
@@ -56,7 +62,7 @@ seguridad, observabilidad y rendimiento.
 | AC-06 | Las resoluciones incompletas no se consideran exitosas | CUMPLE | `TestResolvedValidateExigeTodosLosPines`, `TestRegistryResolveNormalizaYValida`, `TestPluginInstallResolucionIncompleta` |
 | AC-07 | El catálogo persistente nunca se reemplaza por una respuesta inválida | CUMPLE | `TestCacheNoSobrescribeConCatalogoVacio`, `TestCacheDetectaReduccionAnomala`, `TestCacheEscrituraAtomica` |
 | AC-08 | La descarga de plugins es limitada, validada y atómica | CUMPLE | `TestStageURLAbortaSiSuperaElLimite`, `TestStageURLRechazaDestinosSSRF`, `TestStageURLRedireccionAPrivada`, `TestInstallJarInvalido`, `TestStageURLChecksum` |
-| AC-09 | Sin regresiones del contrato JSON ni de los comandos | CUMPLE | `TestContratoJSONAditivo*` (`internal/cli/paridad_catalogo_test.go`), `TestParidadCLITUI` |
+| AC-09 | Sin regresiones del contrato JSON ni de los comandos | CUMPLE | `TestContratoJSONCatalogoAditivo`, `TestParidadCLITUI`; semántica nueva documentada en `docs/contrato-json.md` |
 | AC-10 | Las operaciones fallidas dejan estado recuperable e informado | CUMPLE | `internal/result/outcome.go` + fases `applied/failed/partial`; `TestPluginInstallCompletoRegistraUnaVez` (rollback) y `backup restore` con `outcome` |
 | AC-11 | Pruebas de concurrencia y regresión de TUI con `-race` | PARCIAL | `TestCacheDeduplicaSolicitudesSimultaneas` (12 goroutines → 1 petición). **`-race` no ejecutable en este entorno** (requiere cgo/gcc): queda para CI |
 | AC-12 | Diagnóstico por proveedor: conexión vs contrato vs compatibilidad | CUMPLE | `badomens doctor api` + `engine/diagnostic.go`; `TestDiagnose*`, `TestDoctorAPI*`, `TestObservabilidadSinSecretos` |
@@ -144,18 +150,99 @@ están en `docs/TUI_ACCEPTANCE_TESTS.md` y los benchmarks se ejecutan con
    catálogo aporta el dato; en Paper Fill v3 no hay fecha por versión, así que ese
    catálogo cae al orden y marca básicos (documentado en `docs/catalogo-servicio.md`).
 7. **Validación visual y E2E independientes**: ejecutadas por subagentes
-   separados al cierre; su veredicto se registra en la sección 7.
+   separados; resultados y veredictos en la sección 7.
+8. **Cosmético menor (conocido, no bloqueante):** la *pista* del selector de
+   versiones y algunas etiquetas largas se abrevian a media palabra con `…`
+   (p. ej. `[Esc] Cer…` a 132×40 en el panel de versiones, o `[Shift+Tab] zona
+   anter…` en la Ayuda a 60×18). **Ya ocurría antes** de esta rama y no afecta al
+   pie de atajos (que ahora descarta los ítems enteros). Si se quiere unificar el
+   criterio, el arreglo es el mismo que el del pie: descartar el segmento entero
+   en vez de truncarlo.
 
 ---
 
 ## 7. Validación independiente
 
-- **Revisión de cumplimiento (revisor independiente):** ver sección de resultados
-  de la sesión de validación.
-- **E2E sobre el binario real:** ver escenarios 1-13 de la sección 6.2 del plan.
-- **QA visual de la TUI** (capturas reales en varios tamaños).
+Cada hallazgo se corrigió y se volvió a verificar. Los nombres de prueba
+concretos por defecto están en `docs/REGRESSION_MATRIX.md` §12.
 
-> Nota: en Windows, Smart App Control bloquea de forma **intermitente** los
-> binarios de test recién compilados (`Una directiva de Control de aplicaciones
-> bloqueó este archivo`). No es un fallo de código: reintentar o usar
-> `-ldflags="-w -s"` (`make test` ya lo contempla).
+### 7.1 Auditoría de cumplimiento (revisor independiente) — **REVISE leve → corregido**
+
+| Criterio | Veredicto | Evidencia |
+|---|---|---|
+| T-02/AC-06 sin éxito parcial | CUMPLE | Los 5 proveedores propagan todo error obligatorio; invariante `Resolved.Validate` + `Registry.Resolve`. Ya no queda ningún patrón `if err := …; err == nil { usar }` |
+| T-03 compatibilidad trivalente | CUMPLE | `compat.go` + `Compatible = Compatibility.IsCompatible()`; sin relleno a `true` |
+| AC-05 Java | CUMPLE | `JavaMajorFor` → `0`; 26.x → 25; `JavaImageFor` conserva el `fallback` |
+| AC-07 caché | CUMPLE | `validateCatalog`, `anomalousReduction`, escritura atómica, deduplicación |
+| AC-09 contrato JSON | CUMPLE | Claves estables intactas (`internal/result/contract_test.go`); campos nuevos aditivos |
+| T-01 una sola ruta | CUMPLE | CLI/TUI/MCP pasan por `CatalogService`; la TUI no importa `net/http` |
+| T-07/6.3 seguridad | CUMPLE | Cero `sh -c`/`cmd /c`; sin secretos en logs/JSON; destructivas con confirmación |
+| T-09 sin bloquear Bubble Tea | CUMPLE | Toda operación de red es `tea.Cmd` cancelable |
+| Duplicación | CUMPLE | Un selector, una barra, un sistema de notificaciones, un parser por proveedor |
+| **Pruebas que fallan contra el código anterior** | CUMPLE (empírico) | En un worktree de `main`: `JavaMajorFor("26.3")=8`, `pickVersion(desc)="1.20.1"` y `Paper.Resolve` devolvía `pins=map[]` **sin error** (éxito parcial). Los tres tests nuevos fallan contra `main` |
+
+Hallazgos corregidos: (1) test de ratón intermitente por el estado global de
+`bubblezone` → determinista (20/20); (2) `docs/contrato-json.md` sin la semántica
+nueva → documentada de forma aditiva; (3) `CHANGELOG.md` sin commitear → commiteado.
+
+### 7.2 E2E sobre el binario real — escenarios 1-13 **PASS**
+
+| Escenario | Resultado |
+|---|---|
+| 1 Paper | 68 versiones, `recommended 26.3`, build **190 (STABLE)**, `PAPER_BUILD=190` |
+| 2 Fabric | `26.3` + loader `0.19.5`, `FABRIC_LOADER_VERSION=0.19.5` |
+| 3 Forge | `26.3`, loader `66.0.12`; sin catálogo vacío ante esquema distinto |
+| 4 NeoForge | build `26.3.0.83`; esquemas antiguo y moderno; caída anómala detectada |
+| 5 Vanilla | 103 release / 755 snapshot / 35 alpha / 26 beta; desconocida → `java_major: 0` |
+| 6 Sin red | `state: stale`, `age: "hace 10 h"`, `usable: true`; nunca una lista vacía silenciosa |
+| 7 Resolución nueva | `engine use … --version 99.99` → exit 2, `not_found`, `resolution_complete:false` |
+| 8 Paridad | MCP y CLI idénticos (build 133 + `PAPER_BUILD=133`); TUI por test de paridad |
+| 9 Descarga fallida | `http://` → `tls_requerido`; SHA-256 erróneo → nada escrito y registro intacto |
+| 10 Cambio de motor fallido | exit 2 **sin tocar** `instance.yaml`; recuperación consistente |
+| 11 Creación avanzada | config final == selección |
+| 12 Infra apagada | `daemon status` → `down` con hint; `docker`/`tailscale` → `ready` |
+| 13 Regenerar/borrar | sin confirmación no se ejecuta; política única declarada |
+
+AC-01…AC-10 y AC-12: PASS. **AC-11 no verificable** aquí (sin cgo).
+
+### 7.3 QA visual de la TUI — **REVISE → corregido**
+
+Se auditó con **118 capturas PNG reales** (60×18, 80×24, 132×40). Evaluación:
+barra inferior **PASS**, semáforo con luz + texto **PASS**, Ayuda en cascada
+piramidal **PASS**, consola acotada y `[Esc] Atrás` resaltado **PASS**, política de
+regeneración declarada antes de confirmar **PASS**.
+
+Defectos encontrados y corregidos: (1) el grid del selector de versiones no
+alineaba las columnas y no mostraba el detalle de la opción enfocada; (2) a 60×18
+el modal de regeneración perdía sus botones de acción; (3) a 60×18 el pie
+mostraba `[S] Ini…` en vez de descartar el atajo entero; (4) la barra de estado
+se comportaba como notificación permanente (`🟡 Comprobando el daemon…` eterno) y
+duplicaba el *toast*. Además: pie con acciones no aplicables, etiqueta única de
+estado detenido (`Apagado`) y orden icono/texto homogéneo en la cabecera. Todos
+cubiertos por `QA-01`…`QA-10`.
+
+**Re-validación tras los arreglos: PASS.** Con 113 capturas PNG nuevas (60×18,
+80×24, 132×40) y medición automática de la rejilla sobre el PNG:
+
+| Defecto | Verificación |
+|---|---|
+| Grid desalineado | Inicios de columna constantes en **todas** las filas (`x=558/720/882` a 132×40 → paso uniforme de 18 celdas; `x=36/198/360/522` a 80×24) y línea de detalle ligada al foco («▶ Java 25 · última estable») |
+| Modal a 60×18 | Las tres acciones completas (`[Y]`, `[B]`, `[N]`) con el marco cerrado; `Esc` cierra |
+| Pie a 60×18 | `[S] Iniciar  [F1] Ayuda  [TAB] Desplazarse`, **sin ningún `…`**; los atajos que no caben se descartan enteros |
+| Barra de estado | El «Comprobando el daemon…» caduca con el TTL (~5 s) y se resuelve en su mensaje final; la penúltima línea muestra el estado actual (`Instancias`), **nunca** el eco del aviso |
+
+Regresiones nuevas: **ninguna** (barra contextual y sin `Ctrl+P`/`F2`/`Ctrl+Q`,
+semáforo con luz + texto en las 9 sub-pantallas, Ayuda en cascada piramidal,
+consola acotada, `[Esc] Atrás` resaltado con el input enfocado, sin solapes en los
+tres tamaños).
+
+### 7.4 Límites de la validación
+
+- **`go test -race` (AC-11)**: no ejecutable en este entorno (requiere cgo/gcc).
+  **Pendiente de ejecutar en CI.**
+- **Smart App Control** (Windows) bloquea de forma intermitente los binarios de
+  test recién compilados. No es un fallo de código: con `-ldflags="-w -s"` o un
+  reintento, todos los paquetes pasan.
+- La validación visual se hizo con una instancia **detenida** (no se arrancó
+  Docker), así que la consola con el servidor en marcha no se validó visualmente
+  (sí por pruebas).
