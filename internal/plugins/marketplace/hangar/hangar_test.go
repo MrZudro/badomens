@@ -21,7 +21,7 @@ func fixtureServer(t *testing.T) (*Client, *string) {
 	mux := http.NewServeMux()
 	serve := func(route, fixture string) {
 		mux.HandleFunc(route, func(w http.ResponseWriter, r *http.Request) {
-			raw, err := os.ReadFile(filepath.Join("testdata", fixture))
+			raw, err := os.ReadFile(filepath.Join("testdata", fixture)) // #nosec G304 -- fixture de testdata del propio paquete
 			if err != nil {
 				t.Errorf("fixture %s: %v", fixture, err)
 				http.Error(w, "fixture ausente", http.StatusInternalServerError)

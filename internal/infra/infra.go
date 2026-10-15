@@ -292,7 +292,7 @@ func Ensure(ctx context.Context, env Env, c Component, opts Options) Report {
 		switch {
 		case len(step.Command) == 0:
 			rep.Pending = append(rep.Pending, step)
-		case step.RequiresElevation && !(opts.AllowElevation || env.elevated()):
+		case step.RequiresElevation && !opts.AllowElevation && !env.elevated():
 			// Elevación no autorizada: se explica el motivo y se degrada sin bloquear.
 			step.Instruction = firstNonEmpty(step.Instruction, step.Description+": requiere permisos de administrador")
 			rep.Pending = append(rep.Pending, step)

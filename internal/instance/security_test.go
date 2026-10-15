@@ -47,8 +47,10 @@ func TestRutasNoEscapanDelDataDir(t *testing.T) {
 		if err := m.Remove(slug); err == nil {
 			t.Fatalf("Remove(%q) debería fallar", slug)
 		}
-		if err := m.Save(&Spec{Slug: slug, Engine: "vanilla", Version: "1.21.1",
-			Memory: "4G", Port: 25565, MaxPlayers: 20}); err == nil {
+		if err := m.Save(&Spec{
+			Slug: slug, Engine: "vanilla", Version: "1.21.1",
+			Memory: "4G", Port: 25565, MaxPlayers: 20,
+		}); err == nil {
 			t.Fatalf("Save(%q) debería fallar", slug)
 		}
 	}

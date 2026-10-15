@@ -39,8 +39,11 @@ lint:
 lint-fix:
 	golangci-lint run --fix ./...
 
+# OJO: el lint (.golangci.yaml) exige gofmt Y gofumpt. `make fmt` aplica
+# exactamente esos formateadores con el mismo motor que `make lint`, para no
+# dejar el arbol con algo que el lint rechace despues (gofmt solo no basta).
 fmt:
-	gofmt -w .
+	golangci-lint fmt
 
 vet:
 	go vet ./...

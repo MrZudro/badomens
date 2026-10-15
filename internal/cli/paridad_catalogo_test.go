@@ -132,7 +132,7 @@ func TestParidadResolucionCLITUIMCP(t *testing.T) {
 	paridadSeedInstance(t, dataDir)
 
 	// --- Ruta CLI: `engine use --no-apply` (escribe la configuración) ---
-	_, doc := runEngine(t, env, out, "engine", "use", "demo", "paper", "--version", "1.21.1", "--no-apply")
+	doc, _ := runEngine(t, env, out, "engine", "use", "demo", "paper", "--version", "1.21.1", "--no-apply")
 	if doc["ok"] != true {
 		t.Fatalf("engine use falló: %v", doc)
 	}
@@ -205,7 +205,7 @@ func TestParidadErrorNormalizadoCLITUIMCP(t *testing.T) {
 	paridadSeedInstance(t, dataDir)
 
 	// CLI: el documento declara error_not_found.
-	_, doc := runEngine(t, env, out, "engine", "use", "demo", "paper", "--version", "9.9.9", "--no-apply")
+	doc, _ := runEngine(t, env, out, "engine", "use", "demo", "paper", "--version", "9.9.9", "--no-apply")
 	if doc["ok"] != false || doc["exit_code"] != float64(2) {
 		t.Fatalf("se esperaba un fallo con exit 2: %v", doc)
 	}
@@ -236,7 +236,7 @@ func TestParidadErrorNormalizadoCLITUIMCP(t *testing.T) {
 func TestParidadListadoCLIMCP(t *testing.T) {
 	env, out, _, _ := paridadEnv(t)
 
-	_, doc := runEngine(t, env, out, "engine", "list", "paper")
+	doc, _ := runEngine(t, env, out, "engine", "list", "paper")
 	cliList, _ := doc["data"].([]any)
 
 	registry, err := env.Registry()
@@ -270,23 +270,23 @@ func TestContratoJSONCatalogoAditivo(t *testing.T) {
 
 	cases := []struct {
 		name string
-		run  func() (error, map[string]any)
+		run  func() (map[string]any, error)
 	}{
-		{"engine versions", func() (error, map[string]any) {
+		{"engine versions", func() (map[string]any, error) {
 			return runEngine(t, env, out, "engine", "versions", "paper")
 		}},
-		{"engine list", func() (error, map[string]any) {
+		{"engine list", func() (map[string]any, error) {
 			return runEngine(t, env, out, "engine", "list", "paper")
 		}},
-		{"catalog status", func() (error, map[string]any) {
+		{"catalog status", func() (map[string]any, error) {
 			return runCatalog(t, env, out, "catalog", "status", "paper")
 		}},
-		{"catalog refresh", func() (error, map[string]any) {
+		{"catalog refresh", func() (map[string]any, error) {
 			return runCatalog(t, env, out, "catalog", "refresh", "paper")
 		}},
 	}
 	for _, tc := range cases {
-		_, doc := tc.run()
+		doc, _ := tc.run()
 		for _, key := range []string{"ok", "exit_code", "action", "message", "timestamp"} {
 			if _, ok := doc[key]; !ok {
 				t.Fatalf("%s: falta la clave estable %q en %v", tc.name, key, doc)
@@ -295,7 +295,7 @@ func TestContratoJSONCatalogoAditivo(t *testing.T) {
 	}
 
 	// `engine versions` mantiene sus claves y añade los campos normalizados.
-	_, doc := runEngine(t, env, out, "engine", "versions", "paper")
+	doc, _ := runEngine(t, env, out, "engine", "versions", "paper")
 	data, _ := doc["data"].(map[string]any)
 	for _, key := range []string{"engine", "stale", "catalog", "versions"} {
 		if _, ok := data[key]; !ok {
@@ -321,7 +321,7 @@ func TestContratoJSONCatalogoAditivo(t *testing.T) {
 	}
 
 	// `catalog status` mantiene `catalogs` con su estado.
-	_, doc = runCatalog(t, env, out, "catalog", "status", "paper")
+	doc, _ = runCatalog(t, env, out, "catalog", "status", "paper")
 	data, _ = doc["data"].(map[string]any)
 	catalogs, _ := data["catalogs"].([]any)
 	if len(catalogs) != 1 {
@@ -419,7 +419,7 @@ func TestRegistryToolsCatalogoRegistradas(t *testing.T) {
 func TestComandoEngineCompatCLI(t *testing.T) {
 	env, out, _, _ := paridadEnv(t)
 
-	_, doc := runEngine(t, env, out, "engine", "compat", "paper", "--version", "1.21.1", "--java", "21", "--build", "123")
+	doc, _ := runEngine(t, env, out, "engine", "compat", "paper", "--version", "1.21.1", "--java", "21", "--build", "123")
 	if doc["exit_code"] != float64(0) || doc["ok"] != true {
 		t.Fatalf("compatible debe salir 0: %v", doc)
 	}
@@ -427,19 +427,19 @@ func TestComandoEngineCompatCLI(t *testing.T) {
 		t.Fatalf("compatibilidad = %v", doc["data"])
 	}
 
-	_, doc = runEngine(t, env, out, "engine", "compat", "paper", "--version", "1.21.1")
+	doc, _ = runEngine(t, env, out, "engine", "compat", "paper", "--version", "1.21.1")
 	if doc["exit_code"] != float64(1) {
 		t.Fatalf("desconocido debe avisar (exit 1): %v", doc)
 	}
 
-	_, doc = runEngine(t, env, out, "engine", "compat", "paper", "--version", "1.21.1",
+	doc, _ = runEngine(t, env, out, "engine", "compat", "paper", "--version", "1.21.1",
 		"--java", "21", "--fill", "--plugin", "FabricAPI@fabric@1.21.1")
 	if doc["exit_code"] != float64(2) {
 		t.Fatalf("incompatible debe fallar (exit 2): %v", doc)
 	}
 
 	// Con --fill se completan los datos que falten desde el catálogo.
-	_, doc = runEngine(t, env, out, "engine", "compat", "paper", "--version", "1.21.1", "--fill")
+	doc, _ = runEngine(t, env, out, "engine", "compat", "paper", "--version", "1.21.1", "--fill")
 	if doc["exit_code"] != float64(0) {
 		t.Fatalf("--fill debe completar y salir 0: %v", doc)
 	}

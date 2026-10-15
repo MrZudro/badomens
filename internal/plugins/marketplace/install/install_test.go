@@ -728,7 +728,7 @@ func TestSafeURLQuitaSecretos(t *testing.T) {
 // fileDigest resume un archivo para comparar antes/después.
 func fileDigest(t *testing.T, path string) string {
 	t.Helper()
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- ruta de artefacto dentro del data dir de prueba
 	if err != nil {
 		t.Fatalf("ReadFile(%s): %v", path, err)
 	}

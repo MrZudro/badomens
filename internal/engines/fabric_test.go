@@ -68,8 +68,8 @@ func fabricTestProvider(t *testing.T, game []byte, loaders func(mc string) ([]by
 	rec := &pathRecorder{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec.add(r.URL.Path)
-		switch {
-		case r.URL.Path == "/v2/versions/game":
+		switch r.URL.Path {
+		case "/v2/versions/game":
 			_, _ = w.Write(game)
 		default:
 			const prefix = "/v2/versions/loader/"

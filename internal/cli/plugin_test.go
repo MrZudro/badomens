@@ -405,7 +405,7 @@ func TestPluginAddNoSobrescribe(t *testing.T) {
 	if details["reason"] != "destino_existente" {
 		t.Errorf("details.reason = %v", details["reason"])
 	}
-	if raw, rerr := os.ReadFile(destino); rerr != nil || string(raw) != "antiguo" {
+	if raw, rerr := os.ReadFile(destino); rerr != nil || string(raw) != "antiguo" { // #nosec G304 -- ruta de prueba dentro de t.TempDir()
 		t.Errorf("el archivo existente se alteró: %q (%v)", raw, rerr)
 	}
 	assertSinTemporales(t, pluginsDir)
@@ -418,7 +418,7 @@ func TestPluginAddNoSobrescribe(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(pluginsDir, "demo-2.jar")); err != nil {
 		t.Errorf("no se creó demo-2.jar: %v", err)
 	}
-	if raw, _ := os.ReadFile(destino); string(raw) != "antiguo" {
+	if raw, _ := os.ReadFile(destino); string(raw) != "antiguo" { // #nosec G304 -- ruta de prueba dentro de t.TempDir()
 		t.Errorf("el archivo existente se alteró: %q", raw)
 	}
 	m := instance.New(dataDir, engineNames())

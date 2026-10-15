@@ -245,8 +245,10 @@ func neoforgeBuildCatalog(published []string) ([]Version, []string) {
 			continue
 		}
 		stable, channel := neoforgeStability(raw)
-		cand := Version{Version: mc, Build: raw, Stable: stable, Channel: channel, Detail: raw,
-			Compatibility: CompatibilityCompatible}
+		cand := Version{
+			Version: mc, Build: raw, Stable: stable, Channel: channel, Detail: raw,
+			Compatibility: CompatibilityCompatible,
+		}
 		prev, ok := byMC[mc]
 		if !ok {
 			order = append(order, mc)

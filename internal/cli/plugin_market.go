@@ -1003,7 +1003,9 @@ func newPluginInstallCmd(e *Env) *cobra.Command {
 					"no se pudo guardar el registro de la instancia",
 					"se retiró "+name+" para no dejar el registro y el disco desincronizados")
 				if rerr := rollbackMarketInstall(client, spec, name); rerr != nil {
-					werr.WithDetail("rollback_error", rerr.Error())
+					// WithDetail encadena el detalle y devuelve el propio error: se
+					// reasigna para no descartar el valor sin perder el original.
+					werr = werr.WithDetail("rollback_error", rerr.Error())
 				}
 				return e.finish(result.FromError("plugin install", werr), "")
 			}

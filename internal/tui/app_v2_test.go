@@ -177,13 +177,33 @@ func TestAppAbreDetalleDeInstancia(t *testing.T) {
 func TestAppClicDeRatonAbreDetalle(t *testing.T) {
 	a := testApp()
 	resize(a, 120, 40)
-	rows := []svc.Row{{Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4", Port: 25565, State: "running"}}
+	// Slug propio de esta prueba: el gestor de zonas de bubblezone es GLOBAL al
+	// proceso de pruebas, así que reutilizar el id de otra prueba permitiría
+	// satisfacer (o envenenar) la comprobación con una zona ajena.
+	slug := "clic-zona"
+	rows := []svc.Row{{Slug: slug, Name: "Survival", Engine: "paper", Version: "1.21.4", Port: 25565, State: "running"}}
 	a.Update(pollRowsMsg{rows: rows})
-	a.Update(homeDetailMsg{d: &svc.Detail{Spec: &instance.Spec{Slug: "survival", Name: "Survival", Engine: "paper", Version: "1.21.4", Port: 25565}, State: "running"}})
+	a.Update(homeDetailMsg{d: &svc.Detail{Spec: &instance.Spec{Slug: slug, Name: "Survival", Engine: "paper", Version: "1.21.4", Port: 25565}, State: "running"}})
+
+	// `bubblezone.Scan` es ASÍNCRONO: encola las zonas y un goroutine del gestor
+	// las guarda después, así que `Get` justo tras `View` puede devolver nil según
+	// lo planifique el runtime (con `-cpu=1` falla siempre). Se espera de forma
+	// ACOTADA a que la zona quede registrada: el test pasa a ser determinista y a
+	// no depender del orden de las pruebas, sin tocar el código de producción.
+	zone.Clear("row:" + slug)
+	t.Cleanup(func() { zone.Clear("row:" + slug) })
 	_ = a.View() // registra las zonas de ratón
-	z := zone.Get("row:survival")
-	if z == nil || z.IsZero() {
-		t.Fatal("la fila del Home debía registrar su zona de ratón")
+	var z *zone.ZoneInfo
+	limite := time.Now().Add(2 * time.Second)
+	for {
+		z = zone.Get("row:" + slug)
+		if z != nil && !z.IsZero() {
+			break
+		}
+		if time.Now().After(limite) {
+			t.Fatal("la fila del Home debía registrar su zona de ratón")
+		}
+		time.Sleep(time.Millisecond)
 	}
 	click := tea.MouseMsg{X: z.StartX + 1, Y: z.StartY, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}
 	_, cmd := a.Update(click)
@@ -191,8 +211,8 @@ func TestAppClicDeRatonAbreDetalle(t *testing.T) {
 		t.Fatal("el clic en una fila debía abrir el detalle")
 	}
 	msg, ok := cmd().(openInstanceMsg)
-	if !ok || msg.slug != "survival" {
-		t.Fatalf("el clic debía abrir «survival», tengo %#v", cmd())
+	if !ok || msg.slug != slug {
+		t.Fatalf("el clic debía abrir «%s», tengo %#v", slug, cmd())
 	}
 }
 

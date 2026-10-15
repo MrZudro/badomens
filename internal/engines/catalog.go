@@ -104,7 +104,9 @@ func NormalizeErrorWithCatalog(engine, operation string, err error, cache Catalo
 		WithDetail("detail", err.Error()).
 		WithDetail("diagnostic", Diagnose(engine, operation, err, cache))
 	if operation != "" {
-		wrapped.WithDetail("operation", operation)
+		// WithDetail devuelve el propio error encadenado: se reasigna para
+		// conservar el valor devuelto sin perder el error original.
+		wrapped = wrapped.WithDetail("operation", operation)
 	}
 	return wrapped
 }

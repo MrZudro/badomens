@@ -24,7 +24,7 @@ func writeBackupTestFile(t *testing.T, path, content string) {
 // readFile lee un archivo (vacío si no existe).
 func readBackupTestFile(t *testing.T, path string) string {
 	t.Helper()
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- ruta de prueba dentro de t.TempDir()
 	if err != nil {
 		return ""
 	}

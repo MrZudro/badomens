@@ -22,7 +22,7 @@ import (
 func readFixture(t *testing.T, parts ...string) []byte {
 	t.Helper()
 	path := filepath.Join(append([]string{"testdata"}, parts...)...)
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- fixture de test bajo testdata del propio paquete
 	if err != nil {
 		t.Fatalf("no se pudo leer el fixture %s: %v", path, err)
 	}

@@ -513,7 +513,7 @@ func (c *Cache) writeCacheDoc(path string, doc cachedDoc) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600) // #nosec G304 -- fichero temporal junto al catálogo, dentro del data dir
 	if err != nil {
 		return err
 	}

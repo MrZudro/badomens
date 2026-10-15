@@ -59,7 +59,7 @@ func seedCatalog(t *testing.T, dataDir, engine string, fetched time.Time, versio
 }
 
 // runCatalog ejecuta `catalog <sub> ...` y devuelve el documento JSON impreso.
-func runCatalog(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (error, map[string]any) {
+func runCatalog(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (map[string]any, error) {
 	t.Helper()
 	out.Reset()
 	root := &cobra.Command{Use: "root", SilenceUsage: true, SilenceErrors: true}
@@ -77,11 +77,11 @@ func runCatalog(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (erro
 			}
 		}
 	}
-	return err, doc
+	return doc, err
 }
 
 // runEngine ejecuta `engine <sub> ...`.
-func runEngine(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (error, map[string]any) {
+func runEngine(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (map[string]any, error) {
 	t.Helper()
 	out.Reset()
 	root := &cobra.Command{Use: "root", SilenceUsage: true, SilenceErrors: true}
@@ -94,7 +94,7 @@ func runEngine(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (error
 			t.Fatalf("la salida no es un documento JSON válido: %v\n%s", uerr, out.String())
 		}
 	}
-	return err, doc
+	return doc, err
 }
 
 func cachedVersions() []engines.Version {
@@ -111,7 +111,7 @@ func TestCatalogStatusFrescaYVencida(t *testing.T) {
 	env, out, dataDir := catalogTestEnv(t)
 	seedCatalog(t, dataDir, "paper", time.Now(), cachedVersions())
 
-	_, doc := runCatalog(t, env, out, "catalog", "status", "paper")
+	doc, _ := runCatalog(t, env, out, "catalog", "status", "paper")
 	if doc["ok"] != true {
 		t.Fatalf("documento inesperado: %v", doc)
 	}
@@ -133,7 +133,7 @@ func TestCatalogStatusFrescaYVencida(t *testing.T) {
 
 	// Vencida: sigue siendo utilizable y la antigüedad es legible.
 	seedCatalog(t, dataDir, "paper", time.Now().Add(-7*time.Hour), cachedVersions())
-	_, doc = runCatalog(t, env, out, "catalog", "status", "paper")
+	doc, _ = runCatalog(t, env, out, "catalog", "status", "paper")
 	data, _ = doc["data"].(map[string]any)
 	catalogs, _ = data["catalogs"].([]any)
 	first, _ = catalogs[0].(map[string]any)
@@ -156,11 +156,11 @@ func TestCatalogStatusInvalidaYDesconocida(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "paper.json"), []byte("{no es json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, doc := runCatalog(t, env, out, "catalog", "status", "paper"); doc["exit_code"] != float64(1) {
+	if doc, _ := runCatalog(t, env, out, "catalog", "status", "paper"); doc["exit_code"] != float64(1) {
 		t.Fatalf("una caché inválida debe avisar (exit 1): %v", doc)
 	}
 
-	if _, doc := runCatalog(t, env, out, "catalog", "status", "noexiste"); doc["exit_code"] != float64(2) {
+	if doc, _ := runCatalog(t, env, out, "catalog", "status", "noexiste"); doc["exit_code"] != float64(2) {
 		t.Fatalf("un motor inexistente debe fallar (exit 2): %v", doc)
 	}
 }
@@ -173,7 +173,7 @@ func TestEngineListYVersionsCompartenCache(t *testing.T) {
 
 	// engine versions: solo releases (el canal beta se filtra) y con el modelo
 	// normalizado.
-	_, doc := runEngine(t, env, out, "engine", "versions", "paper")
+	doc, _ := runEngine(t, env, out, "engine", "versions", "paper")
 	data, _ := doc["data"].(map[string]any)
 	if doc["action"] != "engine versions" || data["stale"] != false {
 		t.Fatalf("documento inesperado: %v", doc)
@@ -200,7 +200,7 @@ func TestEngineListYVersionsCompartenCache(t *testing.T) {
 
 	// engine list: MISMA fuente de caché y mismo orden (data sigue siendo una
 	// lista de cadenas: contrato anterior intacto).
-	_, doc = runEngine(t, env, out, "engine", "list", "paper")
+	doc, _ = runEngine(t, env, out, "engine", "list", "paper")
 	list, ok := doc["data"].([]any)
 	if !ok {
 		t.Fatalf("engine list debe seguir devolviendo una lista de versiones: %v", doc["data"])
@@ -210,14 +210,14 @@ func TestEngineListYVersionsCompartenCache(t *testing.T) {
 	}
 
 	// --all incluye el canal beta.
-	_, doc = runEngine(t, env, out, "engine", "list", "paper", "--all")
+	doc, _ = runEngine(t, env, out, "engine", "list", "paper", "--all")
 	list, _ = doc["data"].([]any)
 	if len(list) != 3 {
 		t.Fatalf("con --all quiero 3, tengo %v", list)
 	}
 
 	// --limit toma las N MÁS RECIENTES (el catálogo va ascendente).
-	_, doc = runEngine(t, env, out, "engine", "list", "paper", "--limit", "1")
+	doc, _ = runEngine(t, env, out, "engine", "list", "paper", "--limit", "1")
 	list, _ = doc["data"].([]any)
 	if len(list) != 1 || list[0] != "26.3" {
 		t.Fatalf("--limit 1 = %v; quiero [26.3]", list)

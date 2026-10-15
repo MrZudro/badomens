@@ -714,7 +714,7 @@ func readRegister(t *testing.T, dataDir string, spec *instance.Spec) *plugins.Re
 // assertFileUnchanged comprueba que un archivo no se ha tocado.
 func assertFileUnchanged(t *testing.T, path string, before []byte, modTime string) {
 	t.Helper()
-	now, err := os.ReadFile(path)
+	now, err := os.ReadFile(path) // #nosec G304 -- ruta de prueba dentro de t.TempDir()
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
@@ -1082,7 +1082,7 @@ func TestPluginUpdatesDetectaYNoModificaElArchivo(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	before, err := os.ReadFile(oldPath)
+	before, err := os.ReadFile(oldPath) // #nosec G304 -- ruta de prueba dentro del data dir temporal
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}

@@ -398,45 +398,65 @@ func evaluateDependency(dep marketplace.Dependency, installed []plugins.Record) 
 	switch dep.Kind {
 	case marketplace.DepIncompatible:
 		if found {
-			return DependencyStatus{Dependency: dep, Status: DepIncompatible,
-				Detail: "el proveedor la declara incompatible y está instalada como " + rec.Name}
+			return DependencyStatus{
+				Dependency: dep, Status: DepIncompatible,
+				Detail: "el proveedor la declara incompatible y está instalada como " + rec.Name,
+			}
 		}
-		return DependencyStatus{Dependency: dep, Status: DepSatisfecha,
-			Detail: "declarada incompatible y no está instalada"}
+		return DependencyStatus{
+			Dependency: dep, Status: DepSatisfecha,
+			Detail: "declarada incompatible y no está instalada",
+		}
 	case marketplace.DepEmbedded:
-		return DependencyStatus{Dependency: dep, Status: DepIncluida,
-			Detail: "va incluida en el artefacto"}
+		return DependencyStatus{
+			Dependency: dep, Status: DepIncluida,
+			Detail: "va incluida en el artefacto",
+		}
 	case marketplace.DepOptional:
 		if found {
-			return DependencyStatus{Dependency: dep, Status: DepOpcional,
-				Detail: "opcional y ya instalada como " + rec.Name}
+			return DependencyStatus{
+				Dependency: dep, Status: DepOpcional,
+				Detail: "opcional y ya instalada como " + rec.Name,
+			}
 		}
 		return DependencyStatus{Dependency: dep, Status: DepOpcional, Detail: "opcional y no instalada"}
 	case marketplace.DepRequired:
 		if dep.Key() == "" {
-			return DependencyStatus{Dependency: dep, Status: DepNoVerificable,
-				Detail: "obligatoria sin identificador: el proveedor no dice de qué proyecto depende"}
+			return DependencyStatus{
+				Dependency: dep, Status: DepNoVerificable,
+				Detail: "obligatoria sin identificador: el proveedor no dice de qué proyecto depende",
+			}
 		}
 		if !found {
-			return DependencyStatus{Dependency: dep, Status: DepAusente,
-				Detail: "obligatoria y no está instalada"}
+			return DependencyStatus{
+				Dependency: dep, Status: DepAusente,
+				Detail: "obligatoria y no está instalada",
+			}
 		}
 		if v := strings.TrimSpace(dep.VersionID); v != "" {
 			got := strings.TrimSpace(rec.Origin.VersionID)
 			if got != "" && !strings.EqualFold(got, v) {
-				return DependencyStatus{Dependency: dep, Status: DepIncompatible,
-					Detail: "instalada la versión " + got + " y se exige la " + v}
+				return DependencyStatus{
+					Dependency: dep, Status: DepIncompatible,
+					Detail: "instalada la versión " + got + " y se exige la " + v,
+				}
 			}
 		}
-		return DependencyStatus{Dependency: dep, Status: DepSatisfecha,
-			Detail: "obligatoria y ya instalada como " + rec.Name}
+		return DependencyStatus{
+			Dependency: dep, Status: DepSatisfecha,
+			Detail: "obligatoria y ya instalada como " + rec.Name,
+		}
 	default:
 		if found {
-			return DependencyStatus{Dependency: dep, Status: DepSatisfecha,
-				Detail: "ya instalada como " + rec.Name}
+			return DependencyStatus{
+				Dependency: dep, Status: DepSatisfecha,
+				Detail: "ya instalada como " + rec.Name,
+			}
 		}
-		return DependencyStatus{Dependency: dep, Status: DepDesconocida,
-			Detail: "el proveedor no declara de qué tipo es la dependencia"}
+		return DependencyStatus{
+			Dependency: dep, Status: DepDesconocida,
+			Detail: "el proveedor no declara de qué tipo es la dependencia",
+		}
 	}
 }
 

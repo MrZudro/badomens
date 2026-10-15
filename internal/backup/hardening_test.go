@@ -28,7 +28,7 @@ func seedServer(t *testing.T, dataDir, slug string) string {
 
 func readFile(t *testing.T, path string) string {
 	t.Helper()
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) // #nosec G304 -- ruta dentro del data dir de prueba (t.TempDir())
 	if err != nil {
 		t.Fatalf("no se pudo leer %s: %v", path, err)
 	}

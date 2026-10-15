@@ -172,21 +172,27 @@ func TestResolucionIncompletaSinChecksum(t *testing.T) {
 func TestResolucionIncompletaSinEntorno(t *testing.T) {
 	src := newStub()
 	// Sin motor ni loader: no hay nada que comparar con lo declarado.
-	_, err := Resolve(context.Background(), Request{Source: src, Project: "viaversion",
-		Env: marketplace.Environment{GameVersion: "1.21.1"}})
+	_, err := Resolve(context.Background(), Request{
+		Source: src, Project: "viaversion",
+		Env: marketplace.Environment{GameVersion: "1.21.1"},
+	})
 	if got := reasonOf(err); got != ReasonEntorno {
 		t.Errorf("sin loader: reason = %q", got)
 	}
 	// Sin versión de Minecraft: la compatibilidad queda indeterminada.
-	_, err = Resolve(context.Background(), Request{Source: src, Project: "viaversion",
-		Env: marketplace.Environment{Engine: "paper", Loader: "paper"}})
+	_, err = Resolve(context.Background(), Request{
+		Source: src, Project: "viaversion",
+		Env: marketplace.Environment{Engine: "paper", Loader: "paper"},
+	})
 	if got := reasonOf(err); got != ReasonEntorno {
 		t.Errorf("sin versión de Minecraft: reason = %q", got)
 	}
 	// El motor por sí solo ya determina el loader: eso no es un entorno
 	// incompleto.
-	_, err = Resolve(context.Background(), Request{Source: newStub(), Project: "viaversion",
-		Env: marketplace.Environment{Engine: "paper", GameVersion: "1.21.1"}})
+	_, err = Resolve(context.Background(), Request{
+		Source: newStub(), Project: "viaversion",
+		Env: marketplace.Environment{Engine: "paper", GameVersion: "1.21.1"},
+	})
 	if got := reasonOf(err); got != ReasonSinVersion {
 		t.Errorf("con motor y versión se debe llegar a resolver: reason = %q", got)
 	}

@@ -251,7 +251,7 @@ func forgeSelectMC(promos map[string]forgePromotions, requested string) (string,
 	if requested != "" {
 		if _, ok := promos[requested]; !ok {
 			return "", newProviderError(CodeNotFound, Forge, "resolve", "",
-				fmt.Errorf("Forge no publica promociones para la versión de Minecraft %q", requested))
+				fmt.Errorf("el catálogo de Forge no publica promociones para la versión de Minecraft %q", requested))
 		}
 		return requested, nil
 	}

@@ -203,7 +203,7 @@ func (p *fabricProvider) games(ctx context.Context) ([]fabricGame, error) {
 	}
 	if len(games) == 0 {
 		return nil, newProviderError(CodeInvalidResponse, Fabric, "list_game_versions", u,
-			fmt.Errorf("Fabric Meta no devolvió ninguna versión de Minecraft"))
+			fmt.Errorf("el catálogo de Fabric Meta no devolvió ninguna versión de Minecraft"))
 	}
 	return games, nil
 }
@@ -265,7 +265,7 @@ func fabricPickGame(games []fabricGame, requested string) (string, error) {
 		return v, nil
 	}
 	return "", newProviderError(CodeInvalidResponse, Fabric, "resolve", "",
-		fmt.Errorf("Fabric Meta no publica ninguna versión de Minecraft estable"))
+		fmt.Errorf("el catálogo de Fabric Meta no publica ninguna versión de Minecraft estable"))
 }
 
 // loadersFor consulta los loaders COMPATIBLES con una versión de Minecraft en el
@@ -298,7 +298,7 @@ func fabricPickLoader(entries []fabricLoaderEntry) (string, error) {
 		}
 	}
 	if best == "" {
-		return "", fmt.Errorf("Fabric Meta no confirmó ningún loader estable (%d loader(s) recibidos)", len(entries))
+		return "", fmt.Errorf("el catálogo de Fabric Meta no confirmó ningún loader estable (%d loader(s) recibidos)", len(entries))
 	}
 	return best, nil
 }

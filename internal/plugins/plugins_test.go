@@ -387,7 +387,7 @@ func TestInstallConflictos(t *testing.T) {
 	if res.Name != "demo-2.jar" || res.RenamedFrom != "demo.jar" {
 		t.Errorf("resultado inesperado: %+v", res)
 	}
-	if raw, err := os.ReadFile(filepath.Join(dir, "demo.jar")); err != nil || string(raw) != "antiguo" {
+	if raw, err := os.ReadFile(filepath.Join(dir, "demo.jar")); err != nil || string(raw) != "antiguo" { // #nosec G304 -- ruta de prueba dentro de t.TempDir()
 		t.Errorf("el archivo original se alteró (%v)", err)
 	}
 

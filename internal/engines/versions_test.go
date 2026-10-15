@@ -181,8 +181,9 @@ func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
+	// len(a) == len(b) ya está comprobado arriba: i nunca sale de rango.
 	for i := range a {
-		if a[i] != b[i] {
+		if a[i] != b[i] { // #nosec G602 -- a y b tienen la misma longitud (comprobado más arriba)
 			return false
 		}
 	}

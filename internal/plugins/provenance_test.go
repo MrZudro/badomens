@@ -217,7 +217,7 @@ func TestProvenanceSaveDejaJSONLegible(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 	dir := filepath.Join(dataDir, "instances", "demo")
-	raw, err := os.ReadFile(filepath.Join(dir, ProvenanceFile))
+	raw, err := os.ReadFile(filepath.Join(dir, ProvenanceFile)) // #nosec G304 -- ruta dentro del data dir de prueba (t.TempDir())
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}

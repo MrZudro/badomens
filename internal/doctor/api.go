@@ -71,14 +71,14 @@ func ProbeAPI(ctx context.Context, service *engines.CatalogService, names []stri
 func APIHuman(r APIResult) string {
 	var b strings.Builder
 	for _, p := range r.Providers {
-		verdict := "ok"
+		// El veredicto por defecto es "error": los dos casos de abajo lo
+		// sobrescriben cuando corresponde.
+		verdict := "error"
 		switch {
 		case p.Probe.OK():
 			verdict = "ok"
 		case p.Cache.Usable():
 			verdict = "aviso"
-		default:
-			verdict = "error"
 		}
 		line := "  [" + verdict + "] " + p.Engine
 		if p.Probe.Contract != "" {

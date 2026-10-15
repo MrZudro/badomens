@@ -442,7 +442,7 @@ func TestCommitNoSobrescribe(t *testing.T) {
 		t.Errorf("Discard: %v", err)
 	}
 	// El original sigue intacto.
-	raw, err := os.ReadFile(filepath.Join(dest, "plugin.jar"))
+	raw, err := os.ReadFile(filepath.Join(dest, "plugin.jar")) // #nosec G304 -- ruta de prueba dentro de t.TempDir()
 	if err != nil || string(raw) != "antiguo" {
 		t.Errorf("el archivo original se modificó: %q (%v)", raw, err)
 	}
@@ -497,7 +497,7 @@ func TestCommitRenombraYReemplaza(t *testing.T) {
 	if !res2.Replaced {
 		t.Errorf("se esperaba Replaced=true: %+v", res2)
 	}
-	raw, err := os.ReadFile(filepath.Join(dest2, "plugin.jar"))
+	raw, err := os.ReadFile(filepath.Join(dest2, "plugin.jar")) // #nosec G304 -- ruta de prueba dentro de t.TempDir()
 	if err != nil || !bytes.Equal(raw, jar) {
 		t.Errorf("el archivo no se reemplazó correctamente (%v)", err)
 	}

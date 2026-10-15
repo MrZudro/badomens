@@ -18,7 +18,7 @@ const manifestVanilla = `{"latest":{"release":"1.21.1","snapshot":"1.22"},
 "versions":[{"id":"1.21.1","type":"release","releaseTime":"2026-08-01T00:00:00+00:00"}]}`
 
 // runDoctorAPI ejecuta `doctor api ...` y devuelve el documento JSON.
-func runDoctorAPI(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (error, map[string]any) {
+func runDoctorAPI(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (map[string]any, error) {
 	t.Helper()
 	out.Reset()
 	root := &cobra.Command{Use: "root", SilenceUsage: true, SilenceErrors: true}
@@ -36,7 +36,7 @@ func runDoctorAPI(t *testing.T, env *Env, out *bytes.Buffer, args ...string) (er
 			}
 		}
 	}
-	return err, doc
+	return doc, err
 }
 
 // probeDoc extrae el informe del primer proveedor del documento.
@@ -71,7 +71,7 @@ func TestDoctorAPIInformeCompleto(t *testing.T) {
 	defer srv.Close()
 
 	env, out, _ := catalogTestEnv(t)
-	_, doc := runDoctorAPI(t, env, out, "api", "vanilla", "--base", "vanilla="+srv.URL+"/manifest.json")
+	doc, _ := runDoctorAPI(t, env, out, "api", "vanilla", "--base", "vanilla="+srv.URL+"/manifest.json")
 	if doc["exit_code"] != float64(0) || doc["ok"] != true {
 		t.Fatalf("documento = %v", doc)
 	}
@@ -130,7 +130,7 @@ func TestDoctorAPIMatrizDeEstados(t *testing.T) {
 			defer srv.Close()
 
 			env, out, _ := catalogTestEnv(t)
-			_, doc := runDoctorAPI(t, env, out, "api", "vanilla", "--base", "vanilla="+srv.URL, "--timeout", "5")
+			doc, _ := runDoctorAPI(t, env, out, "api", "vanilla", "--base", "vanilla="+srv.URL, "--timeout", "5")
 			if doc["exit_code"] != tc.wantExit {
 				t.Fatalf("exit_code = %v; quiero %v (%v)", doc["exit_code"], tc.wantExit, doc["message"])
 			}
@@ -151,7 +151,7 @@ func TestDoctorAPIMatrizDeEstados(t *testing.T) {
 // TestDoctorAPIBaseInvalida: un --base mal formado es un error de uso.
 func TestDoctorAPIBaseInvalida(t *testing.T) {
 	env, out, _ := catalogTestEnv(t)
-	_, doc := runDoctorAPI(t, env, out, "api", "vanilla", "--base", "sin-igual")
+	doc, _ := runDoctorAPI(t, env, out, "api", "vanilla", "--base", "sin-igual")
 	if doc["exit_code"] != float64(2) {
 		t.Fatalf("exit_code = %v", doc["exit_code"])
 	}
@@ -173,7 +173,7 @@ func TestDoctorAPINoSacaSecretos(t *testing.T) {
 
 	env, out, _ := catalogTestEnv(t)
 	raw := "http://usuario:clave@" + host + "/manifest.json?token=secreto"
-	_, doc := runDoctorAPI(t, env, out, "api", "vanilla", "--base", "vanilla="+raw)
+	doc, _ := runDoctorAPI(t, env, out, "api", "vanilla", "--base", "vanilla="+raw)
 	serialized, err := json.Marshal(doc)
 	if err != nil {
 		t.Fatal(err)
@@ -194,7 +194,7 @@ func TestEngineUseFalloExponeDiagnostico(t *testing.T) {
 	env, out, _, _ := paridadEnv(t)
 	paridadSeedInstance(t, env.cfg.DataDir)
 
-	_, doc := runEngine(t, env, out, "engine", "use", "demo", "paper", "--version", "9.9")
+	doc, _ := runEngine(t, env, out, "engine", "use", "demo", "paper", "--version", "9.9")
 	if doc["exit_code"] != float64(2) {
 		t.Fatalf("exit_code = %v (%v)", doc["exit_code"], doc["message"])
 	}
