@@ -46,9 +46,14 @@ firmados**, así que con SAC activo Windows los bloquea con:
 Una directiva de Control de aplicaciones bloqueó este archivo
 ```
 
-Ese bloqueo afecta **por igual** al `.exe` descargado y a uno que compiles tú en
-ese equipo (SAC decide por firma y reputación, no por procedencia). Para saber si
-está activo:
+Comprobado en una máquina con SAC **activo** (Windows 11, Go 1.27):
+
+| Procedencia del binario | Resultado |
+|---|---|
+| Descargado del release (`.zip`) | **Bloqueado**, de forma reproducible (4 de 4 intentos; reintentar no ayudó) |
+| `go install …@latest`, `go run` o `go build` local | **Ejecuta** (7 de 7 intentos) |
+
+Para saber si SAC está activo:
 
 ```powershell
 Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' VerifiedAndReputablePolicyState
@@ -57,8 +62,20 @@ Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' VerifiedAndR
 
 Salidas, de la menos a la más invasiva:
 
-1. **WSL2 o Docker** (recomendado en Windows). SAC solo controla ejecutables de
-   Windows, así que el binario de Linux corre sin problema:
+1. **Compilar con Go** (no toca el sistema; es la primera opción porque funciona
+   con SAC activo):
+
+   ```powershell
+   go install github.com/MrZudro/badomens/cmd/badomens@latest
+   # deja el binario en %USERPROFILE%\go\bin\badomens.exe
+   ```
+
+   o, desde un clon, `.\scripts\install.ps1 -FromSource`. El veredicto de SAC
+   depende de una comprobación de reputación en la nube: si el primer intento se
+   bloquea, reintentar más tarde suele funcionar.
+
+2. **WSL2 o Docker** (determinista). SAC solo controla ejecutables de Windows,
+   así que el binario de Linux corre sin problema:
 
    ```bash
    wsl --install -d Ubuntu
@@ -69,14 +86,13 @@ Salidas, de la menos a la más invasiva:
    Es además el entorno natural de badomens, que orquesta servidores en Docker
    Compose.
 
-2. **Desactivar Smart App Control** en *Seguridad de Windows → Control de
+3. **Desactivar Smart App Control** en *Seguridad de Windows → Control de
    aplicaciones y navegador → Smart App Control*. Es **irreversible**: volver a
    activarlo exige restablecer o reinstalar Windows.
 
-3. **Firmar los binarios** (tarea pendiente del proyecto): es la única forma de
+4. **Firmar los binarios** (tarea pendiente del proyecto): es la única forma de
    que el `.exe` publicado funcione con SAC activo. Requiere un certificado de
    firma de código.
-
 `install.ps1` detecta SAC antes de descargar y, si el binario no arranca, explica
 estas opciones en lugar de dejar el error críptico de PowerShell.
 

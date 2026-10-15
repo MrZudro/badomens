@@ -11,15 +11,17 @@ versionado es [semántico](https://semver.org/lang/es/).
 ### 🐛 Corregido
 
 - **Windows: el instalador ya explica el bloqueo de Smart App Control.** Los
-  binarios de badomens **no están firmados** y, con SAC activo, Windows los
-  bloquea («Una directiva de Control de aplicaciones bloqueó este archivo») sin
-  ofrecer un «ejecutar de todas formas»; el `.exe` descargado y uno compilado en
-  el propio equipo se bloquean por igual. `install.ps1` ahora consulta el estado
-  de SAC (`VerifiedAndReputablePolicyState`), avisa **antes** de descargar y, si
-  el binario no arranca, cambia el error críptico de PowerShell por las opciones
-  reales: WSL2/Docker, desactivar SAC (con aviso de que es irreversible) o firmar
-  los binarios. Además quita la marca de descargado (`Unblock-File`) una vez
-  verificado el checksum y acepta `-FromSource` para compilar con Go.
+  binarios de badomens **no están firmados** y, con SAC activo, Windows bloquea
+  el `.exe` **descargado** («Una directiva de Control de aplicaciones bloqueó
+  este archivo») sin ofrecer un «ejecutar de todas formas». Medido en una máquina
+  con SAC activo: el descargado se bloquea de forma reproducible (4 de 4
+  intentos) y los binarios compilados con Go arrancan (7 de 7), así que
+  `install.ps1` consulta el estado de SAC (`VerifiedAndReputablePolicyState`),
+  avisa **antes** de descargar y, si el binario no arranca, cambia el error
+  críptico de PowerShell por las alternativas reales: compilar
+  (`go install`/`-FromSource`), WSL2/Docker, desactivar SAC (con aviso de que es
+  irreversible) o firmar los binarios. Además quita la marca de descargado
+  (`Unblock-File`) tras verificar el checksum.
 - **Scripts `.ps1` guardados como UTF-8 con BOM.** Windows PowerShell 5.1 lee los
   `.ps1` sin BOM como ANSI, así que los acentos de los mensajes salían corruptos
   (`estÃ¡` en lugar de `está`). Se corrige en `install.ps1`, `uninstall.ps1` y

@@ -133,12 +133,14 @@ irm https://raw.githubusercontent.com/MrZudro/badomens/main/scripts/install.ps1 
 > estará disponible cuando exista una release **estable**.
 
 > [!WARNING]
-> **Windows 11 con Smart App Control activo bloquea el binario** («Una directiva de
-> Control de aplicaciones bloqueó este archivo»): los ejecutables de badomens aún
-> **no están firmados** y SAC no tiene botón de «ejecutar de todas formas». Afecta
-> al `.exe` descargado **y** al que compiles tú. Salidas: usarlo en **WSL2/Docker**
-> (lo recomendado en Windows), desactivar SAC (irreversible) o esperar a la firma
-> de los binarios. Detalle en
+> **Windows 11 con Smart App Control activo bloquea el `.exe` descargado** («Una
+> directiva de Control de aplicaciones bloqueó este archivo»): los ejecutables de
+> badomens aún **no están firmados** y SAC no tiene botón de «ejecutar de todas
+> formas». Medido en una máquina con SAC activo: el binario **descargado** se
+> bloquea siempre, mientras que uno **compilado con Go**
+> (`go install github.com/MrZudro/badomens/cmd/badomens@latest`) **sí arranca**.
+> Alternativas: compilar, usar **WSL2/Docker** (determinista), desactivar SAC
+> (irreversible) o esperar a que los binarios vayan firmados. Detalle en
 > [`docs/setup-install.md`](docs/setup-install.md#windows-smart-app-control-y-binarios-sin-firma).
 
 Los instaladores descargan el binario correcto para tu sistema, **verifican el

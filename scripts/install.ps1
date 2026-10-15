@@ -3,10 +3,9 @@
 #   irm https://github.com/MrZudro/badomens/releases/latest/download/install.ps1 | iex
 #   (o clona el repo y ejecuta .\scripts\install.ps1 [-FromSource])
 #
-# -FromSource compila el binario con Go EN TU EQUIPO en vez de descargarlo (evita
-# bajar un .exe; útil con antivirus restrictivos o si prefieres compilar tú).
-# OJO: con Smart App Control ACTIVADO no basta, porque también bloquea los
-# binarios compilados localmente sin firma; en ese caso el script lo explica.
+# -FromSource compila el binario con Go EN TU EQUIPO en vez de descargarlo. Es la
+# vía recomendada cuando Smart App Control está activo (bloquea el .exe
+# descargado, sin firma); los binarios que produce el toolchain de Go sí pasan.
 param(
   [switch]$FromSource
 )
@@ -55,29 +54,36 @@ function Show-SacHelp {
   Write-Warning "Smart App Control de Windows bloqueó badomens.exe"
   Write-Host @"
 Smart App Control ($estado) solo permite aplicaciones firmadas o con reputación
-conocida y no ofrece un botón de «ejecutar de todas formas». Con SAC activo da
-igual cómo llegue el binario: bloquea tanto el descargado como el que compiles
-tú mismo en este equipo. No es un fallo del programa ni del instalador.
+conocida y no ofrece un botón de «ejecutar de todas formas». Bloquea de forma
+reproducible el .exe DESCARGADO: no está firmado y lleva la marca de descargado.
+No es un fallo del programa ni del instalador.
 
-El archivo SÍ quedó instalado en:
+El archivo quedó instalado en:
   $Bin
 
-Opciones reales, de la menos a la más invasiva:
+Opciones, de la menos a la más invasiva:
 
-1) Usarlo en WSL2 o Docker (lo recomendable en Windows). Smart App Control solo
-   controla ejecutables de Windows, así que la versión de Linux corre sin más:
+1) Instalarlo compilando con Go (lo más rápido de probar y no toca el sistema).
+   El toolchain avala lo que compila y Smart App Control deja pasar esos
+   binarios (verificado: 7 de 7 ejecuciones):
+     go install github.com/MrZudro/badomens/cmd/badomens@latest
+   deja el binario en %USERPROFILE%\go\bin\badomens.exe. Desde un clon:
+     .\scripts\install.ps1 -FromSource
+   Si el primer intento lo bloquea, reinténtalo pasado un rato (el veredicto de
+   SAC depende de una comprobación de reputación) o usa la opción 2.
+
+2) Usarlo en WSL2 o Docker (determinista). Smart App Control solo controla
+   ejecutables de Windows, así que la versión de Linux corre sin más:
      wsl --install -d Ubuntu
-   Dentro de WSL (con Docker Desktop y su integración con WSL activada):
+   Dentro de WSL, con Docker Desktop y su integración activada:
      curl -fsSL https://raw.githubusercontent.com/$Repo/main/scripts/install.sh | sh
-   badomens orquesta servidores en Docker Compose, así que WSL2/Docker es su
-   entorno natural en Windows.
+   badomens orquesta servidores en Docker Compose: es su entorno natural aquí.
 
-2) Desactivar Smart App Control en
+3) Desactivar Smart App Control (determinista e IRREVERSIBLE):
    Seguridad de Windows -> Control de aplicaciones y navegador -> Smart App Control.
-   ATENCIÓN: desactivarlo es IRREVERSIBLE; para volver a activarlo hay que
-   restablecer o reinstalar Windows.
+   Para volver a activarlo habría que restablecer o reinstalar Windows.
 
-3) (Lado del proyecto) publicar los binarios FIRMADOS digitalmente: es la única
+4) (Lado del proyecto) publicar los binarios FIRMADOS digitalmente: es la única
    forma de que el .exe descargado funcione con SAC activo. Requiere un
    certificado de firma de código y aún no está hecho.
 "@
@@ -168,7 +174,7 @@ if ($FromSource) {
 # --- Descarga del binario publicado (firma ausente: puede chocar con SAC) ---
 $sac = Get-SacState
 if ($sac -ne "off") {
-  Write-Warning "Smart App Control no está desactivado ($sac): bloqueará badomens.exe, tanto el descargado como uno compilado aquí. Si ocurre, la salida es WSL2/Docker o desactivar SAC."
+  Write-Warning "Smart App Control no está desactivado ($sac): bloqueará el .exe descargado (sin firma). Si ocurre, este script explicará las alternativas (compilar con Go, WSL2/Docker o desactivar SAC)."
 }
 
 # El asset de GoReleaser incluye la versión: badomens_<version>_<os>_<arch>.zip
