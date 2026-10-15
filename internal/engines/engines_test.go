@@ -7,47 +7,8 @@ import (
 	"testing"
 )
 
-func TestPaperProviderListAndResolve(t *testing.T) {
-	var calls int
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		switch r.URL.Path {
-		case "/versions":
-			_, _ = w.Write([]byte(`{"versions":["1.21.4","1.21.5","1.21.6"]}`))
-		case "/versions/1.21.6/builds":
-			_, _ = w.Write([]byte(`{"builds":[{"build":156,"channel":"default"},{"build":157,"channel":"default"}]}`))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer srv.Close()
-
-	client := DefaultClient()
-	client.Timeout = 5 * 1_000_000_000
-	p := &paperProvider{engine: Paper, client: client, base: srv.URL}
-
-	list, err := p.ListVersions(context.Background())
-	if err != nil {
-		t.Fatalf("list: %v", err)
-	}
-	if len(list) != 3 {
-		t.Fatalf("list = %d versiones", len(list))
-	}
-
-	res, err := p.Resolve(context.Background(), "1.21.6")
-	if err != nil {
-		t.Fatalf("resolve: %v", err)
-	}
-	if res.Version != "1.21.6" || res.Pins["PAPER_BUILD"] != "157" {
-		t.Fatalf("resolved = %+v", res)
-	}
-	if res, err := p.Resolve(context.Background(), "9.9.9"); err == nil {
-		t.Fatalf("resolver 9.9.9 debía fallar, got %+v", res)
-	}
-	if calls != 4 {
-		t.Fatalf("llamadas = %d; quiero 4", calls)
-	}
-}
+// La cobertura del proveedor Paper vive ahora en paper_test.go (Fill API v3):
+// aquí se retiró el caso que usaba el esquema v2, ya retirado por el proveedor.
 
 func TestVanillaProviderParsing(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

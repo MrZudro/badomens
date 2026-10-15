@@ -92,3 +92,15 @@ curl.exe -sS -L -A $ua "https://api.papermc.io/v2/projects/paper/versions" -o pa
 
 Estos fixtures **no** sustituyen a las pruebas de contrato contra upstream (job programado,
 `spec 1.md` §7.1); son su base offline y determinista.
+
+## Correcciones posteriores al recorte (Fase 2)
+
+- **2026-10-14 — agente de proveedores (Paper/Vanilla)**: se retiró el **BOM
+  UTF-8** que añadió la herramienta de captura a `paper_fill_v3/versions.json`,
+  `paper_fill_v3/builds_26.3.json`, `paper_fill_v3/builds_1.21.4.json` y
+  `mojang/version_manifest_v2.json`. El endpoint real devuelve **JSON sin BOM**
+  (verificado con `curl -D -`: `Content-Type: application/json`, primer byte
+  `{`), y `encoding/json`/`encoding/xml` rechazan el BOM ("invalid character
+  '\ufeff'"), de modo que con el BOM los fixtures no representaban la respuesta.
+  `neoforge/maven-metadata.xml` conserva el suyo (no pertenece a esta fase).
+  El contenido JSON no se ha tocado en ningún otro aspecto.
