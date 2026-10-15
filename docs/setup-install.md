@@ -46,12 +46,21 @@ firmados**, así que con SAC activo Windows los bloquea con:
 Una directiva de Control de aplicaciones bloqueó este archivo
 ```
 
-Comprobado en una máquina con SAC **activo** (Windows 11, Go 1.27):
+Medido en una máquina con SAC **activo** (Windows 11, Go 1.27) — el resultado
+**no** depende de si el binario se descargó o se compiló:
 
-| Procedencia del binario | Resultado |
+| Caso | Resultado |
 |---|---|
-| Descargado del release (`.zip`) | **Bloqueado**, de forma reproducible (4 de 4 intentos; reintentar no ayudó) |
-| `go install …@latest`, `go run` o `go build` local | **Ejecuta** (7 de 7 intentos) |
+| `.exe` **descargado** del release | **Bloqueado** (4 de 4 intentos) |
+| **Compilado** localmente (`go build`, `go install`, `go run`) | **Mixto**: 21 de 24 ejecutaron; el binario exacto de `install.ps1 -FromSource` se bloqueó 3 de 3 |
+| El mismo fichero bloqueado, **copiado** a otra ruta | Sigue **bloqueado** |
+| El mismo fichero bloqueado **con un byte añadido** | **Ejecuta** (y sigue sin firma) |
+| Un binario permitido **con marca de descargado** (MOTW) | Sigue **ejecutando** |
+
+Es decir: el veredicto de SAC va ligado a la **reputación del fichero exacto**
+(hash), no a la procedencia ni a la firma (un binario sin firma puede pasar), así
+que **no es determinista y no se puede forzar reintentando**: un build
+bit-reproducible recibe siempre el mismo veredicto.
 
 Para saber si SAC está activo:
 
@@ -62,17 +71,16 @@ Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' VerifiedAndR
 
 Salidas, de la menos a la más invasiva:
 
-1. **Compilar con Go** (no toca el sistema; es la primera opción porque funciona
-   con SAC activo):
+1. **Probar a compilar con Go** (gratis y sin tocar el sistema; algunos binarios
+   compilados sí arrancan):
 
    ```powershell
    go install github.com/MrZudro/badomens/cmd/badomens@latest
    # deja el binario en %USERPROFILE%\go\bin\badomens.exe
    ```
 
-   o, desde un clon, `.\scripts\install.ps1 -FromSource`. El veredicto de SAC
-   depende de una comprobación de reputación en la nube: si el primer intento se
-   bloquea, reintentar más tarde suele funcionar.
+   o, desde un clon, `.\scripts\install.ps1 -FromSource`. Si SAC también bloquea
+   ese fichero, pasa a la opción 2.
 
 2. **WSL2 o Docker** (determinista). SAC solo controla ejecutables de Windows,
    así que el binario de Linux corre sin problema:

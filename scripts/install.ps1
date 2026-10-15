@@ -3,9 +3,10 @@
 #   irm https://github.com/MrZudro/badomens/releases/latest/download/install.ps1 | iex
 #   (o clona el repo y ejecuta .\scripts\install.ps1 [-FromSource])
 #
-# -FromSource compila el binario con Go EN TU EQUIPO en vez de descargarlo. Es la
-# vía recomendada cuando Smart App Control está activo (bloquea el .exe
-# descargado, sin firma); los binarios que produce el toolchain de Go sí pasan.
+# -FromSource compila el binario con Go EN TU EQUIPO en vez de descargarlo (útil
+# si el antivirus bloquea la descarga). OJO: con Smart App Control activo eso no
+# garantiza nada — SAC decide por la reputación del fichero exacto y puede
+# bloquearlo igual; el script lo explica si ocurre.
 param(
   [switch]$FromSource
 )
@@ -54,38 +55,39 @@ function Show-SacHelp {
   Write-Warning "Smart App Control de Windows bloqueó badomens.exe"
   Write-Host @"
 Smart App Control ($estado) solo permite aplicaciones firmadas o con reputación
-conocida y no ofrece un botón de «ejecutar de todas formas». Bloquea de forma
-reproducible el .exe DESCARGADO: no está firmado y lleva la marca de descargado.
-No es un fallo del programa ni del instalador.
+conocida y no ofrece un botón de «ejecutar de todas formas».
+
+Medido en un equipo con SAC activo: el veredicto va ligado al fichero exacto
+(no a si lo descargaste o lo compilaste), así que puede bloquear tanto el .exe
+descargado como alguno compilado localmente, y no sirve insistir: un build
+idéntico recibe el mismo veredicto. No es un fallo del programa ni del instalador.
 
 El archivo quedó instalado en:
   $Bin
 
 Opciones, de la menos a la más invasiva:
 
-1) Instalarlo compilando con Go (lo más rápido de probar y no toca el sistema).
-   El toolchain avala lo que compila y Smart App Control deja pasar esos
-   binarios (verificado: 7 de 7 ejecuciones):
+1) Probarlo compilando con Go (gratis y sin tocar el sistema; algunos binarios
+   compilados sí arrancan, merece la pena intentarlo):
      go install github.com/MrZudro/badomens/cmd/badomens@latest
    deja el binario en %USERPROFILE%\go\bin\badomens.exe. Desde un clon:
      .\scripts\install.ps1 -FromSource
-   Si el primer intento lo bloquea, reinténtalo pasado un rato (el veredicto de
-   SAC depende de una comprobación de reputación) o usa la opción 2.
+   Si SAC también lo bloquea, pasa a la opción 2.
 
-2) Usarlo en WSL2 o Docker (determinista). Smart App Control solo controla
+2) Usarlo en WSL2 o Docker (DETERMINISTA). Smart App Control solo controla
    ejecutables de Windows, así que la versión de Linux corre sin más:
      wsl --install -d Ubuntu
    Dentro de WSL, con Docker Desktop y su integración activada:
      curl -fsSL https://raw.githubusercontent.com/$Repo/main/scripts/install.sh | sh
    badomens orquesta servidores en Docker Compose: es su entorno natural aquí.
 
-3) Desactivar Smart App Control (determinista e IRREVERSIBLE):
+3) Desactivar Smart App Control (DETERMINISTA e IRREVERSIBLE):
    Seguridad de Windows -> Control de aplicaciones y navegador -> Smart App Control.
    Para volver a activarlo habría que restablecer o reinstalar Windows.
 
 4) (Lado del proyecto) publicar los binarios FIRMADOS digitalmente: es la única
-   forma de que el .exe descargado funcione con SAC activo. Requiere un
-   certificado de firma de código y aún no está hecho.
+   forma de que el .exe publicado funcione con SAC activo en cualquier equipo.
+   Requiere un certificado de firma de código y aún no está hecho.
 "@
 }
 
@@ -108,8 +110,10 @@ function Add-ToUserPath {
   }
 }
 
-# Ejecuta el binario recién instalado; si Smart App Control lo bloquea, lo explica
-# en vez de dejar un error críptico de PowerShell.
+# Ejecuta el binario recién instalado. Smart App Control no da un error propio:
+# se manifiesta como un ApplicationFailedException («Una directiva de Control de
+# aplicaciones bloqueó este archivo»), así que solo en ESE caso se explica el
+# bloqueo; cualquier otro fallo se reporta tal cual.
 function Invoke-Installed {
   param([string]$Bin)
   try {
@@ -118,12 +122,14 @@ function Invoke-Installed {
       throw "badomens version salió con código $LASTEXITCODE"
     }
   } catch {
+    $msg = "$($_.Exception.Message)"
+    $bloqueo = $msg -match 'Control de aplicaciones|Application control|app control'
     $sac = Get-SacState
-    if ($sac -ne "off") {
+    if ($bloqueo -and $sac -ne "off") {
       Show-SacHelp -State $sac -Bin $Bin
       exit 2
     }
-    throw "badomens se instaló en $Bin pero no pudo ejecutarse: $($_.Exception.Message)"
+    throw "badomens se instaló en $Bin pero no pudo ejecutarse: $msg"
   }
 }
 
@@ -141,8 +147,10 @@ New-Item -ItemType Directory -Force -Path $DestDir | Out-Null
 $bin = Join-Path $DestDir "badomens.exe"
 
 if ($FromSource) {
-  # --- Compilar desde el código fuente de la versión (evita la descarga de un
-  #     binario sin firma, que es lo que bloquea Smart App Control) ---
+  # --- Compilar desde el código fuente de la versión (en lugar de descargar el
+  #     .exe: útil si el antivirus bloquea la descarga). OJO: Smart App Control
+  #     decide por la reputación del fichero EXACTO, así que también puede
+  #     bloquear el binario recién compilado; en ese caso el script lo explica. ---
   if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
     throw "Se necesita Go para -FromSource: instálalo desde https://go.dev/dl/ y reintenta"
   }
@@ -166,15 +174,18 @@ if ($FromSource) {
     Remove-Item -Recurse -Force $src -ErrorAction SilentlyContinue
   }
   Write-Host "Compilado en $bin"
-  Add-ToUserPath -Dir $DestDir
+  # El PATH se toca SOLO si el binario se ejecutó (SAC puede bloquear también un
+  # binario compilado: su veredicto depende del fichero exacto).
   Invoke-Installed -Bin $bin
+  Add-ToUserPath -Dir $DestDir
   exit $LASTEXITCODE
 }
 
-# --- Descarga del binario publicado (firma ausente: puede chocar con SAC) ---
+# --- Descarga del binario publicado (sin firma: Smart App Control puede
+#     bloquearlo; el veredicto depende del fichero exacto) ---
 $sac = Get-SacState
 if ($sac -ne "off") {
-  Write-Warning "Smart App Control no está desactivado ($sac): bloqueará el .exe descargado (sin firma). Si ocurre, este script explicará las alternativas (compilar con Go, WSL2/Docker o desactivar SAC)."
+  Write-Warning "Smart App Control no está desactivado ($sac): puede bloquear el .exe (no está firmado). Si ocurre, este script explicará las alternativas (compilar con Go, WSL2/Docker o desactivar SAC)."
 }
 
 # El asset de GoReleaser incluye la versión: badomens_<version>_<os>_<arch>.zip
@@ -205,10 +216,10 @@ finally {
   Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }
 
-# La descarga deja la marca de «archivo descargado» (Mark of the Web). No influye
-# en Smart App Control (que decide por firma y reputación), pero sí en SmartScreen
-# y en antivirus que la usan: quitarla es lo correcto para un binario que acabamos
-# de verificar por checksum.
+# La descarga puede dejar la marca de «archivo descargado» (Mark of the Web), que
+# usan SmartScreen y algunos antivirus. No influye en Smart App Control (decide
+# por firma y reputación del fichero), pero quitarla es lo correcto para un
+# binario que acabamos de verificar por checksum.
 try {
   Unblock-File -Path $bin -ErrorAction Stop
 } catch {
@@ -216,5 +227,7 @@ try {
 }
 
 Write-Host "Instalado en $bin"
-Add-ToUserPath -Dir $DestDir
+# El PATH se toca SOLO si el binario se ejecutó: si SAC lo bloquea, no tiene
+# sentido dejar el directorio en el PATH del usuario.
 Invoke-Installed -Bin $bin
+Add-ToUserPath -Dir $DestDir
