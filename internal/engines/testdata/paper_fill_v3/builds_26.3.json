@@ -1,0 +1,117 @@
+﻿[
+    {
+        "id":  190,
+        "time":  "2026-10-14T23:12:30Z",
+        "channel":  "STABLE",
+        "commits":  [
+                        {
+                            "sha":  "a0ded751dca6867902e4741426d2b03838170064",
+                            "time":  "2026-10-14T23:12:14Z",
+                            "message":  "Add event for Entity deciding whether an item belongs in a Container (#13811)\n\nCo-authored-by: Doc \u003cgit@mrdoc.dev\u003e"
+                        }
+                    ],
+        "downloads":  {
+                          "server:default":  {
+                                                 "name":  "paper-26.3-190.jar",
+                                                 "checksums":  {
+                                                                   "sha256":  "db0fd32588e732fd0de57cc95a2076624b0e73c1cb2dba87dc5f5f3340bcbb1b"
+                                                               },
+                                                 "size":  55152206,
+                                                 "url":  "https://fill-data.papermc.io/v1/objects/db0fd32588e732fd0de57cc95a2076624b0e73c1cb2dba87dc5f5f3340bcbb1b/paper-26.3-190.jar"
+                                             }
+                      }
+    },
+    {
+        "id":  189,
+        "time":  "2026-10-14T20:17:18Z",
+        "channel":  "STABLE",
+        "commits":  [
+                        {
+                            "sha":  "a48059a2d48dea06523f42ffeba543286c7d505e",
+                            "time":  "2026-10-14T20:17:00Z",
+                            "message":  "Correctly serialise decorated pod decorations (#14388)"
+                        }
+                    ],
+        "downloads":  {
+                          "server:default":  {
+                                                 "name":  "paper-26.3-189.jar",
+                                                 "checksums":  {
+                                                                   "sha256":  "3a90c2ea79a81cd0ce641c9954c616828be6d32255385aef3b2022f80b91e8b5"
+                                                               },
+                                                 "size":  55150184,
+                                                 "url":  "https://fill-data.papermc.io/v1/objects/3a90c2ea79a81cd0ce641c9954c616828be6d32255385aef3b2022f80b91e8b5/paper-26.3-189.jar"
+                                             }
+                      }
+    },
+    {
+        "id":  188,
+        "time":  "2026-10-14T20:05:50Z",
+        "channel":  "STABLE",
+        "commits":  [
+                        {
+                            "sha":  "06b855f0d37a72c853fe8f827ffc08904f907a8e",
+                            "time":  "2026-10-14T20:05:03Z",
+                            "message":  "Catch async potion brewer reset mixes\n\nNo longer allowed off thread as this syncs recipe\nregistry data to players.\n"
+                        }
+                    ],
+        "downloads":  {
+                          "server:default":  {
+                                                 "name":  "paper-26.3-188.jar",
+                                                 "checksums":  {
+                                                                   "sha256":  "f26a4e0e7f358b763c452ad8e2c9c159241b1f71e1b05156e468f75fa9081513"
+                                                               },
+                                                 "size":  55149980,
+                                                 "url":  "https://fill-data.papermc.io/v1/objects/f26a4e0e7f358b763c452ad8e2c9c159241b1f71e1b05156e468f75fa9081513/paper-26.3-188.jar"
+                                             }
+                      }
+    },
+    {
+        "id":  187,
+        "time":  "2026-10-14T19:47:22Z",
+        "channel":  "STABLE",
+        "commits":  [
+                        {
+                            "sha":  "56cab99fbfc8dc90513869144a3dfac222de19b4",
+                            "time":  "2026-10-14T19:47:06Z",
+                            "message":  "Mitigate jline shutdown race (#14382)\n\nCo-authored-by: Bjarne Koll \u003cgit@lynxplay.dev\u003e"
+                        },
+                        {
+                            "sha":  "c927bd34ab4b544cc125367ea62c7ea2f1a2196d",
+                            "time":  "2026-10-14T18:48:16Z",
+                            "message":  "[ci skip] Remove advice on not using entity scheduler if not targeting Folia (#14384)"
+                        }
+                    ],
+        "downloads":  {
+                          "server:default":  {
+                                                 "name":  "paper-26.3-187.jar",
+                                                 "checksums":  {
+                                                                   "sha256":  "6c6c8ff62a12aa50897fd3666b40673d5729ac135e1285c0e487c40592e01bea"
+                                                               },
+                                                 "size":  55150737,
+                                                 "url":  "https://fill-data.papermc.io/v1/objects/6c6c8ff62a12aa50897fd3666b40673d5729ac135e1285c0e487c40592e01bea/paper-26.3-187.jar"
+                                             }
+                      }
+    },
+    {
+        "id":  186,
+        "time":  "2026-10-14T18:20:35Z",
+        "channel":  "STABLE",
+        "commits":  [
+                        {
+                            "sha":  "b5eb5e0bfd1270eba92fa9cb7470921b4517b89c",
+                            "time":  "2026-10-14T18:18:24Z",
+                            "message":  "[ci skip] Add manual dispatch trigger\n\nWhen a build is partially published (i.e. to Fill but not to Maven), a retry of the same build may reject indefinitely. A manual trigger allows resolving this without an empty commit.\n\nIn an observed case, Fill successfully published but returned a 504. This specific case could probably be handled with idempotent publish and/or improved error handling policies in fill-gradle. Manual trigger is useful regardless to cover any other cases.\n"
+                        }
+                    ],
+        "downloads":  {
+                          "server:default":  {
+                                                 "name":  "paper-26.3-186.jar",
+                                                 "checksums":  {
+                                                                   "sha256":  "339329bbccef01391c8091ed12e8669f16f648b24be14e93a3698a40c76fb872"
+                                                               },
+                                                 "size":  55148077,
+                                                 "url":  "https://fill-data.papermc.io/v1/objects/339329bbccef01391c8091ed12e8669f16f648b24be14e93a3698a40c76fb872/paper-26.3-186.jar"
+                                             }
+                      }
+    }
+]

@@ -1,0 +1,1139 @@
+﻿{
+    "versions":  [
+                     {
+                         "version":  {
+                                         "id":  "26.3",
+                                         "support":  {
+                                                         "status":  "SUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  25
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        3,
+                                        4,
+                                        5,
+                                        6,
+                                        187,
+                                        188,
+                                        189,
+                                        190
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "26.3-rc-3",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2026-09-15"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  25
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "26.2",
+                                         "support":  {
+                                                         "status":  "SUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  25
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        10,
+                                        11,
+                                        12,
+                                        15,
+                                        131,
+                                        132,
+                                        133,
+                                        134
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "26.2-rc-2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2026-06-16"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  25
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        2,
+                                        3,
+                                        4,
+                                        5,
+                                        6,
+                                        7,
+                                        8,
+                                        9
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "26.1.2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2026-07-26"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  25
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        2,
+                                        3,
+                                        4,
+                                        5,
+                                        71,
+                                        72,
+                                        73,
+                                        74
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "26.1.1",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2026-04-11"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  25
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        4,
+                                        7,
+                                        8,
+                                        9,
+                                        26,
+                                        27,
+                                        28,
+                                        29
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.11",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2026-06-15"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        34,
+                                        35,
+                                        37,
+                                        38,
+                                        129,
+                                        130,
+                                        131,
+                                        132
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.11-rc3",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-12-09"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        30,
+                                        31
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.11-rc2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-12-08"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        20,
+                                        21,
+                                        22,
+                                        23,
+                                        25,
+                                        27,
+                                        26,
+                                        29
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.11-rc1",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-12-05"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        18,
+                                        19
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.11-pre5",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-12-04"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        14,
+                                        16
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.11-pre4",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-12-03"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        9,
+                                        10,
+                                        11,
+                                        12,
+                                        13
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.11-pre3",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-12-01"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1,
+                                        2,
+                                        4,
+                                        6
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.10",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2026-01-17"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        61,
+                                        63,
+                                        64,
+                                        65,
+                                        126,
+                                        127,
+                                        129,
+                                        130
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.9",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-10-07"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        37,
+                                        38,
+                                        40,
+                                        41,
+                                        56,
+                                        57,
+                                        58,
+                                        59
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.9-rc1",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-09-29"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        23,
+                                        24,
+                                        25,
+                                        26,
+                                        33,
+                                        34,
+                                        35,
+                                        36
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.9-pre4",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-09-29"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        13,
+                                        14,
+                                        15,
+                                        16,
+                                        18,
+                                        20,
+                                        21,
+                                        22
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.9-pre3",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-09-29"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        8,
+                                        9,
+                                        10,
+                                        11,
+                                        12
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.9-pre2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-09-29"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1,
+                                        2,
+                                        3,
+                                        6,
+                                        7
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.8",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-11-14"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1,
+                                        2,
+                                        3,
+                                        4,
+                                        57,
+                                        58,
+                                        59,
+                                        60
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.7",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-07-17"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        2,
+                                        3,
+                                        4,
+                                        5,
+                                        29,
+                                        30,
+                                        31,
+                                        32
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.6",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-07-17"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        18,
+                                        19,
+                                        24,
+                                        11,
+                                        45,
+                                        46,
+                                        47,
+                                        48
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.5",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-07-17"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        4,
+                                        48,
+                                        80,
+                                        86,
+                                        85,
+                                        87,
+                                        91,
+                                        114
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.4",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-07-17"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        12,
+                                        40,
+                                        50,
+                                        68,
+                                        195,
+                                        196,
+                                        197,
+                                        232
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.3",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  "2025-07-17"
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        39,
+                                        60,
+                                        71,
+                                        5,
+                                        36,
+                                        49,
+                                        69,
+                                        83
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21.1",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        25,
+                                        36,
+                                        47,
+                                        69,
+                                        119,
+                                        125,
+                                        131,
+                                        133
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.21",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        15,
+                                        18,
+                                        25,
+                                        41,
+                                        55,
+                                        65,
+                                        69,
+                                        106
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.20.6",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        43,
+                                        44,
+                                        24,
+                                        32,
+                                        107,
+                                        145,
+                                        148,
+                                        151
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.20.5",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  21
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        10,
+                                        16,
+                                        8,
+                                        21,
+                                        5,
+                                        4,
+                                        6,
+                                        18
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.20.4",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        342,
+                                        336,
+                                        324,
+                                        323,
+                                        475,
+                                        482,
+                                        497,
+                                        499
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.20.2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        207,
+                                        232,
+                                        252,
+                                        264,
+                                        310,
+                                        316,
+                                        294,
+                                        305
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.20.1",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        40,
+                                        22,
+                                        18,
+                                        32,
+                                        157,
+                                        165,
+                                        168,
+                                        175
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.20",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        14,
+                                        3,
+                                        8,
+                                        1,
+                                        2,
+                                        11,
+                                        13,
+                                        17
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.19.4",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        487,
+                                        510,
+                                        516,
+                                        536,
+                                        507,
+                                        508,
+                                        518,
+                                        534
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.19.3",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        326,
+                                        339,
+                                        355,
+                                        374,
+                                        443,
+                                        403,
+                                        422,
+                                        423
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.19.2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        113,
+                                        115,
+                                        112,
+                                        116,
+                                        255,
+                                        258,
+                                        263,
+                                        302
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.19.1",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        82,
+                                        100,
+                                        105,
+                                        87,
+                                        97,
+                                        83,
+                                        95,
+                                        102
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.19",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1,
+                                        4,
+                                        36,
+                                        51,
+                                        2,
+                                        19,
+                                        27,
+                                        77
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.18.2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        222,
+                                        223,
+                                        227,
+                                        241,
+                                        330,
+                                        346,
+                                        363,
+                                        388
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.18.1",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  17
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        173,
+                                        198,
+                                        87,
+                                        99,
+                                        158,
+                                        174,
+                                        201,
+                                        205
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.13",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        17,
+                                        32,
+                                        41,
+                                        46,
+                                        142,
+                                        145,
+                                        146,
+                                        148
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.13-pre7",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        2,
+                                        7,
+                                        5,
+                                        11,
+                                        6,
+                                        12,
+                                        3,
+                                        10
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.12.2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1206,
+                                        1208,
+                                        1207,
+                                        1205,
+                                        1613,
+                                        1617,
+                                        1619,
+                                        1620
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.12.1",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1188,
+                                        1193,
+                                        1170,
+                                        1172,
+                                        1187,
+                                        1204,
+                                        1174,
+                                        1185
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.12",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1134,
+                                        1145,
+                                        1114,
+                                        1149,
+                                        1133,
+                                        1148,
+                                        1154,
+                                        1157
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.11.2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        1104,
+                                        1105,
+                                        1106
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.10.2",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        916,
+                                        918,
+                                        917
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.9.4",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        773,
+                                        775,
+                                        774
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.8.8",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  8
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        443,
+                                        444,
+                                        445
+                                    ]
+                     },
+                     {
+                         "version":  {
+                                         "id":  "1.7.10",
+                                         "support":  {
+                                                         "status":  "UNSUPPORTED",
+                                                         "end":  null
+                                                     },
+                                         "java":  {
+                                                      "version":  {
+                                                                      "minimum":  6
+                                                                  }
+                                                  }
+                                     },
+                         "builds":  [
+                                        2025
+                                    ]
+                     }
+                 ]
+}
