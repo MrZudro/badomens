@@ -10,6 +10,7 @@ import (
 	"github.com/MrZudro/badomens/internal/doctor"
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/host"
+	"github.com/MrZudro/badomens/internal/infra"
 	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tools"
 	"github.com/MrZudro/badomens/internal/update"
@@ -188,7 +189,7 @@ func buildRegistry(e *Env) (*tools.Registry, error) {
 		},
 		{
 			Name:        "badomens_tailscale_status",
-			Description: "Estado de la red privada Tailscale: IP, MagicDNS y peers (RF-6).",
+			Description: "Estado de la red privada Tailscale: IP, MagicDNS y peers, con motivo tipado (RF-6).",
 			ReadOnly:    true,
 			Handler: func(ctx context.Context, _ tools.Args) (*tools.Result, error) {
 				st, err := tailscale.Snapshot(ctx)
@@ -198,7 +199,25 @@ func buildRegistry(e *Env) (*tools.Registry, error) {
 				ip, _ := tailscale.ResolveIPv4(ctx)
 				magic, _ := tailscale.MagicDNS(ctx)
 				data := tailscaleData(st, ip, magic)
+				data["status"] = infraStateData(infra.NewTailscale(tailscale.DefaultEnv()).Detect(ctx))
 				return &tools.Result{Text: "tailscale ip=" + orDash(ip), Data: data}, nil
+			},
+		},
+		{
+			Name:        "badomens_infra_status",
+			Description: "Estado tipado de los servicios externos (Docker, Tailscale y el daemon propio): ready/down/not_installed/needs_login… con motivo estable (Fase 8).",
+			ReadOnly:    true,
+			Handler: func(ctx context.Context, _ tools.Args) (*tools.Result, error) {
+				dockerSt := infra.NewDocker(dockerx.DefaultEnv()).Detect(ctx)
+				tsSt := infra.NewTailscale(tailscale.DefaultEnv()).Detect(ctx)
+				daemonSt := daemonComponent(e).Detect(ctx)
+				data := map[string]any{
+					"docker":    infraStateData(dockerSt),
+					"tailscale": infraStateData(tsSt),
+					"daemon":    infraStateData(daemonSt),
+				}
+				text := "docker=" + string(dockerSt.Status) + " tailscale=" + string(tsSt.Status) + " daemon=" + string(daemonSt.Status)
+				return &tools.Result{Text: text, Data: data}, nil
 			},
 		},
 		{

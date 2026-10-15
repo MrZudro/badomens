@@ -4,12 +4,13 @@ package doctor
 
 import (
 	"context"
-	"strings"
+	"os"
 
 	"github.com/MrZudro/badomens/internal/config"
 	"github.com/MrZudro/badomens/internal/dockerx"
-	"github.com/MrZudro/badomens/internal/execx"
 	"github.com/MrZudro/badomens/internal/host"
+	"github.com/MrZudro/badomens/internal/infra"
+	"github.com/MrZudro/badomens/internal/tailscale"
 )
 
 // Estados posibles de un chequeo.
@@ -46,6 +47,7 @@ func Run(ctx context.Context, cfg *config.Config) Report {
 	checkDataDir(cfg, add)
 	checkDocker(ctx, add)
 	checkTailscale(ctx, cfg, add)
+	checkDaemon(cfg, add)
 
 	// Capacidad del host.
 	cap := host.Detect(ctx)
@@ -80,6 +82,7 @@ func Preflight(ctx context.Context, cfg *config.Config) Report {
 	checkDataDir(cfg, add)
 	checkDocker(ctx, add)
 	checkTailscale(ctx, cfg, add)
+	checkDaemon(cfg, add)
 	return r
 }
 
@@ -140,32 +143,76 @@ func checkDocker(ctx context.Context, add func(name, status, message string)) {
 	}
 }
 
+// checkTailscale informa del estado del tailnet y de MagicDNS con motivo tipado
+// (Fase 8, sección 5): la causa queda registrada para que Salud pueda mostrarla
+// o descartarla en lugar de un banner permanente.
 func checkTailscale(ctx context.Context, cfg *config.Config, add func(name, status, message string)) {
 	if !cfg.Tailscale.Enabled {
 		add("Tailscale", StatusOK, "desactivado en la configuración")
 		return
 	}
-	if !execx.LookPath("tailscale") {
+	rep := tailscale.Probe(ctx)
+	switch rep.State {
+	case tailscale.StateNotInstalled:
 		add("Tailscale", StatusWarn, "no se encontró 'tailscale'; las instancias no podrán publicarse en el tailnet")
-	} else if ip := tailscaleIPv4(ctx); ip != "" {
-		add("Tailscale IP", StatusOK, ip)
+		return
+	case tailscale.StateNotRunning, tailscale.StateStopped:
+		add("Tailscale", StatusWarn, rep.Message+" ("+rep.Hint+")")
+		return
+	case tailscale.StateNeedsLogin, tailscale.StateNeedsMachineAuth:
+		add("Tailscale", StatusWarn, rep.Message+" ("+rep.Hint+")")
+		return
+	}
+	if rep.IP != "" {
+		add("Tailscale IP", StatusOK, rep.IP)
 	} else {
 		add("Tailscale IP", StatusWarn, "no se detectó una IPv4 del tailnet; ejecuta 'tailscale up'")
 	}
+	add("MagicDNS", magicDNSStatus(rep), magicDNSMessage(rep))
 }
 
-func tailscaleIPv4(ctx context.Context) string {
-	res, err := execx.Run(ctx, "tailscale", "ip", "-4")
+// magicDNSStatus traduce el motivo tipado de MagicDNS a un nivel de chequeo.
+func magicDNSStatus(rep tailscale.Report) string {
+	switch rep.MagicDNSReason {
+	case tailscale.ReasonMagicDNSOK:
+		return StatusOK
+	case tailscale.ReasonMagicDNSDisabled:
+		return StatusWarn
+	}
+	return StatusWarn
+}
+
+func magicDNSMessage(rep tailscale.Report) string {
+	switch rep.MagicDNSReason {
+	case tailscale.ReasonMagicDNSOK:
+		return rep.MagicDNS
+	case tailscale.ReasonMagicDNSDisabled:
+		return "MagicDNS está desactivado en el tailnet: sin nombre de conexión, comparte la dirección IP (motivo: magicdns_disabled)"
+	}
+	return "no se pudo determinar MagicDNS (motivo: " + rep.MagicDNSReason + ")"
+}
+
+// checkDaemon informa del estado del daemon propio de badomens.
+func checkDaemon(cfg *config.Config, add func(name, status, message string)) {
+	exe, err := os.Executable()
 	if err != nil {
-		return ""
+		exe = ""
 	}
-	for _, line := range strings.Split(res.Stdout, "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "100.") {
-			return line
+	lock := ""
+	if cfg != nil {
+		lock = infra.DaemonLockPath(cfg.DataDir)
+	}
+	st := infra.NewDaemon(infra.DaemonOptions{Exe: exe, LockPath: lock}).Detect(context.Background())
+	switch st.Status {
+	case infra.StatusReady:
+		add("Daemon", StatusOK, st.Message)
+	default:
+		msg := st.Message
+		if st.Hint != "" {
+			msg += " — " + st.Hint
 		}
+		add("Daemon", StatusWarn, msg)
 	}
-	return strings.TrimSpace(res.Stdout)
 }
 
 func humanCapacity(ncpu int, memGiB float64, source string) string {

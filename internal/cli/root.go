@@ -107,6 +107,7 @@ Cada comando imprime un documento JSON estable. Detalle: 'badomens <comando> --h
 		newDockerCmd(e),
 		newTailscaleCmd(e),
 		newIdleCmd(e),
+		newDaemonCmd(e),
 		newTUICmd(e),
 		newUninstallCmd(e),
 	)

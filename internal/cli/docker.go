@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/MrZudro/badomens/internal/dockerx"
+	"github.com/MrZudro/badomens/internal/infra"
 	"github.com/MrZudro/badomens/internal/result"
 	"github.com/spf13/cobra"
 )
@@ -26,6 +27,8 @@ func newDockerStatusCmd(e *Env) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			diag := dockerx.Diagnose(cmd.Context(), dockerx.DefaultEnv())
 			data := diagnosisData(diag)
+			// Estado tipado del mecanismo común (aditivo): misma fuente de verdad.
+			data["infra_status"] = infraStateData(infra.NewDocker(dockerx.DefaultEnv()).Detect(cmd.Context()))
 			if diag.State.Ready() {
 				return e.finish(result.OK("docker status", "Docker está listo", data), dockerStatusHuman(diag))
 			}
@@ -55,11 +58,12 @@ func newDockerEnsureCmd(e *Env) *cobra.Command {
 			}
 			res := dockerx.Ensure(cmd.Context(), dockerx.DefaultEnv(), opts)
 			data := map[string]any{
-				"ready":    res.Ready,
-				"state":    string(res.Diagnosis.State),
-				"reason":   res.Diagnosis.Reason,
-				"attempts": attemptsData(res.Attempts),
-				"pending":  stepsData(res.Pending),
+				"ready":        res.Ready,
+				"state":        string(res.Diagnosis.State),
+				"reason":       res.Diagnosis.Reason,
+				"attempts":     attemptsData(res.Attempts),
+				"pending":      stepsData(res.Pending),
+				"infra_status": infraStateData(infra.NewDocker(dockerx.DefaultEnv()).Detect(cmd.Context())),
 			}
 			if res.Ready {
 				return e.finish(result.OK("docker ensure", "Docker listo", data), "Docker listo")

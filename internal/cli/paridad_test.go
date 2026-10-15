@@ -31,6 +31,7 @@ var paridad = map[string]string{
 	"docker.status|ensure":                       "health+reparar-docker",
 	"tailscale.status|ensure":                    "health+reparar-tailscale",
 	"idle.set|status|disable|daemon|install-service|uninstall-service": "instance/auto-apagado",
+	"daemon.status|ensure|install-service|uninstall-service":           "health+daemon",
 	"update":    "health",
 	"uninstall": "solo-cli",
 	"capacity":  "health+wizard",
