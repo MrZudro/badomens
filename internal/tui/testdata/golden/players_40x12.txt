@@ -9,4 +9,4 @@
 │ │  ▶ ana                           │ │
 │ ╰──────────────────────────────────╯ │
 │ Whitelist: ✓ ACTIVADA                │
-└─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

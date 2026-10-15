@@ -42,12 +42,12 @@ Probar por lo menos `80×24`, `100×30`, `132×40` y `60×18` si el terminal mí
 | UI-02 | Nueve pestañas del detalle | Pestaña activa completa; las restantes son navegables; no hay truncado silencioso que esconda las últimas. |
 | UI-03 | Consola con 0, 1, 200 y 2.000 líneas | Buffer acotado; viewport estable; header/tabs/footer ocupan las mismas regiones. |
 | UI-04 | Consola con línea de log de 500+ caracteres | No desplaza footer ni amplía el terminal; truncado con `…` o scroll horizontal explícito. |
-| UI-05 | Formulario en tamaño compacto | Input, valor, error y teclas Enter/Esc siguen visibles. |
+| UI-05 (revisado QA-01/QA-02) | Formulario en tamaño compacto | Input, valor, error y teclas Enter/Esc siguen visibles. En un **modal** compacto se reserva la altura del título y de la barra de acciones: el cuerpo se recorta (con marca «…») y el borde inferior se ve, pero las acciones **nunca** desaparecen. |
 | UI-06 | Cargar/error/éxito en Acceso | Estados se distinguen por texto/etiqueta, no solo por color. |
 | UI-07 | Resize mientras la consola está activa | Se recalculan viewport e input; no se recorta la barra inferior. |
 | UI-08 | ANSI, emojis y acentos en nombres/logs | Anchos medidos por celdas visuales; no partir secuencias ANSI ni desalinear columnas. |
 | UI-09 | Consola fuera de su pestaña | Ninguna línea cruda de consola visible; Inicio muestra solo indicadores/eventos designados. |
-| UI-10 | Barra de estado y acciones | Siempre visibles en su región fija, independientemente del largo de los logs. |
+| UI-10 (revisado QA-04) | Barra de estado y acciones | Siempre visibles en su región fija, independientemente del largo de los logs. La barra de estado muestra el **estado actual** (lo que reporta la pantalla activa), no el eco del último aviso: las notificaciones van en su propia línea, con TTL. |
 
 ## Concurrencia / rendimiento
 
@@ -117,20 +117,20 @@ los `UI-*`/`KEY-*` ya existentes y se ejecutan contra `App` + `Router` + `svc`.
 | ID | Escenario / pasos | Resultado esperado |
 |---|---|---|
 | SEL-01 | Selector en modo lista: `↑`/`↓` (y `j`/`k`) | Mueven la selección sin salir de la lista; los extremos no se pasan. |
-| SEL-02 | Selector en modo grid: `←/→` y `↑/↓` | Las 4 flechas navegan en la rejilla; columnas adaptables al ancho; ninguna fila supera el ancho de la primera. |
+| SEL-02 (revisado QA-01) | Selector en modo grid: `←/→` y `↑/↓` | Las 4 flechas navegan en la rejilla; columnas adaptables al ancho; ninguna fila supera el ancho de la primera; **cada celda se rellena a su columna**, de modo que la columna k arranca en la misma celda de pantalla en todas las filas aunque los textos midan distinto. |
 | SEL-03 | `Enter` sobre la opción señalada | Confirma y aplica la opción elegida **por valor**; no por índice. |
 | SEL-04 | `Esc` con el selector abierto | Cierra el selector sin aplicar ni preparar ningún cambio. |
 | SEL-05 | Opción guardada distinta del cursor | Se marca «(actual)»; la enfocada lleva puntero y banda (visible sin depender del color). |
 | SEL-06 | Opción deshabilitada | Explica el motivo; no se elige por accidente. |
 | SEL-07 | Cambiar de motor en el asistente | Se resetea la versión y la lista se recarga para el nuevo motor (selección por valor). |
-| SEL-08 | Selector de versiones del asistente en ancho | Se pinta como rejilla alineada; `Enter` selecciona y cierra; `Esc` cierra sin cambiar. |
+| SEL-08 (revisado QA-01/QA-09) | Selector de versiones del asistente en ancho | Se pinta como rejilla alineada (ancho de columna fijo y separación visible); `Enter` selecciona y cierra; `Esc` cierra sin cambiar; el **detalle de la versión enfocada** (caché, Java, build, «última estable», «incompatible», «sin verificar»…) se muestra en su propia línea, porque no cabe en una celda. |
 
 ### Barra inferior (SPEC 2 §1, UX-01, UX-15)
 
 | ID | Escenario / pasos | Resultado esperado |
 |---|---|---|
 | BAR-01 | Cualquier pantalla | Formato único `[Tecla] Etiqueta` en **todas** las teclas; un solo componente renderiza la barra. |
-| BAR-02 | Inicio y detalle | Solo atajos contextuales de la pantalla + esenciales; `[B] Backup`, `[F1] Ayuda`, `[TAB] Desplazarse`, `[D] Borrar` con sus etiquetas. |
+| BAR-02 (revisado QA-03/QA-06/QA-10) | Inicio y detalle | Solo atajos contextuales de la pantalla + esenciales; `[B] Backup`, `[F1] Ayuda`, `[TAB] Desplazarse`, `[D] Borrar` con sus etiquetas. El pie **no ofrece acciones no aplicables** (p. ej. `[P] Detener` con el servidor apagado o `[S] Iniciar` con Docker caído): siguen documentadas, con su motivo, en la Ayuda. **Un atajo que no cabe se descarta entero**, nunca a medias («[S] Ini…»). |
 | BAR-03 | Cualquier pantalla / Ayuda (F1) | `Ctrl+P`, `F2` y `Ctrl+Q` NO aparecen en la barra pero siguen funcionando y se documentan en Ayuda. |
 | ESC-01 | Input de comandos con foco / sin foco | Con el foco, `[Esc] Atrás` va resaltado; `Esc` devuelve el foco sin ejecutar nada; sin foco no se resalta. |
 
@@ -147,7 +147,7 @@ los `UI-*`/`KEY-*` ya existentes y se ejecutan contra `App` + `Router` + `svc`.
 
 | ID | Escenario / pasos | Resultado esperado |
 |---|---|---|
-| SEM-01 | Transiciones apagado → cargando → en línea → cargando → apagado | El estado tipado se refleja en el semáforo con luz + **texto** («En línea»/«Cargando»/«Apagado»), nunca solo color. |
+| SEM-01 (revisado QA-07) | Transiciones apagado → cargando → en línea → cargando → apagado | El estado tipado se refleja en el semáforo con luz + **texto** («En línea»/«Cargando»/«Apagado»), nunca solo color, y con la **misma etiqueta** en el semáforo (franja fija) y en la insignia de la lista/detalle: «Apagado» (no «Detenido») y «Cargando…». |
 | SEM-02 | Cualquier sub-pantalla de la instancia | El semáforo está en la franja fija (Chrome) y se actualiza con el sondeo, sin recarga manual. |
 | SEM-03 | Respuesta tardía de otra instancia (detalle o sondeo) | No pisa el estado de la instancia actual. |
 | SEM-04 | Operación de ciclo de vida en vuelo | Muestra «Cargando» y vuelve al estado sondeado al terminar. |
@@ -156,7 +156,7 @@ los `UI-*`/`KEY-*` ya existentes y se ejecutan contra `App` + `Router` + `svc`.
 
 | ID | Escenario / pasos | Resultado esperado |
 |---|---|---|
-| INFRA-01 | Iniciar la TUI con el daemon apagado | Se comprueba y se fuerza el arranque (`internal/infra`), mostrando estado «Cargando» 🟡 sin bloquear el bucle. |
+| INFRA-01 (revisado QA-05) | Iniciar la TUI con el daemon apagado | Se comprueba y se fuerza el arranque (`internal/infra`), mostrando estado «Cargando» 🟡 sin bloquear el bucle. El «Comprobando el daemon…» es **transitorio y siempre se resuelve** en un mensaje final (éxito, o el motivo con su hint): nunca se queda fijo, y la barra de estado no lo retiene. |
 | INFRA-02 | Primer arranque sin servicio persistente | Se ofrece instalarlo con confirmación; al confirmar queda instalado; si se rechaza la elevación, se degrada a daemon de sesión con aviso. |
 | INFRA-03 | Docker apagado | Se detecta y se intenta levantar **una sola vez** con el mismo mecanismo; fallo con causa y pasos manuales por SO. |
 | INFRA-04 | Salud: `[D]` reparar Docker / `[T]` reparar Tailscale | Usan el mecanismo común (sin mecanismos paralelos) y avisan de la causa si fallan. |
@@ -338,7 +338,7 @@ asistente (`wizardResolvedMsg`/`wizardVersionsMsg` con `seq`) y jugadores. Ver
 | Whitelist persistida distinta de la lista real | `ACL-02`, `ACL-06` |
 | Consola con 0, 1, 200 y 2.000 líneas | `UI-03`, `CON-04`, `PERF-06` |
 | Logs largos con secuencias ANSI, emojis y acentos | `UI-04`, `UI-08`, `PERF-08` |
-| Terminales 60×18, 80×24, 100×30 y 132×40 | `A11Y-04`, `UI-01`…`UI-10`, `HELP-01` |
+| Terminales 60×18, 80×24, 100×30 y 132×40 | `A11Y-04`, `UI-01`…`UI-10`, `HELP-01`, `QA-01` |
 | Operaciones lentas sin bloquear teclado | `PERF-03`, `PERF-04`, `PERF-10` |
 | Goroutines y polling sin acumulación | `PERF-02`, `PERF-09`, `PERF-09b` |
 | Caché en memoria + persistente; sin deduplicar lo ya deduplicado | `PERF-06b` (memoria), caché del catálogo (persistente/dedup) |
@@ -358,3 +358,42 @@ go test -bench 'BenchmarkInteraction|BenchmarkViewConsola' ./internal/tui/
 # Debe ejecutarse en CI con cgo habilitado:
 #   CGO_ENABLED=1 go test -race ./...
 ```
+
+
+## Correcciones del QA visual sobre capturas reales — ampliación
+
+Casos nuevos: complementan los `UI-*`, `SEL-*`, `BAR-*`, `NOT-*`, `SEM-*`,
+`INFRA-*` y `WIZ-*` anteriores (no duplican ninguna suite) y los ejecuta
+`internal/tui/qa_visual_test.go` + `internal/tui/components/selector_test.go`,
+`footer_test.go` y `dialogs_test.go` contra `App` + `Router` + `svc` (fake
+determinista, sin Docker ni red). Nacen del informe de QA visual sobre capturas
+PTY reales de 60×18, 80×24, 100×30 y 132×40.
+
+| ID | Escenario / pasos | Resultado esperado | Prueba |
+|---|---|---|---|
+| QA-01 (UX-03, UX-05, UX-10) | Diálogo de regeneración en 60×18, 80×24, 100×30 y 132×40 | Las **tres acciones** (`[Y] Sí, apagar y regenerar`, `[B] Backup antes y regenerar`, `[N] No, conservar el mundo actual`) siguen visibles y la barra de atajos ocupa la última línea; el cuerpo se recorta antes que las acciones. | `TestQA01ModalRegenAccionesVisiblesEnTodosLosTamanos`, `TestModalCompactoMantieneLasAccionesVisibles` |
+| QA-02 | Modal en 60×18 con un cuerpo que no cabe | El marco cierra (borde inferior visible) y el aviso de pérdida de datos sigue explicándose; el recorte del cuerpo se marca con «…». | `TestQA02ModalCompactoNoPierdeElMarcoNiElAviso`, `TestModalCompactoMarcaElCuerpoRecortado` |
+| QA-03 (§1.2) | Barra inferior a 60×18 | Ningún atajo queda a medias («[S] Ini…»): los que no caben se descartan **enteros** y los esenciales (`[F1] Ayuda`) permanecen. | `TestQA03PieCompactoDescartarEntero`, `TestFooterPrimerAtajoQueNoCabeSeDescartaEntero` |
+| QA-04 (P-05, UX-11) | Copiar la dirección (`[c]`) y esperar al TTL | El aviso aparece **una sola vez**, en su línea transitoria; la barra de estado muestra el estado actual y al vencer el TTL no queda rastro en pantalla. | `TestQA04BarraEstadoNoRetieneAvisosCaducados`, `TestUI10BarraEstadoYAccionesFijas` |
+| QA-05 (P-05, INFRA-01) | Arranque de la TUI (daemon en marcha / caído) | «Comprobando el daemon…» es transitorio y **se resuelve** con un mensaje final (éxito, o la causa con su hint); no hay «comprobando…» eterno ni en la barra de estado. | `TestQA05ChequeoDelDaemonSeResuelve`, `TestQA05bDaemonConFalloInformaLaCausa` |
+| QA-06 (UX-01) | Inicio con la instancia **detenida** y con la instancia **en marcha** | El pie solo ofrece acciones aplicables: con el servidor apagado no aparecen `[P] Detener` ni `[R] Reiniciar` (y sí `[S] Iniciar`); en marcha, al revés. | `TestQA06PieNoOfreceAccionesNoAplicables`, `TestNavBarraContextualVisibleEn70` |
+| QA-07 (§8) | Estado detenido y estado en transición | Una sola etiqueta en semáforo, insignia y paneles: «Apagado» (nunca «Detenido») y «Cargando…». | `TestQA07UnaSolaEtiquetaDetenidoApagado` |
+| QA-08 (§2) | Cabecera con Docker y Tailscale listos | Mismo orden icono + texto en ambos (`● Docker OK`, `● Tailscale`): no se mezcla «Tailscale ●». | `TestQA08CabeceraOrdenIconoTexto` |
+| QA-09 (UX-03, WIZ-02) | Panel de versiones del asistente en ancho (rejilla) | Se ve el detalle de la versión **enfocada** («última estable», «incompatible» con su motivo, «sin verificar»…) en su propia línea y el pie del panel (`[Enter] Elegir`, `[Esc] Cerrar`) sigue visible. | `TestQA09WizardPickerAportaElDetalleDeLaEnfocada`, `TestSelectorFocusedDetailAportaElDetalleEnRejilla` |
+| QA-10 (§4.4) | Inicio con Docker caído | La guarda de prerrequisitos es la misma para el pie que para la paleta/Ayuda: no se ofrecen acciones de instancia; los esenciales siguen. | `TestQA10SinDockerElPieNoOfreceAccionesDeInstancia` |
+
+**Alineación de la rejilla (QA-01/QA-09).** El ancho de columna del selector es
+fijo (`ColumnWidth`) y **cada celda se rellena a su columna** (mismo criterio que
+el grid de la Ayuda, `padPlain`): la columna k arranca siempre en la misma celda
+de pantalla, mida lo que mida el texto. La última celda de cada fila se estira
+hasta el margen para no dejar relleno ciego. La prueba no depende de las
+longitudes concretas: compara la posición de cada celda con `k × ancho de
+columna` en filas con textos muy distintos.
+
+**Nota sobre los goldens.** Los snapshots de `internal/tui/testdata/golden`
+cambiaron **solo** en la línea inferior y en la cabecera: (a) el pie ya no pinta
+atajos a medias ni acciones no aplicables, de modo que en los terminales
+compactos se ve `[F1] Ayuda   [Esc] Atrás` en vez de `[S] Ini…` y en los anchos
+aparecen los atajos aplicables siguientes; (b) la cabecera muestra `● Tailscale`.
+Ningún cuerpo, panel ni modal cambia cuando cabe en el alto disponible
+(`RenderFit` devuelve exactamente lo mismo que `Render` en ese caso).

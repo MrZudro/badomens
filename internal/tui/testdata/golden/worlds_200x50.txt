@@ -47,4 +47,4 @@
 │ │[G] Regenerar el mundo (se apaga y reinicia) · [L] Cargar desde un archivo (.zip)                                                                                                                 │ │
 │ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                                                                                                                                                   │
-└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [C] Copiar   [B] Backup   [V] Cambiar   [G] Regenerar   [L] Cargar   [D] Borrar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ──────────┘
+└─ [P] Detener   [R] Reiniciar   [/] Escribir   [C] Copiar   [B] Backup   [V] Cambiar   [G] Regenerar   [L] Cargar   [D] Borrar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ────────────────────────┘

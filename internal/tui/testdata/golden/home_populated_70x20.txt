@@ -17,4 +17,4 @@
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancias                                                         │
-└─ [S] Iniciar   [P] Detener   [F1] Ayuda   [TAB] Desplazarse ───────┘
+└─ [P] Detener   [R] Reiniciar   [F1] Ayuda   [TAB] Desplazarse ─────┘

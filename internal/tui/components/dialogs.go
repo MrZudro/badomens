@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/MrZudro/badomens/internal/connection"
+	"github.com/MrZudro/badomens/internal/tui/layout"
 	"github.com/MrZudro/badomens/internal/tui/theme"
 )
 
@@ -50,10 +51,10 @@ func (m Modal) Enabled() bool {
 	return strings.TrimSpace(m.Typed) == strings.TrimSpace(strings.Trim(m.RequireText, "«»"))
 }
 
-// Render pinta el modal centrado en el ancho w.
-func (m Modal) Render(w int, p theme.Palette, ascii bool) string {
+// modalBoxWidth acota el ancho del cuadro del modal: el ancho disponible menos el
+// margen, con el tope de MaxWidth y un mínimo legible.
+func modalBoxWidth(w, max int) int {
 	boxW := w - 4
-	max := m.MaxWidth
 	if max <= 0 {
 		max = 60
 	}
@@ -63,6 +64,45 @@ func (m Modal) Render(w int, p theme.Palette, ascii bool) string {
 	if boxW < 20 {
 		boxW = 20
 	}
+	return boxW
+}
+
+// actions es la lista de acciones con la confirmación reforzada ya habilitada (si
+// el texto exigido coincide).
+func (m Modal) actions() []Action {
+	actions := m.Actions
+	if !m.Enabled() {
+		return actions
+	}
+	enabled := make([]Action, len(actions))
+	copy(enabled, actions)
+	for i := range enabled {
+		if enabled[i].ID == "confirm" {
+			enabled[i].Disabled = false
+			enabled[i].DisabledReason = ""
+		}
+	}
+	return enabled
+}
+
+// actionBlock pinta la barra de acciones del modal como líneas.
+func (m Modal) actionBlock(w int, p theme.Palette) []string {
+	return strings.Split(ActionBar(m.actions(), w, m.Focused, p), "\n")
+}
+
+// box envuelve el contenido en el cuadro del modal.
+func (m Modal) box(boxW int, content string, ascii bool, p theme.Palette) string {
+	return lipgloss.NewStyle().
+		Border(Border(ascii)).
+		BorderForeground(lipgloss.Color(p.Border)).
+		Padding(0, 1).
+		Width(boxW).
+		Render(content)
+}
+
+// Render pinta el modal centrado en el ancho w.
+func (m Modal) Render(w int, p theme.Palette, ascii bool) string {
+	boxW := modalBoxWidth(w, m.MaxWidth)
 	var b strings.Builder
 	b.WriteString(lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.Accent)).Render(m.Title))
 	if m.Body != "" {
@@ -76,26 +116,90 @@ func (m Modal) Render(w int, p theme.Palette, ascii bool) string {
 		}
 	}
 	b.WriteString("\n\n")
-	actions := m.Actions
-	if m.Enabled() {
-		enabled := make([]Action, len(actions))
-		copy(enabled, actions)
-		for i := range enabled {
-			if enabled[i].ID == "confirm" {
-				enabled[i].Disabled = false
-				enabled[i].DisabledReason = ""
-			}
-		}
-		actions = enabled
+	b.WriteString(strings.Join(m.actionBlock(boxW, p), "\n"))
+	return m.box(boxW, b.String(), ascii, p)
+}
+
+// RenderFit pinta el modal ajustado a `h` líneas: reserva SIEMPRE la altura del
+// título y de la barra de acciones y recorta el CUERPO cuando la terminal es
+// compacta, de modo que las acciones siguen visibles y el usuario no confirma a
+// ciegas (§5.15/UX-05). Si el modal ya cabe en `h`, el resultado es idéntico a
+// Render (ningún golden cambia por este camino).
+func (m Modal) RenderFit(w, h int, p theme.Palette, ascii bool) string {
+	if h <= 0 {
+		return m.Render(w, p, ascii)
 	}
-	b.WriteString(ActionBar(actions, boxW, m.Focused, p))
-	box := lipgloss.NewStyle().
-		Border(Border(ascii)).
-		BorderForeground(lipgloss.Color(p.Border)).
-		Padding(0, 1).
-		Width(boxW).
-		Render(b.String())
-	return box
+	full := m.Render(w, p, ascii)
+	if strings.Count(full, "\n")+1 <= h {
+		return full
+	}
+	return m.clip(w, h, p, ascii)
+}
+
+// clip ensambla el modal en exactamente `h` líneas dando prioridad al título y a
+// la barra de acciones; el cuerpo cede el espacio que haga falta y marca con «…»
+// que queda texto oculto. Las frases del cuerpo se envuelven con el mismo
+// envoltorio del modal completo: nunca se pierde un aviso por truncar a ciegas.
+func (m Modal) clip(w, h int, p theme.Palette, ascii bool) string {
+	boxW := modalBoxWidth(w, m.MaxWidth)
+	inner := boxW - 2 // el relleno del cuadro ocupa una celda a cada lado
+	if inner < 1 {
+		inner = 1
+	}
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(p.Muted))
+	var require []string
+	if m.RequireText != "" {
+		line := "Escribe «" + m.RequireText + "»: " + m.Typed
+		if !m.Enabled() {
+			line += "▌"
+		}
+		for _, ln := range strings.Split(lipgloss.NewStyle().Width(inner).Render(line), "\n") {
+			require = append(require, muted.Render(ln))
+		}
+	}
+	// La barra de acciones se mide con el ancho INTERIOR: ninguna línea desborda
+	// el cuadro y el alto reservado es exacto.
+	actions := strings.Split(ActionBar(m.actions(), inner, m.Focused, p), "\n")
+	var body []string
+	if strings.TrimSpace(m.Body) != "" {
+		body = strings.Split(lipgloss.NewStyle().Width(inner).Render(m.Body), "\n")
+	}
+	// Prioridad al recortar: bordes > título > acciones > texto exigido > blanco >
+	// cuerpo. El blanco solo se conserva si sobra sitio para el cuerpo.
+	room := h - 2 - 1 - len(require) - len(actions)
+	blank := 0
+	if room >= 1 {
+		blank, room = 1, room-1
+	} else {
+		room = 0
+	}
+	if len(body) > room {
+		body = body[:room]
+		if room > 0 {
+			body[room-1] = clipMark(body[room-1], inner)
+		}
+	}
+	lines := make([]string, 0, h)
+	lines = append(lines, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.Accent)).Render(layout.Truncate(m.Title, inner)))
+	lines = append(lines, body...)
+	if len(require) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, require...)
+	}
+	if blank > 0 {
+		lines = append(lines, "")
+	}
+	lines = append(lines, actions...)
+	return m.box(boxW, strings.Join(lines, "\n"), ascii, p)
+}
+
+// clipMark marca que una línea del cuerpo quedó recortada sin desbordar el ancho.
+func clipMark(line string, w int) string {
+	line = strings.TrimRight(line, " ")
+	if layout.Width(line)+2 > w {
+		line = layout.Truncate(line, w-1)
+	}
+	return line + "…"
 }
 
 // Progress es una barra de progreso por fases.

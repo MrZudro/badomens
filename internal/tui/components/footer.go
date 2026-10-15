@@ -84,10 +84,10 @@ func RenderFooter(items []FooterKey, w int, pal theme.Palette) string {
 		if i > 0 {
 			sep = layout.Width(footerSep)
 		}
-		switch {
-		case used == 0 && tw > w:
-			return layout.Truncate(text, w)
-		case used+sep+tw > w:
+		// Regla del repo: los atajos que no caben se descartan ENTEROS, jamás a
+		// medias (nunca «[S] Ini…»). Si ni el primero cabe, la barra queda vacía y
+		// el llamante decide qué reserva.
+		if used+sep+tw > w {
 			return b.String()
 		}
 		if i > 0 {

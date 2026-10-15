@@ -51,7 +51,6 @@ type App struct {
 	size    layout.Size
 	toasts  []toastEntry
 	toastID int
-	status  string
 	ascii   bool
 	reduced bool
 	anim    *anim.Manager
@@ -117,15 +116,19 @@ func NewApp(sv *svc.Services, opts AppOptions) *App {
 	a.router = NewRouter(home)
 	a.poller = &Poller{Svc: sv}
 	a.styles = newShellStyles(pal, opts.ASCII)
-	a.status = ""
 	return a
 }
 
 // Init arranca la pantalla inicial y el latido del poller.
 func (a *App) Init() tea.Cmd {
 	// Arranque garantizado del daemon (Fase 8 §8.2): se comprueba y, si hace
-	// falta, se levanta. Se avisa del estado «Cargando» (🟡) sin bloquear el bucle.
-	starting := a.pushToast("🟡 Comprobando el daemon de badomens…")
+	// falta, se levanta. El «Comprobando…» es transitorio y SIEMPRE se resuelve en
+	// un mensaje final desde noteInfra (éxito, o el motivo con su hint): nunca se
+	// queda fijo en la carcasa (P-05/UX-11).
+	var starting tea.Cmd
+	if a.svc.Infra != nil {
+		starting = a.pushToast("🟡 Comprobando el daemon de badomens…")
+	}
 	return tea.Batch(a.router.Top().Init(), a.poller.Schedule(), a.poller.Cmds(nowUTC(), true, true), a.tickCmd(), magicProbeCmd(), a.ensureDaemonCmd(), starting)
 }
 
@@ -474,12 +477,10 @@ func (a *App) actions() []components.Action {
 	out := append([]components.Action{}, a.router.Active().Actions()...)
 	// Guarda de prerrequisitos: si Docker no está listo, las acciones que
 	// dependen de él se muestran atenuadas con su motivo.
-	if a.dockerDown() {
-		for i := range out {
-			if strings.HasPrefix(out[i].ID, "instance.") && !out[i].Disabled {
-				out[i].Disabled = true
-				out[i].DisabledReason = a.cat.T("app.disabled.docker")
-			}
+	for i := range out {
+		if a.dockerBlocks(out[i]) && !out[i].Disabled {
+			out[i].Disabled = true
+			out[i].DisabledReason = a.cat.T("app.disabled.docker")
 		}
 	}
 	return append(out, globals...)
@@ -489,6 +490,14 @@ func (a *App) actions() []components.Action {
 // (sin comprobar todavía).
 func (a *App) dockerDown() bool {
 	return !a.docker.State.Ready() && a.docker.State != dockerx.StateUnknown && a.docker.State != ""
+}
+
+// dockerBlocks indica que una acción de instancia NO es aplicable porque la
+// guarda de prerrequisitos no se cumple (Docker caído). Es la ÚNICA regla: la
+// usan la paleta/Ayuda (para atenuarla con su motivo) y la barra inferior (para
+// no ofrecerla).
+func (a *App) dockerBlocks(act components.Action) bool {
+	return a.dockerDown() && strings.HasPrefix(act.ID, "instance.")
 }
 
 // invoke ejecuta una acción por su ID estable (paleta, botones).
@@ -572,9 +581,9 @@ func (a *App) pushToast(text string, kinds ...components.Kind) tea.Cmd {
 	if strings.TrimSpace(text) == "" {
 		return nil
 	}
-	// La barra de estado conserva el último mensaje de dominio (§3), aunque el
-	// toast desaparezca.
-	a.status = text
+	// OJO: el aviso NO se copia a la barra de estado. La barra muestra el estado
+	// ACTUAL (lo que reporta la pantalla activa), no el eco del último aviso: toda
+	// notificación es transitoria y no puede quedarse fija en la carcasa (P-05/UX-11).
 	kind := components.Secondary
 	if len(kinds) > 0 {
 		kind = kinds[0]
@@ -1071,17 +1080,15 @@ func (a *App) statusView(w int) string {
 	return style.Render(text) + strings.Repeat(" ", gap) + a.styles.muted.Render(right)
 }
 
-// statusText prefiere el mensaje de la pantalla activa y cae al último mensaje
-// de dominio global; si no hay ninguno, usa el título de la pantalla para que la
-// barra nunca quede en blanco (§3).
+// statusText muestra el ESTADO ACTUAL: el mensaje de dominio que reporta la
+// pantalla activa (operación en curso, estado de la lista blanca, error…) y, si
+// no hay ninguno, su título. Nunca es el eco de un aviso: las notificaciones son
+// transitorias y viven en su propia línea con TTL (P-05/UX-11).
 func (a *App) statusText() string {
 	if st, ok := a.router.Active().(Statuser); ok {
 		if s := strings.TrimSpace(st.Status()); s != "" {
 			return s
 		}
-	}
-	if s := strings.TrimSpace(a.status); s != "" {
-		return s
 	}
 	if active := a.router.Active(); active != nil {
 		return active.Title()
@@ -1136,6 +1143,12 @@ func (a *App) footerContextKeys() []components.FooterKey {
 		key := strings.ToLower(strings.TrimSpace(act.Key))
 		switch {
 		case key == "", seen[key], key == "f1", key == "tab", key == "esc":
+			continue
+		}
+		// El pie es CONTEXTUAL: no anuncia acciones que no se pueden aplicar (p. ej.
+		// «[P] Detener» con el servidor apagado o «[S] Iniciar» con Docker caído).
+		// Siguen documentadas, con su motivo, en la Ayuda (§1.2 / UX-14).
+		if act.Disabled || a.dockerBlocks(act) {
 			continue
 		}
 		seen[key] = true

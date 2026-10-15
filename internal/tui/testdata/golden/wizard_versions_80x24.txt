@@ -1,0 +1,24 @@
+┌─ badomens 0.0.0-dev ────────────────────────────────── Docker sin comprobar ─┐
+├──────────────────────────────────────────────────────────────────────────────┤
+│ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › … │
+│ ╭─ VERSIONES ────────────────────────────────────────────────────── Paper ─╮ │
+│ │MINECRAFT 1.21.X                                                          │ │
+│ │1.21.4 ★ (actual)   1.21.1                                                │ │
+│ │MINECRAFT 1.20.X                                                          │ │
+│ │1.20.6              1.20.1                                                │ │
+│ │▸ Java 21 · build 123 · última estable                                    │ │
+│ │[R] Actualizar · [S] mostrar snapshots · [Enter] Elegir · [Esc] Cerrar    │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ │                                                                          │ │
+│ ╰──────────────────────────────────────────────────────────────────────────╯ │
+│ Nueva instancia                                                              │
+└─ [W] Activar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ─────────────────┘

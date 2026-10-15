@@ -17,4 +17,4 @@
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Whitelist: ✓ ACTIVADA                                              │
-└─ [S] Iniciar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘
+└─ [P] Detener   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘

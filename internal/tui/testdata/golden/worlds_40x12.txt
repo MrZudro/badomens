@@ -9,4 +9,4 @@
 │ │actual: se pierden Overworld,     │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
-└─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

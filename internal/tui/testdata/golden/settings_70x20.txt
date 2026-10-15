@@ -17,4 +17,4 @@
 │ │    Texto que ven los jugadores en la lista de servidores.      │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                 │
-└─ [S] Iniciar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘
+└─ [P] Detener   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘

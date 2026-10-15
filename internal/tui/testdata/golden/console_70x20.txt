@@ -17,4 +17,4 @@
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ > comando para la consola (ej. say hola)                           │
 │ Instancia survival                                                 │
-└─ [S] Iniciar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘
+└─ [P] Detener   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘

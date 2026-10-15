@@ -9,4 +9,4 @@
 │ │  Versión de Minecraft: 1.21.4    │ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ [W] Act…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

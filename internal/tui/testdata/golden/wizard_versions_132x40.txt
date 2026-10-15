@@ -1,0 +1,40 @@
+┌─ badomens 0.0.0-dev ────────────────────────────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                                             │
+│ ╭─ Básico ───────────────────────────────────────── 1/7 ─╮╭─ VERSIONES ──────────────────────────────────────────────── Paper ─╮ │
+│ │▶ Nombre: > survival-amigos                             ││MINECRAFT 1.21.X                                                    │ │
+│ │    Nombre visible; también da nombre a carpeta y conte…││1.21.4 ★ (actual)   1.21.1                                          │ │
+│ │  Motor: paper                                          ││MINECRAFT 1.20.X                                                    │ │
+│ │    El programa que ejecuta el servidor; define si pued…││1.20.6              1.20.1                                          │ │
+│ │  Versión de Minecraft: 1.21.4                          ││▸ Java 21 · build 123 · última estable                              │ │
+│ │    Los jugadores deben usar esta versión. La marcada ★…││[R] Actualizar · [S] mostrar snapshots · [Enter] Elegir · [Esc] Cer…│ │
+│ │  Continuar a Mundo →                                   ││                                                                    │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista      ││                                                                    │ │
+│ │  blanca, cualquiera entra. Pulsa [W] para activar la   ││                                                                    │ │
+│ │  lista blanca.                                         ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ │                                                        ││                                                                    │ │
+│ ╰────────────────────────────────────────────────────────╯╰────────────────────────────────────────────────────────────────────╯ │
+│ Nueva instancia                                                                                                                  │
+└─ [W] Activar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ─────────────────────────────────────────────────────────────────────┘

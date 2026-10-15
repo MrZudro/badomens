@@ -1962,7 +1962,7 @@ func (s *instanceScreen) View(w, h int) string {
 	// Una confirmación modal (§5.15) ocupa la vista: se pinta sola para que no
 	// la recorte el alto reservado ni quede tapada por el cuerpo de la pestaña.
 	if s.modal != nil {
-		return s.modal.Render(w, s.pal, s.ascii)
+		return s.modal.RenderFit(w, h, s.pal, s.ascii)
 	}
 	var b strings.Builder
 	switch s.tab {

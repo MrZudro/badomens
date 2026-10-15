@@ -36,11 +36,18 @@ type SelectItem struct {
 	Group string
 }
 
-// cellText es el texto de una celda sin el puntero.
+// cellText es el texto de una celda de rejilla sin el puntero: la etiqueta con
+// sus marcas breves de estado (recomendada / no elegible) y, si procede,
+// «(actual)». El detalle LARGO no cabe en una columna de ancho fijo: se pinta en
+// su propia línea con FocusedDetail, de modo que la rejilla queda alineada sin
+// perder lo que aporta el detalle (UX-03).
 func (it SelectItem) cellText(current string) string {
 	t := it.Label
 	if it.Recommended {
 		t += " ★"
+	}
+	if it.Disabled {
+		t += " ✖"
 	}
 	if current != "" && it.Value == current {
 		t += " (actual)"
@@ -242,6 +249,27 @@ func (s *Selector) Value() string {
 		return it.Value
 	}
 	return ""
+}
+
+// FocusedDetail es el detalle de la opción ENFOCADA, incluido el motivo cuando
+// está deshabilitada. En modo rejilla el detalle completo no cabe en una celda de
+// ancho fijo: el llamante lo pinta en su propia línea, de modo que «última
+// estable», «incompatible» o «sin verificar» siguen distinguiéndose sin romper la
+// alineación de las columnas (UX-03).
+func (s *Selector) FocusedDetail() string {
+	it, ok := s.Selected()
+	if !ok {
+		return ""
+	}
+	detail := strings.TrimSpace(it.Detail)
+	if it.Disabled {
+		reason := "— " + disableReason(it)
+		if detail == "" {
+			return reason
+		}
+		return detail + " " + reason
+	}
+	return detail
 }
 
 // SetValue coloca el cursor sobre el elemento con ese valor y devuelve si lo
@@ -458,8 +486,12 @@ func (s *Selector) RenderGrid(w int, current string, pal theme.Palette, ascii bo
 	return out
 }
 
-// renderGridRow pinta una fila de la rejilla: ancho de celda fijo salvo la
-// última de la fila (sin relleno ciego).
+// renderGridRow pinta una fila de la rejilla con ancho de columna FIJO: cada celda
+// se rellena hasta su ancho, de modo que la columna k arranca siempre en la misma
+// celda de pantalla en TODAS las filas, sin depender de la longitud del texto de
+// cada opción (mismo criterio de relleno que el grid de la Ayuda, `padPlain`). La
+// única excepción es la ÚLTIMA celda de la fila, que se estira hasta el margen
+// para no dejar relleno ciego al final.
 func (s *Selector) renderGridRow(vl visualLine, inner, cols int, current string, pal theme.Palette) string {
 	if len(vl.items) == 0 {
 		return ""
@@ -475,25 +507,34 @@ func (s *Selector) renderGridRow(vl visualLine, inner, cols int, current string,
 			b.WriteString(" ")
 		}
 		it := s.Items[i]
+		last := n == len(vl.items)-1
 		cellW := colW - 1
-		if n == len(vl.items)-1 {
+		if last {
 			cellW = inner - (len(vl.items)-1)*colW
 			if cellW < 1 {
 				cellW = 1
 			}
 		}
 		text := layout.Truncate(it.cellText(current), cellW)
-		switch {
-		case i == s.cursor:
-			if pad := cellW - layout.Width(text); pad > 0 {
-				text += strings.Repeat(" ", pad)
-			}
-			b.WriteString(band.Render(text))
-		case it.Disabled:
-			b.WriteString(dim.Render(text))
-		default:
-			b.WriteString(plain.Render(text))
+		pad := cellW - layout.Width(text)
+		if pad < 0 {
+			pad = 0
 		}
+		if i == s.cursor {
+			// La banda de la celda enfocada cubre TODO el ancho de la columna.
+			b.WriteString(band.Render(text + strings.Repeat(" ", pad)))
+			continue
+		}
+		styled := plain.Render(text)
+		if it.Disabled {
+			styled = dim.Render(text)
+		}
+		if !last {
+			// Relleno de alineación: la columna siguiente arranca en el mismo
+			// sitio en todas las filas.
+			styled += strings.Repeat(" ", pad)
+		}
+		b.WriteString(styled)
 	}
 	return b.String()
 }

@@ -199,6 +199,37 @@ func gQuitModal() *App {
 	return a
 }
 
+// gRegenModal abre el diálogo de regeneración (§9/UX-10) con el servidor
+// detenido: su cuerpo es largo y en 60×18 queda recortado, de modo que la captura
+// fija que las acciones siguen visibles y el marco se cierra (QA-01/QA-02).
+func gRegenModal() *App {
+	a := NewApp(goldenSvc(), darkOpts())
+	a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, "survival"))
+	if inst, ok := a.router.Top().(*instanceScreen); ok {
+		inst.detail = &svc.Detail{Spec: goldenSpec(), State: "exited"}
+		inst.status = ""
+		inst.tab = 4
+		inst.openRegenModal("")
+	}
+	return a
+}
+
+// gWizardVersions abre el panel de VERSIONES del asistente en rejilla (UX-03):
+// la captura fija la alineación de las columnas y el detalle de la versión
+// enfocada en su propia línea (QA-01/QA-09).
+func gWizardVersions() *App {
+	a := NewApp(goldenSvc(), darkOpts())
+	a.router.Push(newWizardScreen(a.svc, a.pal, a.ascii))
+	if wz, ok := a.router.Top().(*wizardScreen); ok {
+		wz.start(1)
+		wz.versions = goldenVersions()
+		wz.verLoading, wz.versionsSeen = false, true
+		wz.pickRecommended()
+		wz.pickingVer = true
+	}
+	return a
+}
+
 type gcase struct {
 	name  string
 	w, h  int
@@ -269,11 +300,17 @@ func asciiCases() []gcase {
 	}
 }
 
-// modalCases son capturas de las confirmaciones modales (§5.15) en ancho medio.
+// modalCases son capturas de las confirmaciones modales (§5.15) y del diálogo de
+// regeneración: en 60×18 el cuerpo se recorta y las acciones deben seguir ahí
+// (QA-01/QA-02).
 func modalCases() []gcase {
 	return []gcase{
 		{name: "modal_delete_110x30", w: 110, h: 30, build: gDeleteModal},
 		{name: "modal_quit_110x30", w: 110, h: 30, build: gQuitModal},
+		{name: "modal_regen_60x18", w: 60, h: 18, build: gRegenModal},
+		{name: "modal_regen_132x40", w: 132, h: 40, build: gRegenModal},
+		{name: "wizard_versions_80x24", w: 80, h: 24, build: gWizardVersions},
+		{name: "wizard_versions_132x40", w: 132, h: 40, build: gWizardVersions},
 	}
 }
 

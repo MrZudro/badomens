@@ -1,0 +1,18 @@
+┌─ badomens 0.0.0-dev ────────────── Docker sin comprobar ─┐
+├──────────────────────────────────────────────────────────┤
+│ Survival  🔴 Apagado                                     │
+│  [Mundos]  5/9                                           │
+│ ╭────────────────────────────────────────────────────╮   │
+│ │ Regenerar el mundo (se pierde el actual)           │   │
+│ │ Se BORRARÁ el mundo actual de «survival»           │   │
+│ │ (Overworld, Nether y End) y se generará otro con   │   │
+│ │ una semilla aleatoria. Esta acción no se puede     │   │
+│ │ deshacer.                                          │   │
+│ │ …                                                  │   │
+│ │                                                    │   │
+│ │ [Y] Sí, apagar y regenerar ⚠                       │   │
+│ │ [B] Backup antes y regenerar                       │   │
+│ │  [N] No, conservar el mundo actual                 │   │
+│ ╰────────────────────────────────────────────────────╯   │
+│ Instancia survival                                       │
+└─ [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────────┘

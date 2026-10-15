@@ -307,14 +307,18 @@ func TestAyudaSinAtajosPropios(t *testing.T) {
 }
 
 // La barra contextual de Inicio sigue viéndose en 70 columnas con el formato
-// único «[Tecla] Etiqueta» (SPEC 2 §1).
+// único «[Tecla] Etiqueta» (SPEC 2 §1) y solo con atajos APLICABLES: la fila está
+// en marcha, así que ofrece «[P] Detener» y no «[S] Iniciar».
 func TestNavBarraContextualVisibleEn70(t *testing.T) {
 	a := testApp()
 	resize(a, 70, 20)
 	navConInstancia(a, "survival")
 	out := stripANSI(a.View())
-	if !strings.Contains(out, "[S] Iniciar") {
-		t.Fatalf("en 70 columnas deben verse los atajos contextuales:\n%s", out)
+	if !strings.Contains(out, "[P] Detener") {
+		t.Fatalf("en 70 columnas deben verse los atajos contextuales aplicables:\n%s", out)
+	}
+	if strings.Contains(out, "[S] Iniciar") {
+		t.Fatalf("con la instancia en marcha no debe ofrecerse [S] Iniciar:\n%s", out)
 	}
 	if !strings.Contains(out, "[TAB] Desplazarse") {
 		t.Fatalf("la barra debe mostrar [TAB] Desplazarse:\n%s", out)

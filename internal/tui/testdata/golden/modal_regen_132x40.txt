@@ -1,0 +1,40 @@
+┌─ badomens 0.0.0-dev ────────────────────────────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Survival  🔴 Apagado   Resumen   Consola   Jugadores   Backups   [Mundos]   Plugins/Mods (SOON)   Red   Auto-apagado   Ajustes   │
+│ ╭────────────────────────────────────────────────────────────╮                                                                   │
+│ │ Regenerar el mundo (se pierde el actual)                   │                                                                   │
+│ │ Se BORRARÁ el mundo actual de «survival» (Overworld,       │                                                                   │
+│ │ Nether y End) y se generará otro con una semilla           │                                                                   │
+│ │ aleatoria. Esta acción no se puede deshacer.               │                                                                   │
+│ │                                                            │                                                                   │
+│ │ Política: apagar y regenerar. Si el servidor está en       │                                                                   │
+│ │ marcha, se DETENDRÁ ahora, se borrará el mundo y se        │                                                                   │
+│ │ volverá a ARRANCAR con la nueva semilla. Ahora mismo el    │                                                                   │
+│ │ servidor está apagado, así que solo se borrará y se        │                                                                   │
+│ │ regenerará el mundo. Recomendado: pulsa [B] para hacer un  │                                                                   │
+│ │ backup antes.                                              │                                                                   │
+│ │                                                            │                                                                   │
+│ │ [Y] Sí, apagar y regenerar ⚠  [B] Backup antes y regenerar │                                                                   │
+│ │  [N] No, conservar el mundo actual                         │                                                                   │
+│ ╰────────────────────────────────────────────────────────────╯                                                                   │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│                                                                                                                                  │
+│ Instancia survival                                                                                                               │
+└─ [S] Iniciar   [/] Escribir   [C] Copiar   [B] Backup   [V] Cambiar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ──────────────┘

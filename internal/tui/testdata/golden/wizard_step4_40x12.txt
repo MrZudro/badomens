@@ -9,4 +9,4 @@
 │ │  Continuar a Automatización →    │ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ [W] Act…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

@@ -53,3 +53,25 @@ func TestFooterDescartaEntero(t *testing.T) {
 		t.Fatalf("un atajo que no cabe no debe pintarse a medias: %q", out)
 	}
 }
+
+// UX-01/§1.2: un atajo que no cabe se descarta ENTERO también cuando es el
+// PRIMERO de la barra: nunca se pinta media tecla («[S] Ini…»). Si ni el primero
+// cabe, la barra queda vacía y el llamante reserva lo esencial.
+func TestFooterPrimerAtajoQueNoCabeSeDescartaEntero(t *testing.T) {
+	items := []FooterKey{
+		FooterKeyFor("s", "Iniciar"),
+		FooterKeyFor("b", "Backup"),
+	}
+	out := RenderFooter(items, 5, pal())
+	if out != "" {
+		t.Fatalf("si ni el primer atajo cabe, no debe pintarse nada, tengo %q", out)
+	}
+	// Con sitio para el primero y no para el segundo, se descarta el segundo.
+	out = RenderFooter(items, len("[S] Iniciar"), pal())
+	if out != "[S] Iniciar" {
+		t.Fatalf("con 11 celdas solo cabe el primer atajo completo, tengo %q", out)
+	}
+	if strings.Contains(out, "…") || strings.Contains(out, "[B") {
+		t.Fatalf("el segundo atajo no debe pintarse a medias: %q", out)
+	}
+}

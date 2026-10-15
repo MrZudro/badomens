@@ -642,7 +642,7 @@ func (s *homeScreen) View(w, h int) string {
 	// Una confirmación abierta ocupa la vista: se pinta sola para que no la recorte
 	// el alto reservado ni quede tapada por las columnas de Inicio.
 	if s.modal != nil {
-		return s.modal.Render(w, s.pal, s.ascii)
+		return s.modal.RenderFit(w, h, s.pal, s.ascii)
 	}
 	if len(s.rows) == 0 {
 		s.zone.set(1)

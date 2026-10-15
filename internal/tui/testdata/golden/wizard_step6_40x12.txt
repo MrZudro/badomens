@@ -9,4 +9,4 @@
 │ │[Enter] Crear y arrancar · [Esc] …│ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ [Enter]…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

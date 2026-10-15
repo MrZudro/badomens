@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"github.com/MrZudro/badomens/internal/tui/layout"
 )
 
@@ -187,5 +189,118 @@ func TestSelectorGridAgrupadoNavega(t *testing.T) {
 	s.MoveGrid(0, -1, cols)
 	if s.Cursor() != 0 {
 		t.Fatalf("↑ debe volver a la primera fila, cursor = %d", s.Cursor())
+	}
+}
+
+// UX-03/SEL-08: el ancho de columna de la rejilla es FIJO y todas las celdas se
+// rellenan a su columna, así que la columna k arranca siempre en la misma celda
+// de pantalla en TODAS las filas, sin depender de la longitud del texto (mismo
+// criterio de relleno que el grid de la Ayuda). Además, la separación entre
+// columnas es visible (≥ 2 celdas).
+func TestSelectorGridColumnasAlineadasConTextosDeDistintaLongitud(t *testing.T) {
+	items := []SelectItem{
+		{Value: "1.7", Label: "1.7"},
+		{Value: "26.1-snapshot-largo", Label: "26.1-snapshot-largo"},
+		{Value: "1.21.4", Label: "1.21.4", Recommended: true},
+		{Value: "x", Label: "x"},
+		{Value: "1.20.6", Label: "1.20.6", Disabled: true, DisabledWhy: "sin artefacto"},
+		{Value: "1.20.1", Label: "1.20.1"},
+		{Value: "1.19", Label: "1.19"},
+	}
+	const current = "1.21.4"
+	s := NewSelectorMode("VERSIONES", items, SelectGrid)
+	s.Cols = 3
+	s.SetCursor(2)
+	colW := s.ColumnWidth(current)
+	if colW < 8 {
+		t.Fatalf("el ancho de columna no puede ser menor que 8, tengo %d", colW)
+	}
+	rendered := s.RenderGrid(70, current, pal(), false)
+	vis := s.lines(3)
+	if len(vis) != len(rendered) {
+		t.Fatalf("cada línea visual debe tener su línea pintada (%d vs %d)", len(vis), len(rendered))
+	}
+	for i, vl := range vis {
+		if vl.header != "" {
+			continue
+		}
+		plain := ansi.Strip(rendered[i])
+		chunks := cellsOfWidth(plain, colW)
+		for k, idx := range vl.items {
+			want := s.Items[idx].cellText(current)
+			if !strings.HasPrefix(chunks[k], want) {
+				t.Fatalf("la celda %d de la fila %q debe arrancar en la columna %d con %q:\n%s",
+					k, plain, k*colW, want, plain)
+			}
+			if k < len(vl.items)-1 {
+				used := layout.Width(strings.TrimRight(chunks[k], " "))
+				if gap := layout.Width(chunks[k]) - used; gap < 2 {
+					t.Fatalf("las columnas deben separarse de forma visible (hueco=%d): %q", gap, plain)
+				}
+			}
+		}
+	}
+	// El ancho de columna no depende de la celda enfocada: mover el cursor no
+	// cambia la rejilla.
+	s.SetCursor(0)
+	if got := s.ColumnWidth(current); got != colW {
+		t.Fatalf("el ancho de columna debe ser el mismo con el cursor en otra celda (%d vs %d)", got, colW)
+	}
+}
+
+// cellsOfWidth divide una línea ya sin ANSI en trozos de `w` celdas visuales, que
+// es exactamente lo que ocupa cada columna de la rejilla.
+func cellsOfWidth(plain string, w int) []string {
+	if w < 1 {
+		w = 1
+	}
+	var out []string
+	var cur strings.Builder
+	used := 0
+	for _, r := range plain {
+		rw := layout.Width(string(r))
+		if used+rw > w {
+			out = append(out, cur.String())
+			cur.Reset()
+			used = 0
+		}
+		cur.WriteRune(r)
+		used += rw
+	}
+	return append(out, cur.String())
+}
+
+// UX-03: en modo rejilla el detalle de una opción no cabe en una celda de ancho
+// fijo; FocusedDetail lo expone para pintarlo en su propia línea, de modo que
+// «última estable», «incompatible» o «sin verificar» siguen distinguiéndose.
+func TestSelectorFocusedDetailAportaElDetalleEnRejilla(t *testing.T) {
+	items := []SelectItem{
+		{Value: "1.21.4", Label: "1.21.4", Detail: "Java 21 · build 123 · última estable", Recommended: true},
+		{Value: "1.7.10", Label: "1.7.10", Detail: "Java 8 · incompatible", Disabled: true, DisabledWhy: "sin artefacto para paper"},
+		{Value: "1.20.1", Label: "1.20.1", Detail: "Java 17 · sin verificar"},
+	}
+	s := NewSelectorMode("VERSIONES", items, SelectGrid)
+	s.Cols = 2
+	if got := s.FocusedDetail(); !strings.Contains(got, "última estable") {
+		t.Fatalf("la opción enfocada debe aportar su detalle, tengo %q", got)
+	}
+	s.SetCursor(1)
+	got := s.FocusedDetail()
+	if !strings.Contains(got, "incompatible") || !strings.Contains(got, "sin artefacto para paper") {
+		t.Fatalf("una opción no elegible debe aportar el detalle y el motivo, tengo %q", got)
+	}
+	s.SetCursor(2)
+	if got := s.FocusedDetail(); !strings.Contains(got, "sin verificar") {
+		t.Fatalf("una opción sin verificar debe decirlo, tengo %q", got)
+	}
+	// El detalle no se mete en la celda (rompería la alineación): en la rejilla
+	// solo van las marcas breves.
+	out := strings.Join(s.RenderGrid(70, "", pal(), false), "\n")
+	plain := ansi.Strip(out)
+	if strings.Contains(plain, "última estable") || strings.Contains(plain, "sin artefacto") {
+		t.Fatalf("el detalle largo no debe pintarse dentro de la celda:\n%s", plain)
+	}
+	if !strings.Contains(plain, "✖") {
+		t.Fatalf("una opción no elegible debe llevar su marca en la rejilla:\n%s", plain)
 	}
 }

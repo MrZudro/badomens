@@ -9,4 +9,4 @@
 │ │  Modo de juego: survival         │ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ [W] Act…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

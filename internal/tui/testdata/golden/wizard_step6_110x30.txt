@@ -27,4 +27,4 @@
 │ │[Enter] Crear y arrancar · [Esc] Volver a editar                    ││                                  │ │
 │ ╰────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────╯ │
 │ Nueva instancia                                                                                            │
-└─ [Enter] Crear   [W] Activar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────────────────────────────┘
+└─ [W] Activar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────────────────────────────────────────────┘

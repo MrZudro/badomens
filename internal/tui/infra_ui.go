@@ -88,7 +88,9 @@ func (a *App) noteInfra(what string, rep infra.Report) tea.Cmd {
 	switch what {
 	case "daemon":
 		if rep.Ready {
-			return nil
+			// El chequeo se RESUELVE con un mensaje final en vez de dejar el
+			// «Comprobando…» sin desenlace (P-05/UX-11).
+			return a.pushToast("✓ " + rep.Message)
 		}
 		if rep.NeedsElevation {
 			return a.pushToast("⚠ El daemon necesita permisos de administrador: "+firstManual(rep), components.Destructive)

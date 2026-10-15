@@ -9,4 +9,4 @@
 │ ╰──────────────────────────────────╯ │
 │ > comando para la consola (ej. say … │
 │ Instancia survival                   │
-└─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

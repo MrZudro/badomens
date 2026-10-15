@@ -9,4 +9,4 @@
 │ │Lo de abajo es informativo; hoy se│ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
-└─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

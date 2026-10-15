@@ -502,7 +502,8 @@ func TestUI05PromptCompactoVisible(t *testing.T) {
 
 // UI-10: la barra de estado y la de acciones ocupan siempre su región fija
 // (penúltima y última línea del marco), con banner de Docker, toasts y 2.000
-// líneas de consola.
+// líneas de consola. El aviso transitorio va en SU PROPIA línea (con TTL) y la
+// barra de estado conserva el estado actual, nunca el eco del aviso (P-05/UX-11).
 func TestUI10BarraEstadoYAccionesFijas(t *testing.T) {
 	a := testApp()
 	resize(a, 100, 30)
@@ -519,8 +520,14 @@ func TestUI10BarraEstadoYAccionesFijas(t *testing.T) {
 	if !strings.Contains(lines[len(lines)-1], "Ayuda") {
 		t.Fatalf("la barra de acciones debe ser la última línea: %q", lines[len(lines)-1])
 	}
-	if !strings.Contains(lines[len(lines)-2], "barra de estado de prueba") {
-		t.Fatalf("la barra de estado debe ser la penúltima línea: %q", lines[len(lines)-2])
+	if !strings.Contains(lines[len(lines)-2], "Instancia survival") {
+		t.Fatalf("la barra de estado debe ser la penúltima línea con el estado actual: %q", lines[len(lines)-2])
+	}
+	if !strings.Contains(out, "barra de estado de prueba") {
+		t.Fatalf("el aviso debe verse en su línea transitoria:\n%s", out)
+	}
+	if strings.Contains(lines[len(lines)-2], "barra de estado de prueba") {
+		t.Fatalf("el aviso no debe duplicarse en la barra de estado: %q", lines[len(lines)-2])
 	}
 }
 

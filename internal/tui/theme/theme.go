@@ -199,8 +199,8 @@ func Icon(state string, ascii bool) string {
 	type icon struct{ uni, asc string }
 	m := map[string]icon{
 		"running":  {"● En línea", "[OK] En línea"},
-		"stopped":  {"○ Detenido", "[..] Detenido"},
-		"starting": {"◐ Iniciando…", "[..] Iniciando…"},
+		"stopped":  {"○ Apagado", "[..] Apagado"},
+		"starting": {"◐ Cargando…", "[..] Cargando…"},
 		"problems": {"⚠ Con problemas", "[!!] Con problemas"},
 		"error":    {"✖ Error", "[XX] Error"},
 		"idle":     {"☾ Dormido por inactividad", "[-] Dormido por inactividad"},

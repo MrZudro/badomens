@@ -1,4 +1,4 @@
-┌─ badomens 0.0.0-dev ──────────────────── ● Docker OK  Tailscale ● ─┐
+┌─ badomens 0.0.0-dev ──────────────────── ● Docker OK  ● Tailscale ─┐
 ├────────────────────────────────────────────────────────────────────┤
 │ ╭─ INSTANCIAS ───────────────────────────── 0/5 · 0/3 en marcha ─╮ │
 │ │Todavía no hay instancias                                       │ │
@@ -17,4 +17,4 @@
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ no hay instancias todavía                                          │
-└─ [S] Iniciar   [P] Detener   [F1] Ayuda   [TAB] Desplazarse ───────┘
+└─ [S] Iniciar   [B] Backup   [F1] Ayuda   [TAB] Desplazarse ────────┘

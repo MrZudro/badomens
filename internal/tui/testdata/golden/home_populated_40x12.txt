@@ -9,4 +9,4 @@
 │ │                                  │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancias                           │
-└─ […   [F1] Ayuda   [TAB] Desplazarse ┘
+└─ [F1] Ayuda   [TAB] Desplazarse ─────┘

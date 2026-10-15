@@ -27,4 +27,4 @@
 | |                                                                                                        | |
 | +--------------------------------------------------------------------------------------------------------+ |
 | cargando instancias…                                                                                       |
-+- [S] Iniciar   [P] Detener   [R] Reiniciar   [B] Backup   [C] Copiar   [F1] Ayuda   [TAB] Desplazarse -----+
++- [S] Iniciar   [B] Backup   [C] Copiar   [D] Borrar   [Enter] Ver   [F1] Ayuda   [TAB] Desplazarse --------+

@@ -27,4 +27,4 @@
 | |                                                                  ||                                    | |
 | +------------------------------------------------------------------++------------------------------------+ |
 | Instancia survival                                                                                         |
-+- [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse --+
++- [P] Detener   [R] Reiniciar   [/] Escribir   [C] Copiar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ---+

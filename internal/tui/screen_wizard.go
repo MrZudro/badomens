@@ -384,7 +384,9 @@ func (w *wizardScreen) noteVersions(msg wizardVersionsMsg) {
 	}
 	w.verErr = ""
 	w.pickRecommended()
-} // toggleHelp abre o cierra la ayuda larga del campo activo (F1/?).
+}
+
+// toggleHelp abre o cierra la ayuda larga del campo activo (F1/?).
 func (w *wizardScreen) toggleHelp() {
 	if w.helpOpen {
 		w.helpOpen = false
@@ -1664,12 +1666,23 @@ func (w *wizardScreen) pickerBody(inner, budget int) []string {
 	w.pickerCols = cols
 	lines := sel.Render(inner, w.versionValue(), w.pal, w.ascii)
 	focus := sel.FocusLine(cols)
+	// En rejilla el detalle de una versión (caché, Java, build, «última estable»,
+	// «incompatible», «sin verificar»…) no cabe en una celda de ancho fijo: se
+	// pinta el de la opción ENFOCADA en su propia línea. Así la rejilla queda
+	// alineada sin ocultar lo que aporta el detalle (UX-03).
+	detail := ""
+	if sel.Mode == components.SelectGrid {
+		detail = sel.FocusedDetail()
+	}
 	reserved := 1 // el pie de teclas
 	notes := 0
 	if w.verErr != "" {
 		notes++
 	}
 	if w.verNote() != "" {
+		notes++
+	}
+	if detail != "" {
 		notes++
 	}
 	reserved += notes
@@ -1682,6 +1695,9 @@ func (w *wizardScreen) pickerBody(inner, budget int) []string {
 	}
 	if note := w.verNote(); note != "" {
 		out = append(out, warn.Render(truncCells(note, inner)))
+	}
+	if detail != "" {
+		out = append(out, muted.Render(truncCells("▸ "+detail, inner)))
 	}
 	out = append(out, hint)
 	if len(out) > budget {

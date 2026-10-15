@@ -9,4 +9,4 @@
 │ │ Los valores recomendados aparece…│ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ [R] Con…   [F1] Ayuda   [Esc] Atrás ┘
+└─ [F1] Ayuda   [Esc] Atrás ───────────┘

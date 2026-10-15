@@ -47,4 +47,4 @@
 │ │[R] Verificar de nuevo                                                                                             ││                                                                             │ │
 │ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯╰─────────────────────────────────────────────────────────────────────────────╯ │
 │ Whitelist: ✓ ACTIVADA                                                                                                                                                                                │
-└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [C] Copiar   [B] Backup   [V] Cambiar   [G] Regenerar   [L] Cargar   [D] Borrar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ──────────┘
+└─ [P] Detener   [R] Reiniciar   [/] Escribir   [C] Copiar   [B] Backup   [V] Cambiar   [G] Regenerar   [L] Cargar   [D] Borrar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ────────────────────────┘
