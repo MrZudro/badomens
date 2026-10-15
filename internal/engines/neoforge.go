@@ -87,6 +87,10 @@ type NeoForgeCatalog struct {
 	// Unmapped cuenta las versiones publicadas en ESTA consulta cuya
 	// nomenclatura no se pudo asociar a una versión de Minecraft.
 	Unmapped int
+	// Published es el número de versiones publicadas que respaldan el catálogo
+	// devuelto. La caché lo persiste para poder juzgar una caída anómala en la
+	// siguiente ejecución (AC-07).
+	Published int
 }
 
 // Warning devuelve el texto legible de la primera advertencia ("" si no hay).
@@ -241,7 +245,8 @@ func neoforgeBuildCatalog(published []string) ([]Version, []string) {
 			continue
 		}
 		stable, channel := neoforgeStability(raw)
-		cand := Version{Version: mc, Build: raw, Stable: stable, Channel: channel, Detail: raw}
+		cand := Version{Version: mc, Build: raw, Stable: stable, Channel: channel, Detail: raw,
+			Compatibility: CompatibilityCompatible}
 		prev, ok := byMC[mc]
 		if !ok {
 			order = append(order, mc)
@@ -312,6 +317,7 @@ func (p *neoforgeProvider) Catalog(ctx context.Context) (NeoForgeCatalog, error)
 			Retained:      true,
 			PreviousCount: prevCount,
 			Unmapped:      len(unmapped),
+			Published:     prevCount,
 		}
 		p.warned = append([]CatalogWarning(nil), cat.Warnings...)
 		return cat, nil
@@ -324,6 +330,7 @@ func (p *neoforgeProvider) Catalog(ctx context.Context) (NeoForgeCatalog, error)
 		Versions:      versions,
 		PreviousCount: prevCount,
 		Unmapped:      len(unmapped),
+		Published:     len(published),
 	}
 	if len(unmapped) > 0 {
 		cat.Warnings = append(cat.Warnings, CatalogWarning{

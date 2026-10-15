@@ -3,7 +3,6 @@ package engines
 import (
 	_ "embed"
 	"encoding/json"
-	"sort"
 )
 
 // embeddedRaw es el catálogo de respaldo generado en build (`make gen-versions`).
@@ -21,11 +20,14 @@ func init() {
 		// recurre a la red (o a un error claro de proveedor).
 		embeddedCatalog = map[string][]Version{}
 	}
-	// Se enriquece una vez para que traiga canal, Java y recomendada.
+	// Se normaliza una sola vez: canal, Java (con su origen), compatibilidad,
+	// orden por esquema del motor y marca de recomendada.
+	//
+	// Un documento anterior a la Fase 3 solo traía `compatible: true`; la
+	// migración de Enrich lo conserva como compatibilidad VERIFICADA porque el
+	// catálogo embebido se generó a partir de los catálogos oficiales.
 	for name, list := range embeddedCatalog {
-		enriched := Enrich(name, list)
-		sortByDate(enriched)
-		embeddedCatalog[name] = enriched
+		embeddedCatalog[name] = Enrich(name, list)
 	}
 }
 
@@ -39,15 +41,4 @@ func EmbeddedVersions(engine string) ([]Version, bool) {
 	out := make([]Version, len(list))
 	copy(out, list)
 	return out, true
-}
-
-// sortByDate ordena por fecha de publicación; si falta, cae al ID como último
-// recurso (nunca es la fuente principal de orden).
-func sortByDate(list []Version) {
-	sort.SliceStable(list, func(i, j int) bool {
-		if list[i].ReleasedAt.IsZero() || list[j].ReleasedAt.IsZero() {
-			return list[i].Version < list[j].Version
-		}
-		return list[i].ReleasedAt.Before(list[j].ReleasedAt)
-	})
 }

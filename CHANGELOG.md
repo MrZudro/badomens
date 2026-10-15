@@ -6,6 +6,85 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### 🐛 Corregido
+
+- **latest correcto con independencia del orden de respuesta (API-05).** pickVersion
+  ya no asume que el último elemento de la lista es el más reciente: compara versiones
+  **estructuradas** con la estrategia del esquema del motor. Fabric Meta y Paper Fill v3
+  (que publican newest-first) dan ahora el mismo resultado que una lista ascendente.
+- **Recommended se calcula DESPUÉS de normalizar y ordenar (QC-05, AD-02b).** Se
+  recalcula desde cero en cada pasada, así que la recomendada es la última estable real
+  y ninguna normalización posterior deja marcas obsoletas.
+- **Orden por esquema, nunca alfabético entre esquemas.** Enrich ordena con la
+  estrategia de cada motor: Vanilla por la fecha del manifiesto (dato oficial) y
+  Paper/Fabric/Forge/NeoForge por componentes numéricos. Casos reales cubiertos:
+  26.10 > 26.2 y 26.1 > 1.21.1.
+- **
+ormalizeMaven con reglas propias por proveedor** (Forge `<mc>-<build>`;
+  NeoForge con su asociación explícita antiguo/moderno) y elección del build por
+  comparación estructurada. Es idempotente: un catálogo ya normalizado sale intacto.
+- **Rechazo de versiones explícitas inexistentes o incompatibles**, con error tipado
+  
+ot_found y sin resultado parcial (T-02/AC-06).
+- **Caché: no se sobrescribe con datos inválidos (AC-07).** Un catálogo vacío o una
+  **reducción anómala** (menos del 50 % del último validado, con un baseline de al menos
+  20 versiones) conservan el catálogo previo y generan un aviso legible. NeoForge añade
+  su propio baseline de versiones publicadas.
+- **Java: nunca se asume Java 8 (AC-05).** JavaMajorFor devuelve **0** (desconocido)
+  en lugar de 8 para una versión no reconocida y JavaImageFor sigue devolviendo el
+  allback sin cambios cuando el Java es desconocido.
+
+### ➕ Añadido
+
+- **Modelo normalizado aditivo** en Version y Resolved: loader_version, uild,
+  channel, eleased_at, java_major, java_status, compatibility, source,
+  etched_at, stale y warning.
+- **Campo compatibility (trivalente):** compatible, incompatible o unknown.
+- **Campo java_status:** erified (lo declara el proveedor, p. ej. Fill v3 con
+  java.version.minimum), inferred (regla versionada) o unknown. Reglas
+  versionadas que cubren Minecraft 26.x: 26.1+ → **Java 25**, 1.20.5–1.21.x → 21,
+  1.18–1.20.4 → 17, 1.17 → 16, ≤1.16.x → 8. Nueva etiqueta java25 en JavaTag.
+- **CheckCompatibility:** valida Minecraft + motor + loader/build + Java + imagen
+  Docker y devuelve el estado trivalente con el motivo de la incertidumbre.
+- **Resolved.Validate y Registry.Resolve:** ruta única de resolución que valida
+  todos los pines obligatorios antes de devolver (AC-06: no existe el objeto de
+  resolución parcialmente válido).
+- **Caché reforzada (internal/engines/versions.go):** el documento de caché guarda
+  ahora provider, updated_at, schema, alidated, etag, last_modified y
+  published_count (los documentos antiguos se siguen leyendo); validación ANTES de
+  escribir; escritura atómica con sync; uso de ETag/Last-Modified (304 =
+  refrescar la fecha sin reescribir datos); **deduplicación de solicitudes simultáneas**
+  (una sola petición para N llamadas concurrentes); Cache.Status con estados
+  explícitos resh, stale, invalid y unavailable; Cache.Refresh.
+- **Comandos catalog status [motor] y catalog refresh [motor] | --all** (aditivos).
+- **engine list <motor> unificado** sobre la MISMA ruta de caché y normalización que
+  engine versions (ya no consulta el proveedor sin caché), con --all, --refresh
+  y --limit. engine versions incorpora --refresh y expone el estado del catálogo y
+  el modelo normalizado.
+- **engines.Filter** para aplicar el filtro de canales desde CLI, TUI y MCP.
+
+### 🔧 Cambiado
+
+- **Semántica de compatible (T-03, API-08) — ATENCIÓN a los consumidores.**
+  compatible pasa a ser cierto **solo cuando la compatibilidad está verificada**. Se
+  elimina el relleno a ciegas que convertía lo desconocido en compatible. Un
+  compatible: false puede significar ahora unknown: consulta el campo nuevo
+  compatibility antes de tratar una versión como no seleccionable. La caché y el
+  catálogo embebido anteriores a esta versión (que traían compatible: true sin el
+  campo trivalente) se migran a compatible verificado.
+- internal/engines/{paper,fabric,forge,neoforge}.go reciben cambios
+  **estrictamente aditivos**: fijan Compatibility en las entradas que su propio
+  catálogo oficial publica, y Paper y Vanilla implementan ConditionalProvider
+  (ListAllWithMeta) para aprovechar ETag/Last-Modified. pickVersion se traslada a
+  select.go con la firma pickVersion(engine, list, version).
+- internal/engines/embedded.json incorpora compatibility: "compatible" en sus 27
+  entradas (proceden de catálogos oficiales).
+- internal/cli/root.go registra el comando catalog (una línea, aditiva).
+
+> **Pendiente para la Fase 5:** CatalogService y la fachada común CLI/TUI/MCP, y
+> exponer el modelo normalizado en la herramienta MCP adomens_engine_versions
+> (internal/cli/tools.go), que aún publica solo los campos anteriores.
+
 ## [1.2.1] - 2026-10-14
 
 > 🔧 Correcciones y mejoras de la TUI tras el rediseño 1.2, con revisión visual
@@ -418,6 +497,85 @@ versionado es [semántico](https://semver.org/lang/es/).
   semánticas de pre-lanzamiento (ver `.goreleaser.yaml` y `release.yml`).
 
 ## [Unreleased]
+
+### 🐛 Corregido
+
+- **latest correcto con independencia del orden de respuesta (API-05).** pickVersion
+  ya no asume que el último elemento de la lista es el más reciente: compara versiones
+  **estructuradas** con la estrategia del esquema del motor. Fabric Meta y Paper Fill v3
+  (que publican newest-first) dan ahora el mismo resultado que una lista ascendente.
+- **Recommended se calcula DESPUÉS de normalizar y ordenar (QC-05, AD-02b).** Se
+  recalcula desde cero en cada pasada, así que la recomendada es la última estable real
+  y ninguna normalización posterior deja marcas obsoletas.
+- **Orden por esquema, nunca alfabético entre esquemas.** Enrich ordena con la
+  estrategia de cada motor: Vanilla por la fecha del manifiesto (dato oficial) y
+  Paper/Fabric/Forge/NeoForge por componentes numéricos. Casos reales cubiertos:
+  26.10 > 26.2 y 26.1 > 1.21.1.
+- **
+ormalizeMaven con reglas propias por proveedor** (Forge `<mc>-<build>`;
+  NeoForge con su asociación explícita antiguo/moderno) y elección del build por
+  comparación estructurada. Es idempotente: un catálogo ya normalizado sale intacto.
+- **Rechazo de versiones explícitas inexistentes o incompatibles**, con error tipado
+  
+ot_found y sin resultado parcial (T-02/AC-06).
+- **Caché: no se sobrescribe con datos inválidos (AC-07).** Un catálogo vacío o una
+  **reducción anómala** (menos del 50 % del último validado, con un baseline de al menos
+  20 versiones) conservan el catálogo previo y generan un aviso legible. NeoForge añade
+  su propio baseline de versiones publicadas.
+- **Java: nunca se asume Java 8 (AC-05).** JavaMajorFor devuelve **0** (desconocido)
+  en lugar de 8 para una versión no reconocida y JavaImageFor sigue devolviendo el
+  allback sin cambios cuando el Java es desconocido.
+
+### ➕ Añadido
+
+- **Modelo normalizado aditivo** en Version y Resolved: loader_version, uild,
+  channel, eleased_at, java_major, java_status, compatibility, source,
+  etched_at, stale y warning.
+- **Campo compatibility (trivalente):** compatible, incompatible o unknown.
+- **Campo java_status:** erified (lo declara el proveedor, p. ej. Fill v3 con
+  java.version.minimum), inferred (regla versionada) o unknown. Reglas
+  versionadas que cubren Minecraft 26.x: 26.1+ → **Java 25**, 1.20.5–1.21.x → 21,
+  1.18–1.20.4 → 17, 1.17 → 16, ≤1.16.x → 8. Nueva etiqueta java25 en JavaTag.
+- **CheckCompatibility:** valida Minecraft + motor + loader/build + Java + imagen
+  Docker y devuelve el estado trivalente con el motivo de la incertidumbre.
+- **Resolved.Validate y Registry.Resolve:** ruta única de resolución que valida
+  todos los pines obligatorios antes de devolver (AC-06: no existe el objeto de
+  resolución parcialmente válido).
+- **Caché reforzada (internal/engines/versions.go):** el documento de caché guarda
+  ahora provider, updated_at, schema, alidated, etag, last_modified y
+  published_count (los documentos antiguos se siguen leyendo); validación ANTES de
+  escribir; escritura atómica con sync; uso de ETag/Last-Modified (304 =
+  refrescar la fecha sin reescribir datos); **deduplicación de solicitudes simultáneas**
+  (una sola petición para N llamadas concurrentes); Cache.Status con estados
+  explícitos resh, stale, invalid y unavailable; Cache.Refresh.
+- **Comandos catalog status [motor] y catalog refresh [motor] | --all** (aditivos).
+- **engine list <motor> unificado** sobre la MISMA ruta de caché y normalización que
+  engine versions (ya no consulta el proveedor sin caché), con --all, --refresh
+  y --limit. engine versions incorpora --refresh y expone el estado del catálogo y
+  el modelo normalizado.
+- **engines.Filter** para aplicar el filtro de canales desde CLI, TUI y MCP.
+
+### 🔧 Cambiado
+
+- **Semántica de compatible (T-03, API-08) — ATENCIÓN a los consumidores.**
+  compatible pasa a ser cierto **solo cuando la compatibilidad está verificada**. Se
+  elimina el relleno a ciegas que convertía lo desconocido en compatible. Un
+  compatible: false puede significar ahora unknown: consulta el campo nuevo
+  compatibility antes de tratar una versión como no seleccionable. La caché y el
+  catálogo embebido anteriores a esta versión (que traían compatible: true sin el
+  campo trivalente) se migran a compatible verificado.
+- internal/engines/{paper,fabric,forge,neoforge}.go reciben cambios
+  **estrictamente aditivos**: fijan Compatibility en las entradas que su propio
+  catálogo oficial publica, y Paper y Vanilla implementan ConditionalProvider
+  (ListAllWithMeta) para aprovechar ETag/Last-Modified. pickVersion se traslada a
+  select.go con la firma pickVersion(engine, list, version).
+- internal/engines/embedded.json incorpora compatibility: "compatible" en sus 27
+  entradas (proceden de catálogos oficiales).
+- internal/cli/root.go registra el comando catalog (una línea, aditiva).
+
+> **Pendiente para la Fase 5:** CatalogService y la fachada común CLI/TUI/MCP, y
+> exponer el modelo normalizado en la herramienta MCP adomens_engine_versions
+> (internal/cli/tools.go), que aún publica solo los campos anteriores.
 
 ### ⏳ Próximos pasos
 

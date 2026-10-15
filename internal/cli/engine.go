@@ -11,22 +11,66 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// versionData serializa una versión con el modelo normalizado de la Fase 3. Los
+// campos nuevos son ADITIVOS: se conservan `id`, `channel`, `released_at`,
+// `recommended`, `java_major`, `build`, `detail`, `compatible` e
+// `incompatible_why` del contrato anterior.
+func versionData(v engines.Version) map[string]any {
+	return map[string]any{
+		"id":               v.ID(),
+		"channel":          string(v.Channel),
+		"released_at":      v.ReleasedAt,
+		"recommended":      v.Recommended,
+		"java_major":       v.JavaMajor,
+		"java_status":      v.JavaStatus,
+		"build":            v.Build,
+		"loader_version":   v.LoaderVersion,
+		"detail":           v.Detail,
+		"compatibility":    string(v.Compatibility),
+		"compatible":       v.Compatible,
+		"incompatible_why": v.IncompatibleWhy,
+		"source":           v.Source,
+		"fetched_at":       v.FetchedAt,
+		"stale":            v.Stale,
+		"warning":          v.Warning,
+	}
+}
+
+// versionLine redacta una línea legible de una versión.
+func versionLine(v engines.Version) string {
+	marker := "  "
+	if v.Recommended {
+		marker = " ★"
+	}
+	if v.IncompatibleWhy != "" {
+		return fmt.Sprintf("%s %s ✖ (%s)", marker, v.ID(), v.IncompatibleWhy)
+	}
+	extra := ""
+	if v.JavaMajor > 0 {
+		extra += fmt.Sprintf("  Java %d", v.JavaMajor)
+	}
+	if v.Build != "" {
+		extra += "  build " + v.Build
+	}
+	if v.LoaderVersion != "" {
+		extra += "  loader " + v.LoaderVersion
+	}
+	if !v.ReleasedAt.IsZero() {
+		extra += "  " + timeSince(v.ReleasedAt)
+	}
+	return fmt.Sprintf("%s %s%s", marker, v.ID(), extra)
+}
+
 func newEngineVersionsCmd(e *Env) *cobra.Command {
 	var all bool
+	var refresh bool
 	cmd := &cobra.Command{
 		Use:   "versions <motor>",
 		Short: "Versiones disponibles y compatibles del motor (RF-5)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, cerr := e.requireConfig()
-			if cerr != nil {
-				return e.finish(result.FromError("engine versions", cerr), "")
-			}
-			cache := engines.NewCache(cfg.DataDir, reg())
-			if d, derr := time.ParseDuration(cfg.Versions.CacheTTL); derr == nil && d > 0 {
-				cache.TTL = d
-			}
-			versions, stale, verr := cache.Versions(cmd.Context(), args[0], engines.VersionOpts{IncludeUnstable: all})
+			versions, stale, status, verr := e.loadCatalog(cmd.Context(), args[0],
+				engines.VersionOpts{IncludeUnstable: all}, refresh)
 			if verr != nil {
 				return e.finish(result.FromError("engine versions", verr), "")
 			}
@@ -38,41 +82,18 @@ func newEngineVersionsCmd(e *Env) *cobra.Command {
 			out := make([]map[string]any, 0, len(versions))
 			human := fmt.Sprintf("Versiones de %s (%d):", label, len(versions))
 			for _, v := range versions {
-				out = append(out, map[string]any{
-					"id":               v.ID(),
-					"channel":          string(v.Channel),
-					"released_at":      v.ReleasedAt,
-					"recommended":      v.Recommended,
-					"java_major":       v.JavaMajor,
-					"build":            v.Build,
-					"detail":           v.Detail,
-					"compatible":       v.Compatible,
-					"incompatible_why": v.IncompatibleWhy,
-				})
-				marker := "  "
-				if v.Recommended {
-					marker = " ★"
-				}
-				extra := ""
-				if v.JavaMajor > 0 {
-					extra += fmt.Sprintf("  Java %d", v.JavaMajor)
-				}
-				if v.Build != "" {
-					extra += "  build " + v.Build
-				}
-				if !v.ReleasedAt.IsZero() {
-					extra += "  " + timeSince(v.ReleasedAt)
-				}
-				if v.IncompatibleWhy != "" {
-					human += fmt.Sprintf("\n%s %s ✖ (%s)", marker, v.ID(), v.IncompatibleWhy)
-				} else {
-					human += fmt.Sprintf("\n%s %s%s", marker, v.ID(), extra)
-				}
+				out = append(out, versionData(v))
+				human += "\n" + versionLine(v)
 			}
 			if stale {
-				human += "\n(lista usada de caché; sin conexión con el catálogo)"
+				human += "\n(lista usada de caché o del catálogo embebido; sin conexión con el catálogo)"
 			}
-			data := map[string]any{"engine": args[0], "stale": stale, "versions": out}
+			data := map[string]any{
+				"engine":   args[0],
+				"stale":    stale,
+				"catalog":  catalogStatusData(status),
+				"versions": out,
+			}
 			if stale {
 				data["warnings"] = []string{"lista usada de caché o del catálogo embebido; puede no estar al día"}
 			}
@@ -80,6 +101,7 @@ func newEngineVersionsCmd(e *Env) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&all, "all", false, "incluir snapshots/betas")
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "refrescar el catálogo antes de listar")
 	return cmd
 }
 
@@ -111,6 +133,8 @@ func newEngineCmd(e *Env) *cobra.Command {
 
 func newEngineListCmd(e *Env) *cobra.Command {
 	var limit int
+	var all bool
+	var refresh bool
 	cmd := &cobra.Command{
 		Use:   "list [motor]",
 		Short: "Lista los motores o las versiones de uno (paper, fabric, forge, neoforge, vanilla)",
@@ -130,11 +154,10 @@ func newEngineListCmd(e *Env) *cobra.Command {
 				return e.finish(result.OK("engine list", "motores disponibles", out), strings.TrimRight(human, "\n"))
 			}
 
-			provider, err := registry.Provider(args[0])
-			if err != nil {
-				return e.finish(result.FromError("engine list", err), "")
-			}
-			versions, err := provider.ListVersions(cmd.Context())
+			// MISMA ruta de caché, validación y normalización que `engine
+			// versions`: se acabó el listado directo del proveedor sin caché.
+			versions, stale, _, err := e.loadCatalog(cmd.Context(), args[0],
+				engines.VersionOpts{IncludeUnstable: all}, refresh)
 			if err != nil {
 				return e.finish(result.FromError("engine list", err), "")
 			}
@@ -145,14 +168,23 @@ func newEngineListCmd(e *Env) *cobra.Command {
 			for _, v := range versions {
 				list = append(list, v.Version)
 			}
-			human := fmt.Sprintf("Versiones de %s (%d):", provider.Engine().Label, len(list))
+			label := args[0]
+			if en, ok := engines.ByName(args[0]); ok {
+				label = en.Label
+			}
+			human := fmt.Sprintf("Versiones de %s (%d):", label, len(list))
 			for _, v := range list {
 				human += "\n  " + v
 			}
-			return e.finish(result.OK("engine list", fmt.Sprintf("%d versiones de %s", len(list), provider.Engine().Name), list), human)
+			if stale {
+				human += "\n(lista usada de caché o del catálogo embebido; sin conexión con el catálogo)"
+			}
+			return e.finish(result.OK("engine list", fmt.Sprintf("%d versiones de %s", len(list), args[0]), list), human)
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 0, "mostrar solo las N últimas versiones")
+	cmd.Flags().BoolVar(&all, "all", false, "incluir snapshots/betas")
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "refrescar el catálogo antes de listar")
 	return cmd
 }
 
@@ -182,11 +214,15 @@ func newEngineUseCmd(e *Env) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			slug, engineName := args[0], args[1]
-			provider, err := reg().Provider(engineName)
-			if err != nil {
-				return e.finish(result.FromError("engine use", err), "")
+			eng, ok := engines.ByName(engineName)
+			if !ok {
+				return e.finish(result.FromError("engine use",
+					errx.Usage("motor desconocido "+engineName, "usa uno de: "+strings.Join(engineNames(), ", "))), "")
 			}
-			resolved, err := provider.Resolve(cmd.Context(), version)
+			// Ruta ÚNICA de resolución: delega en el proveedor y valida el
+			// invariante de pins obligatorios antes de tocar la configuración
+			// (AC-06: no existe una resolución parcialmente válida).
+			resolved, err := reg().Resolve(cmd.Context(), eng.Name, version)
 			if err != nil {
 				return e.finish(result.FromError("engine use", err), "")
 			}
@@ -201,7 +237,7 @@ func newEngineUseCmd(e *Env) *cobra.Command {
 				// inexistente.
 				return e.finish(result.FromError("engine use", err), "")
 			}
-			spec.Engine = provider.Engine().Name
+			spec.Engine = eng.Name
 			spec.Version = resolved.Version
 			spec.Pins = resolved.Pins
 			if err := spec.Validate(m.EngineNames()); err != nil {
@@ -212,8 +248,22 @@ func newEngineUseCmd(e *Env) *cobra.Command {
 			}
 
 			human := fmt.Sprintf("%s → %s %s (%s)", spec.Slug, spec.Engine, spec.Version, strings.TrimSpace(resolved.Detail))
+			detail := map[string]any{
+				"instance":      spec.Slug,
+				"engine":        spec.Engine,
+				"version":       spec.Version,
+				"pins":          spec.Pins,
+				"build":         resolved.Build,
+				"java_major":    resolved.JavaMajor,
+				"java_status":   resolved.JavaStatus,
+				"compatibility": string(resolved.Compatibility),
+			}
+			if resolved.Warning != "" {
+				detail["warning"] = resolved.Warning
+				human += " · aviso: " + resolved.Warning
+			}
 			if noApply {
-				return e.finish(result.OK("engine use", human+" (sin aplicar)", map[string]any{"instance": spec.Slug}), human+" (sin aplicar)")
+				return e.finish(result.OK("engine use", human+" (sin aplicar)", detail), human+" (sin aplicar)")
 			}
 
 			rt, err := e.runtime()
@@ -232,8 +282,7 @@ func newEngineUseCmd(e *Env) *cobra.Command {
 			} else if err := rt.Start(cmd.Context(), spec); err != nil {
 				return e.finish(result.FromError("engine use", err), "")
 			}
-			data := map[string]any{"instance": spec.Slug, "engine": spec.Engine, "version": spec.Version, "pins": spec.Pins}
-			return e.finish(result.OK("engine use", human, data), human)
+			return e.finish(result.OK("engine use", human, detail), human)
 		},
 	}
 	cmd.Flags().StringVar(&version, "version", "", "versión de Minecraft (vacía = última)")

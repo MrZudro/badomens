@@ -24,6 +24,7 @@ func commandManifest() []commandEntry {
 		{Name: "connect", Summary: "Información de conexión de una instancia (RF-2)"},
 		{Name: "ports check|list", Summary: "Estado y reserva de puertos (RF-3)"},
 		{Name: "engine list|current|use|versions", Summary: "Catálogo, selección y versiones de motor (RF-5)"},
+		{Name: "catalog status|refresh", Summary: "Estado y refresco del catálogo de versiones (Fase 4)"},
 		{Name: "world list|save|use|export|import", Summary: "Biblioteca de mundos"},
 		{Name: "backup create|list|restore|prune", Summary: "Copias de seguridad por instancia"},
 		{Name: "access whitelist-add|remove|ops-add|remove", Summary: "Whitelist y operadores via consola"},

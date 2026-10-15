@@ -18,6 +18,7 @@ var paridad = map[string]string{
 	"connect":                                    "connectcard",
 	"ports.check|list":                           "wizard+health",
 	"engine.list|current|use|versions":           "wizard+ajustes",
+	"catalog.status|refresh":                     "wizard+ajustes",
 	"world.list|save|use|export|import":          "instance/mundos",
 	"backup.create|list|restore|prune":           "instance/backups",
 	"access.whitelist-add|remove|ops-add|remove": "instance/jugadores",

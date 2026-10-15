@@ -142,8 +142,9 @@ type paperArtifact struct {
 }
 
 // ListVersions devuelve el catálogo de Paper. Fill v3 lo entrega de la versión
-// más nueva a la más antigua; aquí se invierte para respetar el contrato interno
-// (ascendente, "la última es la última estable") que asume pickVersion.
+// más nueva a la más antigua; aquí se devuelve en orden ASCENDENTE por comodidad
+// de presentación, pero la SELECCIÓN (pickVersion) ya no depende del orden:
+// compara versiones estructuradas.
 //
 // Las pre-releases (-pre, -rc) se devuelven con canal beta y Stable=false: el
 // catálogo público (filter) las descarta salvo que se pidan inestables.
@@ -151,15 +152,34 @@ type paperArtifact struct {
 // Limitación conocida: /versions no expone fecha de publicación, así que
 // ReleasedAt queda a cero; la fecha solo existe por build (paperBuild.Time).
 func (p *paperProvider) ListVersions(ctx context.Context) ([]Version, error) {
+	list, _, err := p.list(ctx, CacheValidators{})
+	return list, err
+}
+
+// ListAllWithMeta implementa ConditionalProvider: permite que la caché envíe
+// ETag/Last-Modified y trate un 304 como "sin cambios" (no reescribe datos).
+func (p *paperProvider) ListAllWithMeta(ctx context.Context, v CacheValidators) ([]Version, Meta, error) {
+	return p.list(ctx, v)
+}
+
+// list es la consulta real del catálogo de Paper, con validadores opcionales.
+func (p *paperProvider) list(ctx context.Context, validators CacheValidators) ([]Version, Meta, error) {
 	endpoint := p.Base() + "/versions"
 	var doc paperVersionsDoc
-	meta, err := p.client.GetJSONWithMeta(ctx, endpoint, &doc,
-		RequestOpts{Provider: p.engine.Name, Operation: paperOpListVersions})
+	meta, err := p.client.GetJSONWithMeta(ctx, endpoint, &doc, RequestOpts{
+		Provider:        p.engine.Name,
+		Operation:       paperOpListVersions,
+		IfNoneMatch:     validators.ETag,
+		IfModifiedSince: validators.LastModified,
+	})
 	if err != nil {
-		return nil, err
+		return nil, meta, err
+	}
+	if meta.NotModified {
+		return nil, meta, nil
 	}
 	if len(doc.Versions) == 0 {
-		return nil, catalogContentError(p.engine.Name, CodeSchemaMismatch, paperOpListVersions, endpoint, meta,
+		return nil, meta, catalogContentError(p.engine.Name, CodeSchemaMismatch, paperOpListVersions, endpoint, meta,
 			fmt.Errorf("el catálogo no contiene entradas de versión"))
 	}
 	versions := make([]Version, 0, len(doc.Versions))
@@ -167,18 +187,27 @@ func (p *paperProvider) ListVersions(ctx context.Context) ([]Version, error) {
 		info := doc.Versions[i].Version
 		id := strings.TrimSpace(info.ID)
 		if id == "" {
-			return nil, catalogContentError(p.engine.Name, CodeSchemaMismatch, paperOpListVersions, endpoint, meta,
+			return nil, meta, catalogContentError(p.engine.Name, CodeSchemaMismatch, paperOpListVersions, endpoint, meta,
 				fmt.Errorf("hay una entrada de versión sin id"))
 		}
 		channel, stable := paperVersionChannel(id)
-		versions = append(versions, Version{
-			Version: id,
-			Stable:  stable,
-			Channel: channel,
-			Detail:  paperSupportDetail(info.Support.Status, info.Support.End),
-		})
+		// El propio catálogo oficial de Paper verifica que la versión existe para el
+		// motor. El `java.version.minimum` que declara Fill v3 es un dato VERIFICADO
+		// y tiene prioridad sobre la regla versionada.
+		v := Version{
+			Version:       id,
+			Stable:        stable,
+			Channel:       channel,
+			Detail:        paperSupportDetail(info.Support.Status, info.Support.End),
+			Compatibility: CompatibilityCompatible,
+		}
+		if min := info.Java.Version.Minimum; min > 0 {
+			v.JavaMajor = min
+			v.JavaStatus = JavaStatusVerified
+		}
+		versions = append(versions, v)
 	}
-	return versions, nil
+	return versions, meta, nil
 }
 
 // Resolve resuelve una versión (vacía = última estable) a los pines que usará
@@ -190,7 +219,7 @@ func (p *paperProvider) Resolve(ctx context.Context, version string) (Resolved, 
 	if err != nil {
 		return Resolved{}, err
 	}
-	v, err := pickVersion(list, version)
+	v, err := pickVersion(p.engine.Name, list, version)
 	if err != nil {
 		if version == "" {
 			return Resolved{}, err
@@ -351,12 +380,19 @@ type manifestEntry struct {
 // fetchManifest descarga y valida el manifiesto con trazabilidad. Devuelve
 // además los metadatos de la respuesta para poder clasificar los fallos de
 // contenido con el estado HTTP real.
-func (p *vanillaProvider) fetchManifest(ctx context.Context, operation string) (manifest, Meta, error) {
+func (p *vanillaProvider) fetchManifest(ctx context.Context, operation string, validators CacheValidators) (manifest, Meta, error) {
 	var m manifest
-	meta, err := p.client.GetJSONWithMeta(ctx, p.Base(), &m,
-		RequestOpts{Provider: p.engine.Name, Operation: operation})
+	meta, err := p.client.GetJSONWithMeta(ctx, p.Base(), &m, RequestOpts{
+		Provider:        p.engine.Name,
+		Operation:       operation,
+		IfNoneMatch:     validators.ETag,
+		IfModifiedSince: validators.LastModified,
+	})
 	if err != nil {
 		return manifest{}, meta, err
+	}
+	if meta.NotModified {
+		return manifest{}, meta, nil
 	}
 	if len(m.Versions) == 0 {
 		return manifest{}, meta, catalogContentError(p.engine.Name, CodeSchemaMismatch, operation, p.Base(), meta,
@@ -383,10 +419,11 @@ func (p *vanillaProvider) normalize(m manifest, operation string, meta Meta) ([]
 		}
 		channel, stable := vanillaChannel(entry.Type)
 		versions = append(versions, Version{
-			Version:    id,
-			Stable:     stable,
-			Channel:    channel,
-			ReleasedAt: releasedAt,
+			Version:       id,
+			Stable:        stable,
+			Channel:       channel,
+			ReleasedAt:    releasedAt,
+			Compatibility: CompatibilityCompatible,
 		})
 	}
 	return versions, nil
@@ -422,9 +459,10 @@ func parseReleaseTime(s string) (time.Time, error) {
 
 // ListVersions devuelve solo las releases de Minecraft (contrato histórico) en
 // orden ascendente (antiguo → nuevo). El manifiesto llega al revés, así que se
-// invierte para que `pickVersion` ("última = última estable") sea correcto.
+// invierte para mantener ese orden de presentación; la SELECCIÓN de la última
+// estable ya no depende del orden (pickVersion compara versiones estructuradas).
 func (p *vanillaProvider) ListVersions(ctx context.Context) ([]Version, error) {
-	m, meta, err := p.fetchManifest(ctx, vanillaOpListReleases)
+	m, meta, err := p.fetchManifest(ctx, vanillaOpListReleases, CacheValidators{})
 	if err != nil {
 		return nil, err
 	}
@@ -456,7 +494,7 @@ func (p *vanillaProvider) Resolve(ctx context.Context, version string) (Resolved
 	if err != nil {
 		return Resolved{}, err
 	}
-	v, err := pickVersion(list, version)
+	v, err := pickVersion(p.engine.Name, list, version)
 	if err != nil {
 		if version == "" {
 			return Resolved{}, err
@@ -471,13 +509,28 @@ func (p *vanillaProvider) Resolve(ctx context.Context, version string) (Resolved
 // de antiguo a nuevo por fecha de publicación. Es la entrada del catálogo con
 // canales (RF-5); ListVersions se mantiene intacta para no romper el contrato.
 func (p *vanillaProvider) ListAllVersions(ctx context.Context) ([]Version, error) {
-	m, meta, err := p.fetchManifest(ctx, vanillaOpListAll)
+	list, _, err := p.listAll(ctx, CacheValidators{})
+	return list, err
+}
+
+// ListAllWithMeta implementa ConditionalProvider: la caché puede enviar
+// ETag/Last-Modified y tratar un 304 como "sin cambios".
+func (p *vanillaProvider) ListAllWithMeta(ctx context.Context, v CacheValidators) ([]Version, Meta, error) {
+	return p.listAll(ctx, v)
+}
+
+// listAll es la consulta real del manifiesto, con validadores opcionales.
+func (p *vanillaProvider) listAll(ctx context.Context, validators CacheValidators) ([]Version, Meta, error) {
+	m, meta, err := p.fetchManifest(ctx, vanillaOpListAll, validators)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
+	}
+	if meta.NotModified {
+		return nil, meta, nil
 	}
 	versions, err := p.normalize(m, vanillaOpListAll, meta)
 	if err != nil {
-		return nil, err
+		return nil, meta, err
 	}
 	sort.SliceStable(versions, func(i, j int) bool {
 		if versions[i].ReleasedAt.IsZero() || versions[j].ReleasedAt.IsZero() {
@@ -485,28 +538,5 @@ func (p *vanillaProvider) ListAllVersions(ctx context.Context) ([]Version, error
 		}
 		return versions[i].ReleasedAt.Before(versions[j].ReleasedAt)
 	})
-	return versions, nil
-}
-
-// pickVersion elige la versión pedida o la última estable. Devuelve error si la
-// versión pedida no existe.
-func pickVersion(list []Version, version string) (Version, error) {
-	if version != "" {
-		for i := len(list) - 1; i >= 0; i-- {
-			if list[i].Version == version {
-				return list[i], nil
-			}
-		}
-		return Version{}, fmt.Errorf("la versión %q no existe para este motor", version)
-	}
-	// Última estable.
-	for i := len(list) - 1; i >= 0; i-- {
-		if list[i].Stable {
-			return list[i], nil
-		}
-	}
-	if len(list) == 0 {
-		return Version{}, fmt.Errorf("el catálogo no devolvió versiones")
-	}
-	return list[len(list)-1], nil
+	return versions, meta, nil
 }

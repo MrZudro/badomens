@@ -6,7 +6,6 @@ package engines
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -50,9 +49,27 @@ func ByName(name string) (Engine, bool) {
 // SupportsPlugins indica si el motor admite plugins/mods.
 func (e Engine) SupportsPlugins() bool { return e.PluginDir != "" }
 
-// Version es una versión candidata del catálogo.
+// RequiredPins devuelve las claves de pin OBLIGATORIAS de un motor (las que
+// identifican de forma inequívoca la resolución). Vanilla no necesita ninguna.
+func RequiredPins(e Engine) []string {
+	switch e.Name {
+	case Paper.Name:
+		return []string{Paper.DepVar}
+	case Fabric.Name:
+		return []string{Fabric.DepVar}
+	case Forge.Name:
+		return []string{Forge.DepVar}
+	case NeoForge.Name:
+		return []string{NeoForge.DepVar}
+	}
+	return nil
+}
+
+// Version es una versión candidata del catálogo normalizado. Todos los campos
+// salvo `compatible` (derivado) proceden de una fuente verificable.
 type Version struct {
-	// Version es el identificador de la versión ("1.21.4").
+	// Version es el identificador de la versión ("1.21.4"), siempre la versión
+	// REAL de Minecraft, nunca la del loader.
 	Version string `json:"version"`
 	// Stable indica que es una versión estable (release).
 	Stable bool `json:"stable"`
@@ -62,81 +79,41 @@ type Version struct {
 	Channel Channel `json:"channel,omitempty"`
 	// ReleasedAt es la fecha de publicación (para ordenar).
 	ReleasedAt time.Time `json:"released_at,omitempty"`
-	// Recommended marca la última estable que el motor soporta.
+	// Recommended marca la última estable que el motor soporta. Se calcula
+	// DESPUÉS de normalizar y ordenar.
 	Recommended bool `json:"recommended,omitempty"`
-	// JavaMajor es el Java requerido (8/16/17/21…).
+	// JavaMajor es el Java requerido (25, 21, 17…); 0 = desconocido, nunca 8 por
+	// defecto (AC-05).
 	JavaMajor int `json:"java_major,omitempty"`
+	// JavaStatus es el ORIGEN del dato de Java: verified (lo declara el
+	// proveedor), inferred (regla versionada) o unknown.
+	JavaStatus string `json:"java_status,omitempty"`
 	// Build es el build/loader concreto (Paper build, Forge versión…).
 	Build string `json:"build,omitempty"`
-	// Compatible indica si se puede seleccionar.
+	// LoaderVersion es la versión exacta del loader, cuando corresponda.
+	LoaderVersion string `json:"loader_version,omitempty"`
+	// Compatibility es el estado TRIVALENTE respecto al motor.
+	Compatibility Compatibility `json:"compatibility,omitempty"`
+	// Compatible se DERIVA de Compatibility (compatible ⇔ verificado). Se
+	// conserva por compatibilidad del contrato JSON.
 	Compatible bool `json:"compatible,omitempty"`
 	// IncompatibleWhy explica por qué no se puede seleccionar.
 	IncompatibleWhy string `json:"incompatible_why,omitempty"`
+	// Source identifica al proveedor del que procede el dato.
+	Source string `json:"source,omitempty"`
+	// FetchedAt es el momento de obtención del catálogo.
+	FetchedAt time.Time `json:"fetched_at,omitempty"`
+	// Stale indica que la fila viene de caché vencida o del catálogo embebido.
+	Stale bool `json:"stale,omitempty"`
+	// Warning describe una restricción o incertidumbre que afecta a la fila.
+	Warning string `json:"warning,omitempty"`
 }
 
 // ID devuelve el identificador estable de la versión.
 func (v Version) ID() string { return v.Version }
 
-// JavaMajorFor calcula (de forma aproximada) el Java que necesita una versión
-// de Minecraft. Es orientativo para la etiqueta de imagen de itzg.
-func JavaMajorFor(mc string) int {
-	if major, ok := javaMajorKnown(mc); ok {
-		return major
-	}
-	return 8
-}
-
-// javaMajorKnown reconoce el Java mayor de una versión de Minecraft. El segundo
-// valor es false cuando la versión no es reconocible (no se debe asumir Java).
-func javaMajorKnown(mc string) (int, bool) {
-	mc = strings.ToLower(strings.TrimSpace(mc))
-	switch {
-	case strings.HasPrefix(mc, "1.20.5"), strings.HasPrefix(mc, "1.21"), strings.HasPrefix(mc, "1.22"):
-		return 21, true
-	case strings.HasPrefix(mc, "1.17"):
-		return 16, true
-	case strings.HasPrefix(mc, "1.18"), strings.HasPrefix(mc, "1.19"), strings.HasPrefix(mc, "1.20"):
-		return 17, true
-	case strings.HasPrefix(mc, "1.12"), strings.HasPrefix(mc, "1.13"), strings.HasPrefix(mc, "1.14"),
-		strings.HasPrefix(mc, "1.15"), strings.HasPrefix(mc, "1.16"):
-		return 8, true
-	}
-	return 0, false
-}
-
-// JavaTag devuelve la etiqueta de imagen de itzg para un Java mayor ("java17"),
-// o "" si no hay una etiqueta conocida.
-func JavaTag(major int) string {
-	switch major {
-	case 8, 11, 16, 17, 21, 22:
-		return "java" + strconv.Itoa(major)
-	}
-	return ""
-}
-
-// JavaImageFor adapta la imagen base al Java que requiere una versión de
-// Minecraft (RF-5): conserva el repositorio de `fallback` y elige la etiqueta
-// `javaN`. Si la versión no es reconocible, devuelve `fallback` sin cambios.
-func JavaImageFor(mc, fallback string) string {
-	major, ok := javaMajorKnown(mc)
-	if !ok {
-		return fallback
-	}
-	tag := JavaTag(major)
-	if tag == "" {
-		return fallback
-	}
-	repo := "itzg/minecraft-server"
-	if fallback != "" {
-		repo = fallback
-		if i := strings.Index(repo, ":"); i >= 0 {
-			repo = repo[:i]
-		}
-	}
-	return repo + ":" + tag
-}
-
-// Resolved es el resultado de resolver un motor+versión a pines finales.
+// Resolved es el resultado de resolver un motor+versión a pines finales. Todos
+// los campos de la parte normalizada son ADITIVOS.
 type Resolved struct {
 	// Version es la versión de Minecraft resuelta.
 	Version string `json:"version"`
@@ -144,13 +121,93 @@ type Resolved struct {
 	Pins map[string]string `json:"pins"`
 	// Detail es una nota legible adicional (build, loader).
 	Detail string `json:"detail,omitempty"`
+
+	// LoaderVersion es la versión exacta del loader, cuando corresponda.
+	LoaderVersion string `json:"loader_version,omitempty"`
+	// Build es el build exacto resuelto (nunca "latest").
+	Build string `json:"build,omitempty"`
+	// JavaMajor y JavaStatus son el requisito de Java y su origen.
+	JavaMajor  int    `json:"java_major,omitempty"`
+	JavaStatus string `json:"java_status,omitempty"`
+	// Image es la imagen Docker coherente con el Java requerido ("" si es
+	// desconocido: en ese caso NO se degrada la imagen).
+	Image string `json:"image,omitempty"`
+	// Compatibility es el estado trivalente del conjunto completo.
+	Compatibility Compatibility `json:"compatibility,omitempty"`
+	// Source es el proveedor del que procede la resolución.
+	Source string `json:"source,omitempty"`
+	// Warning describe la incertidumbre de la resolución, cuando exista.
+	Warning string `json:"warning,omitempty"`
+}
+
+// Validate comprueba el invariante de T-02/AC-06: la resolución identifica
+// inequívocamente la versión de Minecraft y contiene TODOS los pines
+// obligatorios del motor. No existe un Resolved parcialmente válido.
+func (r Resolved) Validate(e Engine) error {
+	if strings.TrimSpace(r.Version) == "" {
+		return catalogContentError(e.Name, CodeInvalidResponse, "resolve", "", Meta{},
+			fmt.Errorf("la resolución no identifica la versión de Minecraft"))
+	}
+	for _, dep := range RequiredPins(e) {
+		pin := strings.TrimSpace(r.Pins[dep])
+		if pin == "" || strings.EqualFold(pin, "latest") {
+			return catalogContentError(e.Name, CodeInvalidResponse, "resolve", "", Meta{},
+				fmt.Errorf("la resolución de %s no fija el pin obligatorio %s", e.Name, dep))
+		}
+	}
+	return nil
+}
+
+// normalizeResolved completa la parte normalizada de una resolución: build y
+// loader a partir de los pines, requisito de Java (con su origen), imagen Docker
+// coherente y compatibilidad trivalente del conjunto completo.
+func normalizeResolved(e Engine, r Resolved) Resolved {
+	if strings.TrimSpace(r.Source) == "" {
+		r.Source = e.Name
+	}
+	if r.Build == "" {
+		switch e.Name {
+		case Paper.Name, Forge.Name, NeoForge.Name:
+			r.Build = r.Pins[e.DepVar]
+		}
+	}
+	if r.LoaderVersion == "" && e.Name == Fabric.Name {
+		r.LoaderVersion = r.Pins[Fabric.DepVar]
+	}
+	if r.JavaMajor <= 0 {
+		r.JavaMajor, r.JavaStatus = JavaRequirementFor(r.Version)
+	} else if r.JavaStatus == "" {
+		r.JavaStatus = JavaStatusVerified
+	}
+	if r.Image == "" {
+		r.Image = JavaImageFor(r.Version, "")
+	}
+	state, why := CheckCompatibility(CompatibilityInput{
+		Engine:           e,
+		MinecraftVersion: r.Version,
+		LoaderVersion:    r.LoaderVersion,
+		Build:            r.Build,
+		Pins:             r.Pins,
+		JavaMajor:        r.JavaMajor,
+		JavaStatus:       r.JavaStatus,
+		DockerImage:      r.Image,
+	})
+	r.Compatibility = state
+	if why != "" {
+		if r.Warning != "" {
+			r.Warning += " · " + why
+		} else {
+			r.Warning = why
+		}
+	}
+	return r
 }
 
 // Provider consulta el catálogo de un motor.
 type Provider interface {
 	// Engine devuelve el motor que sirve el proveedor.
 	Engine() Engine
-	// ListVersions devuelve las versiones disponibles (estables primero).
+	// ListVersions devuelve las versiones disponibles.
 	ListVersions(ctx context.Context) ([]Version, error)
 	// Resolve resuelve una versión pedida (vacía = última estable) a pines.
 	Resolve(ctx context.Context, version string) (Resolved, error)
@@ -192,4 +249,22 @@ func (r *Registry) Provider(name string) (Provider, error) {
 // List devuelve los motores en orden estable.
 func (r *Registry) List() []Engine {
 	return Order
+}
+
+// Resolve es la ruta ÚNICA de resolución: delega en el proveedor del motor y
+// valida el invariante de pins obligatorios antes de devolver el resultado. Es
+// el punto por el que deben pasar CLI, TUI y MCP.
+func (r *Registry) Resolve(ctx context.Context, engine, version string) (Resolved, error) {
+	p, err := r.Provider(engine)
+	if err != nil {
+		return Resolved{}, err
+	}
+	res, err := p.Resolve(ctx, version)
+	if err != nil {
+		return Resolved{}, err
+	}
+	if err := res.Validate(p.Engine()); err != nil {
+		return Resolved{}, err
+	}
+	return normalizeResolved(p.Engine(), res), nil
 }

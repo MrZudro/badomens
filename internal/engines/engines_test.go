@@ -50,11 +50,11 @@ func TestPickVersion(t *testing.T) {
 		{Version: "1.21.3", Stable: true},
 		{Version: "1.21.4", Stable: true},
 	}
-	v, err := pickVersion(list, "1.21.3")
+	v, err := pickVersion("paper", list, "1.21.3")
 	if err != nil || v.Version != "1.21.3" {
 		t.Fatalf("pick: %v %+v", err, v)
 	}
-	v, err = pickVersion(list, "")
+	v, err = pickVersion("paper", list, "")
 	if err != nil || v.Version != "1.21.4" {
 		t.Fatalf("pick latest: %v %+v", err, v)
 	}

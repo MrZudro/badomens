@@ -92,6 +92,7 @@ Cada comando imprime un documento JSON estable. Detalle: 'badomens <comando> --h
 		newCommandsCmd(e),
 		newMCPCmd(e),
 		newEngineCmd(e),
+		newCatalogCmd(e),
 		newInstanceCmd(e),
 		newSetupCmd(e),
 		newWorldCmd(e),

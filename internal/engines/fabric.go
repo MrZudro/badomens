@@ -219,7 +219,13 @@ func (p *fabricProvider) ListVersions(ctx context.Context) ([]Version, error) {
 	}
 	versions := make([]Version, 0, len(games))
 	for _, g := range games {
-		versions = append(versions, Version{Version: g.Version, Stable: g.Stable})
+		// La propia meta de Fabric publica la versión del juego: es la verificación
+		// de compatibilidad con el motor (trivalente: nunca se asume).
+		versions = append(versions, Version{
+			Version:       g.Version,
+			Stable:        g.Stable,
+			Compatibility: CompatibilityCompatible,
+		})
 	}
 	return versions, nil
 }

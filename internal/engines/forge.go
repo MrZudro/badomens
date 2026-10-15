@@ -231,11 +231,12 @@ func (p *forgeProvider) ListVersions(ctx context.Context) ([]Version, error) {
 			continue
 		}
 		out = append(out, Version{
-			Version: promo.MC,
-			Stable:  true,
-			Channel: ChannelRelease,
-			Build:   promo.Build,
-			Detail:  promo.Pin() + " (" + promo.Channel + ")",
+			Version:       promo.MC,
+			Stable:        true,
+			Channel:       ChannelRelease,
+			Build:         promo.Build,
+			Detail:        promo.Pin() + " (" + promo.Channel + ")",
+			Compatibility: CompatibilityCompatible,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
