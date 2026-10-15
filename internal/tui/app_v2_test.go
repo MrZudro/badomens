@@ -122,8 +122,17 @@ func TestAppWizardCreaInstancia(t *testing.T) {
 		a.Update(press(string(r)))
 	}
 	wz, _ := a.router.Top().(*wizardScreen)
+	// Al entrar en «Revisar» el asistente pide la resolución del servicio (motor,
+	// versión y pines) para que el resumen sea exactamente lo que se crea (AD-02):
+	// hay que entregarla antes de poder crear.
 	for i := 0; i < 20 && wz != nil && wz.step != len(wz.steps)-1; i++ {
-		a.Update(tea.KeyMsg{Type: tea.KeyTab})
+		_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if cmd != nil {
+			a.Update(ejecutaCmd(cmd))
+		}
+	}
+	if wz.resolution == nil {
+		t.Fatal("el resumen exige la resolución del servicio antes de crear")
 	}
 	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter}) // crear en "Revisar"
 	if cmd == nil {

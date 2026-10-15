@@ -5,7 +5,8 @@
 │ │ Pantalla                                                                           │                                                                                                               │
 │ │ [S] Iniciar «survival» (no disponible)    [P] Detener «survival» (guarda el mund…  │                                                                                                               │
 │ │ [R] Reiniciar «survival»                  [B] Crear backup ahora                   │                                                                                                               │
-│ │ [C] Copiar dirección de conexión          [Enter] Ver detalle de «survival»        │                                                                                                               │
+│ │ [C] Copiar dirección de conexión          [D] Eliminar «survival» para siempre     │                                                                                                               │
+│ │ [Enter] Ver detalle de «survival»                                                  │                                                                                                               │
 │ │                                                                                    │                                                                                                               │
 │ │ Globales (cualquier pantalla)                                                      │                                                                                                               │
 │ │ [F1] ayuda                  [F2] salud                  [TAB] desplazarse          │                                                                                                               │
@@ -16,7 +17,6 @@
 │ │                                                                                    │                                                                                                               │
 │ │                                                                                    │                                                                                                               │
 │ ╰────────────────────────────────────────────────────────────────────────────────────╯                                                                                                               │
-│                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │

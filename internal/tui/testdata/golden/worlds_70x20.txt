@@ -13,7 +13,7 @@
 │ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │
-│ │[G] Regenerar el mundo (borra el actual)                        │ │
+│ │[G] Regenerar el mundo (se apaga y reinicia)                    │ │
 │ │[L] Cargar desde un archivo (.zip)                              │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                 │

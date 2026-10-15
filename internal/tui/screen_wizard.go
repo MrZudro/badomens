@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/MrZudro/badomens/internal/engines"
 	"github.com/MrZudro/badomens/internal/host"
 	"github.com/MrZudro/badomens/internal/idle"
+	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/ports"
 	"github.com/MrZudro/badomens/internal/provision"
 	"github.com/MrZudro/badomens/internal/result"
@@ -30,6 +32,10 @@ type wizardCreatedMsg struct {
 	// (AC-10): la configuración puede estar escrita aunque falle el arranque.
 	outcome result.Outcome
 	err     error
+	// mismatch explica que la configuración PERSISTIDA no coincide con el resumen
+	// revisado ("" = coincide): nunca se informa de un éxito silencioso sobre una
+	// configuración distinta de la revisada (AD-02/T-08).
+	mismatch string
 }
 
 type wizardVersionsMsg struct {
@@ -39,7 +45,23 @@ type wizardVersionsMsg struct {
 	// respuesta tardía de una consulta que ya quedó obsoleta (§7).
 	seq      int
 	versions []engines.Version
-	err      error
+	// stale etiqueta una lista que procede de caché vencida o del catálogo
+	// embebido; status y warning explican su antigüedad y su incertidumbre.
+	stale   bool
+	status  engines.CatalogStatus
+	warning string
+	err     error
+}
+
+// wizardResolvedMsg trae la resolución (pins finales) del servicio para el motor
+// y la versión pedidos. Lleva motor, versión y secuencia para poder descartar una
+// respuesta que ya no corresponde a la selección vigente (§7/AD-02).
+type wizardResolvedMsg struct {
+	engine  string
+	version string
+	seq     int
+	res     engines.Resolved
+	err     error
 }
 
 type wizardHostMsg struct{ cap host.Capacity }
@@ -95,6 +117,12 @@ type wizardScreen struct {
 	showSNAPS    bool
 	pickingVer   bool
 	versionsSeen bool
+	// verStale, verWarning y verAge describen la frescura de la lista mostrada:
+	// una caché vencida se muestra ETIQUETADA, nunca como lo más reciente
+	// confirmado.
+	verStale   bool
+	verWarning string
+	verAge     string
 	// pickerW/pickerCols recuerdan el ancho y las columnas del último render del
 	// panel de versiones: la navegación en rejilla (4 flechas) los necesita.
 	pickerW    int
@@ -105,6 +133,18 @@ type wizardScreen struct {
 	// verSeq numera las peticiones de catálogo: las respuestas de una petición
 	// anterior se descartan (§7).
 	verSeq int
+
+	// Resolución VIGENTE del servicio (motor + versión): el resumen y el payload
+	// de creación se construyen SOLO desde aquí, nunca desde índices ni valores
+	// por defecto (AD-02). Se descarta al cambiar de motor o de versión.
+	resolution *engines.Resolved
+	resEngine  string
+	// resVersion es la versión PEDIDA con la que se obtuvo la resolución (puede
+	// ser "" si el servicio eligió la última estable): dice si sigue vigente.
+	resVersion string
+	resSeq     int
+	resolving  bool
+	resErr     string
 
 	// Ayuda larga del campo (F1/?).
 	helpOpen bool
@@ -177,8 +217,43 @@ func (w *wizardScreen) start(mode int) tea.Cmd {
 			{title: "Revisar", fields: nil},
 		}
 	}
+	// Cada paso termina en la celda «Continuar a X →»: SOLO Enter sobre ella (o
+	// Tab) avanza de paso; ↓ nunca cambia de paso (P-02/UX-02/UX-03).
+	w.steps = withContinueCells(w.steps)
+	w.clearResolution()
 	w.syncInput()
 	return w.loadVersions()
+}
+
+// continueKey identifica la celda que cierra la lista de campos de un paso.
+const continueKey = "__continue__"
+
+// withContinueCells añade la celda «Continuar a X →» al final de cada paso salvo
+// el último (el resumen se confirma creando).
+func withContinueCells(steps []wizStep) []wizStep {
+	for i := range steps {
+		if i == len(steps)-1 {
+			continue
+		}
+		steps[i].fields = append(steps[i].fields, wizField{key: continueKey, kind: "continue"})
+	}
+	return steps
+}
+
+// continueLabel es el texto de la celda de continuación del paso activo.
+func (w *wizardScreen) continueLabel() string {
+	if w.step < 0 || w.step >= len(w.steps)-1 {
+		return "Continuar →"
+	}
+	return "Continuar a " + w.steps[w.step+1].title + " →"
+}
+
+// clearResolution descarta la resolución vigente: cualquier cambio de motor o de
+// versión la invalida (AD-02).
+func (w *wizardScreen) clearResolution() {
+	w.resolution, w.resEngine, w.resErr, w.resVersion = nil, "", "", ""
+	w.resolving = false
+	w.resSeq++
 }
 
 func (w *wizardScreen) currentStep() *wizStep {
@@ -226,6 +301,7 @@ func (w *wizardScreen) loadVersions() tea.Cmd {
 		return nil
 	}
 	w.versions, w.verLoading, w.verCursor, w.verErr = nil, true, 0, ""
+	w.verStale, w.verWarning, w.verAge = false, "", ""
 	return w.versionsCmd()
 }
 
@@ -241,8 +317,43 @@ func (w *wizardScreen) versionsCmd() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 		defer cancel()
+		// La lista viaja CON su estado (frescura y aviso): la UI puede etiquetar
+		// una caché vencida sin inventarse el dato, y nunca muestra una lista
+		// vacía silenciosa (Fase 5/§2.2).
 		list, err := ref.Catalog.Versions(ctx, engine, all)
-		return wizardVersionsMsg{engine: engine, snaps: all, seq: seq, versions: list, err: err}
+		return wizardVersionsMsg{
+			engine: engine, snaps: all, seq: seq,
+			versions: list.Versions, stale: list.Stale,
+			status: list.Status, warning: list.Warning,
+			err: err,
+		}
+	}
+}
+
+// refreshVersions fuerza el refresco del catálogo (el equivalente a
+// `catalog refresh`, por la MISMA ruta del servicio) y vuelve a pedir la lista:
+// es el atajo de actualización del panel y el reintento tras un fallo (§2.2).
+func (w *wizardScreen) refreshVersions() tea.Cmd {
+	ref, engine, all := w.svc, w.engine.Name, w.showSNAPS
+	w.verSeq++
+	seq := w.verSeq
+	w.verLoading, w.verErr = true, ""
+	delete(w.verCache, verKeyOf(engine, all))
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		defer cancel()
+		_, rerr := ref.Catalog.Refresh(ctx, engine)
+		list, lerr := ref.Catalog.Versions(ctx, engine, all)
+		err := lerr
+		if err == nil {
+			err = rerr
+		}
+		return wizardVersionsMsg{
+			engine: engine, snaps: all, seq: seq,
+			versions: list.Versions, stale: list.Stale,
+			status: list.Status, warning: list.Warning,
+			err: err,
+		}
 	}
 }
 
@@ -251,7 +362,7 @@ func (w *wizardScreen) versionsCmd() tea.Cmd {
 // vigentes: las respuestas tardías se descartan en silencio (§7). La lista sí se
 // guarda en la caché por motor, porque es válida para la clave que la pidió.
 func (w *wizardScreen) noteVersions(msg wizardVersionsMsg) {
-	if msg.err == nil && msg.versions != nil {
+	if msg.err == nil {
 		w.verCache[verKeyOf(msg.engine, msg.snaps)] = msg.versions
 	}
 	if msg.seq != w.verSeq || msg.engine != w.engine.Name || msg.snaps != w.showSNAPS {
@@ -259,14 +370,21 @@ func (w *wizardScreen) noteVersions(msg wizardVersionsMsg) {
 	}
 	w.versions, w.verLoading, w.versionsSeen = msg.versions, false, true
 	w.verEngine = msg.engine
+	w.verStale, w.verWarning = msg.stale, msg.warning
+	w.verAge = msg.status.Age
 	if msg.err != nil {
-		w.err = "no se pudieron cargar las versiones: " + msg.err.Error()
+		// El fallo se queda VISIBLE en el panel de versiones, con reintento: nunca
+		// una lista vacía silenciosa (§2.2). Si además hay una lista utilizable
+		// (caché previa válida), se conserva y el error se muestra como aviso.
+		w.verErr = "no se pudieron cargar las versiones: " + msg.err.Error()
+		if len(msg.versions) == 0 {
+			w.versions = nil
+		}
 		return
 	}
+	w.verErr = ""
 	w.pickRecommended()
-}
-
-// toggleHelp abre o cierra la ayuda larga del campo activo (F1/?).
+} // toggleHelp abre o cierra la ayuda larga del campo activo (F1/?).
 func (w *wizardScreen) toggleHelp() {
 	if w.helpOpen {
 		w.helpOpen = false
@@ -306,6 +424,9 @@ func (w *wizardScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		return w, nil
 	case wizardVersionsMsg:
 		w.noteVersions(msg)
+		return w, nil
+	case wizardResolvedMsg:
+		w.noteResolved(msg)
 		return w, nil
 	case wizardCreatedMsg:
 		if msg.err != nil {
@@ -372,6 +493,7 @@ func (w *wizardScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 func (w *wizardScreen) handleVersionPicker(km tea.KeyMsg) (Screen, tea.Cmd) {
 	switch km.String() {
 	case "esc":
+		// Esc cierra el panel SIN cambiar la versión elegida (UX-03).
 		w.pickingVer = false
 		w.verErr = ""
 		w.syncInput()
@@ -384,10 +506,15 @@ func (w *wizardScreen) handleVersionPicker(km tea.KeyMsg) (Screen, tea.Cmd) {
 	case "l", "right":
 		w.moveVerCursor(1, 0)
 	case "s":
-		// Cada variante (releases/snapshots) tiene su propia caché.
+		// Cada variante (releases/snapshots) tiene su propia caché: separar los
+		// snapshots/betas es cosa del canal, no de la pantalla (T-01).
 		w.showSNAPS = !w.showSNAPS
 		w.verErr = ""
 		return w, w.loadVersions()
+	case "R":
+		// Atajo de refresco del catálogo (catalog refresh) y reintento tras un
+		// fallo (§2.2).
+		return w, w.refreshVersions()
 	case "enter":
 		sel := w.verSelect(w.pickerInner())
 		it, ok := sel.Selected()
@@ -401,8 +528,11 @@ func (w *wizardScreen) handleVersionPicker(km tea.KeyMsg) (Screen, tea.Cmd) {
 		f, _ := w.currentField()
 		f.value = it.Value
 		w.setField(f)
+		// La versión cambia: la resolución anterior deja de valer (AD-02) y, si ya
+		// estamos en el resumen, se pide la nueva.
+		w.clearResolution()
 		w.pickingVer, w.verErr, w.err = false, "", ""
-		return w, nil
+		return w, w.afterStepChange()
 	}
 	return w, nil
 }
@@ -423,16 +553,28 @@ func (w *wizardScreen) moveVerCursor(dx, dy int) {
 }
 
 // verSelect construye el selector ÚNICO (components.Selector) desde las versiones
-// cargadas: en rejilla alineada cuando hay ancho, en lista vertical si no.
+// cargadas: en rejilla alineada cuando hay ancho y agrupado por versión mayor
+// (con los snapshots/betas aparte). NO filtra nada por su cuenta: lista TODO lo
+// que devuelve el servicio, que ya garantiza que cada versión tiene artefacto
+// descargable (QC-04); solo marca como no elegible lo que el servicio declara
+// incompatible, explicando el motivo.
 func (w *wizardScreen) verSelect(inner int) *components.Selector {
 	items := make([]components.SelectItem, 0, len(w.versions))
 	for _, v := range w.versions {
 		it := components.SelectItem{
-			Value: v.ID(), Label: v.ID(), Detail: versionDetail(v), Recommended: v.Recommended,
+			Value: v.ID(), Label: v.ID(), Detail: versionDetail(v),
+			Recommended: v.Recommended, Group: verGroup(v),
 		}
-		if !v.Compatible {
+		if v.Recommended {
+			it.Detail = joinDetail(it.Detail, "última estable")
+		}
+		switch {
+		case v.Compatibility == engines.CompatibilityIncompatible:
 			it.Disabled = true
-			it.DisabledWhy = v.IncompatibleWhy
+			it.DisabledWhy = versionIncompatibleWhy(v)
+			it.Detail = joinDetail(it.Detail, "incompatible")
+		case !v.Compatible && v.Compatibility != engines.CompatibilityCompatible:
+			it.Detail = joinDetail(it.Detail, "sin verificar")
 		}
 		items = append(items, it)
 	}
@@ -443,6 +585,60 @@ func (w *wizardScreen) verSelect(inner int) *components.Selector {
 	sel := components.NewSelectorMode("VERSIONES", items, mode)
 	sel.SetCursor(w.verCursor)
 	return sel
+}
+
+// verGroup agrupa las versiones por versión mayor (1.21.x) y aparte los
+// snapshots y las betas, que no son estables (QC-05). El orden de los grupos es
+// el de la fuente: la pantalla no reordena nada (T-01).
+func verGroup(v engines.Version) string {
+	switch v.Channel {
+	case engines.ChannelRelease, "":
+		if major := twoSegments(v.Version); major != "" {
+			return "Minecraft " + major + ".x"
+		}
+		return "Otras versiones"
+	case engines.ChannelSnapshot:
+		return "Snapshots"
+	}
+	return "Betas"
+}
+
+// twoSegments devuelve los dos primeros segmentos numéricos de una versión
+// («1.21.4» → «1.21»), o "" si no tiene esa forma.
+func twoSegments(version string) string {
+	parts := strings.Split(strings.TrimSpace(version), ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	for _, p := range parts[:2] {
+		if p == "" {
+			return ""
+		}
+		for _, r := range p {
+			if r < '0' || r > '9' {
+				return ""
+			}
+		}
+	}
+	return parts[0] + "." + parts[1]
+}
+
+// joinDetail añade una nota a un detalle existente sin dejar separadores sueltos.
+func joinDetail(detail, note string) string {
+	detail = strings.TrimSpace(detail)
+	if detail == "" {
+		return note
+	}
+	return detail + " · " + note
+}
+
+// versionIncompatibleWhy explica por qué el servicio marca una versión como no
+// utilizable (con respaldo si no dio motivo).
+func versionIncompatibleWhy(v engines.Version) string {
+	if strings.TrimSpace(v.IncompatibleWhy) != "" {
+		return v.IncompatibleWhy
+	}
+	return "el catálogo la marca como incompatible con este motor"
 }
 
 // pickerInner es el ancho interior del panel de versiones en el último render.
@@ -463,8 +659,10 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 			if isPort {
 				c = w.schedulePort()
 			}
-			w.advance()
-			return w, c
+			// Enter confirma el campo y mueve el foco al siguiente (incluida la
+			// celda «Continuar»): cambiar de PASO es cosa de Enter sobre esa celda
+			// o de Tab (P-02).
+			return w, tea.Batch(c, w.advance())
 		case "esc":
 			w.commitTextField()
 			w.edit = false
@@ -489,7 +687,7 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 		}
 		return w, func() tea.Msg { return popScreenMsg{} }
 	case "tab":
-		w.advance()
+		return w, w.advance()
 	case "shift+tab":
 		if w.step > 0 {
 			w.step--
@@ -498,12 +696,10 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 			w.syncInput()
 		}
 	case "down", "j":
-		if st := w.currentStep(); st != nil && len(st.fields) > 0 {
+		// ↓ mueve la selección y NUNCA cambia de paso (P-02/UX-02): al llegar a la
+		// celda «Continuar a X →» se detiene ahí.
+		if st := w.currentStep(); st != nil && w.cur < len(st.fields)-1 {
 			w.cur++
-			if w.cur >= len(st.fields) {
-				w.advance()
-				return w, nil
-			}
 			w.syncInput()
 		}
 	case "up", "k":
@@ -533,8 +729,9 @@ func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
 		return w.enterField()
 	}
 	return w, nil
-} // commitTextField vuelca el valor escrito al campo activo.
+}
 
+// commitTextField vuelca el valor escrito al campo activo.
 func (w *wizardScreen) commitTextField() {
 	f, ok := w.currentField()
 	if !ok || f.kind != "text" {
@@ -692,27 +889,42 @@ func (w *wizardScreen) portStatusLine() string {
 }
 
 // advance pasa al siguiente campo o, si es el último, al siguiente paso.
-func (w *wizardScreen) advance() {
+// advance pasa al siguiente campo o, si ya está en la celda de continuación, al
+// siguiente paso. Es la ruta de Tab y del final de un campo editado: NUNCA la de
+// ↓ (P-02).
+func (w *wizardScreen) advance() tea.Cmd {
 	st := w.currentStep()
 	if st != nil && w.cur < len(st.fields)-1 {
 		w.cur++
 		w.syncInput()
-		return
+		return nil
 	}
-	w.nextStep()
+	return w.nextStep()
 }
 
-// enterField activa edición o avanza de paso si es "Revisar".
+// enterField activa la edición del campo enfocado, avanza de paso si es la celda
+// «Continuar a X →» o crea la instancia si es el resumen.
 func (w *wizardScreen) enterField() (Screen, tea.Cmd) {
 	if w.step == len(w.steps)-1 {
+		// El resumen solo crea con la resolución del servicio ya en la mano: así lo
+		// que se muestra es lo que se guarda (AD-02). Si falta, se pide y se avisa.
+		if cmd := w.ensureResolution(); cmd != nil {
+			w.err = "resolviendo motor, versión y pines con el catálogo…"
+			return w, cmd
+		}
+		if w.resolution == nil && w.resErr != "" {
+			w.err = w.resErr + " · vuelve a pulsar [Enter] para reintentar"
+			return w, nil
+		}
 		return w, w.create()
 	}
 	f, ok := w.currentField()
 	if !ok {
-		w.nextStep()
-		return w, nil
+		return w, w.nextStep()
 	}
 	switch f.kind {
+	case "continue":
+		return w, w.nextStep()
 	case "version":
 		w.pickingVer = true
 		w.verErr = ""
@@ -731,8 +943,80 @@ func (w *wizardScreen) enterField() (Screen, tea.Cmd) {
 	return w, nil
 }
 
+// readyToCreate indica que el resumen está completo: nombre, sin error y con una
+// resolución (pins finales) vigente del servicio.
+func (w *wizardScreen) readyToCreate() bool {
+	return strings.TrimSpace(w.nameValue()) != "" && w.resolution != nil && w.resErr == "" && !w.resolving
+}
+
+// nameValue devuelve el nombre escrito en el asistente.
+func (w *wizardScreen) nameValue() string {
+	for _, st := range w.steps {
+		if f, ok := st.findField("name"); ok {
+			return f.value
+		}
+	}
+	return ""
+}
+
+// ensureResolution pide la resolución del servicio si la vigente no corresponde
+// ya al motor y a la versión elegidos (AD-02).
+func (w *wizardScreen) ensureResolution() tea.Cmd {
+	if w.resolving {
+		return nil
+	}
+	version := strings.TrimSpace(w.versionValue())
+	if w.resolution != nil && w.resEngine == w.engine.Name && w.resVersion == version && w.resErr == "" {
+		return nil
+	}
+	return w.resolveCmd()
+}
+
+// resolveCmd pide al servicio los pins finales de motor + versión.
+func (w *wizardScreen) resolveCmd() tea.Cmd {
+	ref, engine, version := w.svc, w.engine.Name, strings.TrimSpace(w.versionValue())
+	w.resSeq++
+	seq := w.resSeq
+	w.resolving, w.resErr = true, ""
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		res, err := ref.Catalog.Resolve(ctx, engine, version)
+		return wizardResolvedMsg{engine: engine, version: version, seq: seq, res: res, err: err}
+	}
+}
+
+// noteResolved adopta la resolución SOLO si sigue siendo la vigente (ni motor ni
+// versión han cambiado desde que se pidió): las respuestas tardías se descartan
+// sin tocar el estado (§7/AD-02).
+func (w *wizardScreen) noteResolved(msg wizardResolvedMsg) {
+	if msg.seq != w.resSeq || msg.engine != w.engine.Name || msg.version != strings.TrimSpace(w.versionValue()) {
+		return
+	}
+	w.resolving = false
+	if msg.err != nil {
+		w.resolution = nil
+		w.resErr = "no se pudo resolver la versión: " + msg.err.Error()
+		return
+	}
+	res := msg.res
+	w.resolution, w.resEngine, w.resErr, w.resVersion = &res, msg.engine, "", msg.version
+}
+
+// afterStepChange prepara el paso recién abierto: al entrar en el resumen se pide
+// la resolución vigente para poder mostrar los valores FINALES antes de crear.
+func (w *wizardScreen) afterStepChange() tea.Cmd {
+	if w.step == len(w.steps)-1 {
+		return w.ensureResolution()
+	}
+	return nil
+}
+
 // cycle cambia el valor del campo de ciclo enfocado. Al cambiar de motor
 // devuelve el Cmd de versiones (desde la caché si ya se pidió, RF-5).
+// cycle cambia el valor del campo de ciclo enfocado. Al cambiar de motor se
+// RESETEA la versión, se descarta la resolución anterior y se recarga la lista
+// válida para el nuevo motor (AD-02/§3.2).
 func (w *wizardScreen) cycle(d int) tea.Cmd {
 	f, ok := w.currentField()
 	if !ok || f.kind != "cycle" {
@@ -743,12 +1027,14 @@ func (w *wizardScreen) cycle(d int) tea.Cmd {
 		w.engine = engines.Order[w.engineIdx]
 		f.value = w.engine.Name
 		w.setField(f)
-		// El motor cambia el catálogo de versiones: se descarta la versión
-		// anterior y se elige la recomendada del nuevo motor (RF-5).
+		// El motor cambia el catálogo de versiones: se descarta la versión anterior
+		// y se elige la recomendada del nuevo motor (RF-5); la resolución anterior
+		// deja de valer (AD-02).
 		if v, ok := w.currentStep().findField("version"); ok {
 			v.value = ""
 			w.steps[w.step].fields = replaceField(w.steps[w.step].fields, v)
 		}
+		w.clearResolution()
 		return w.loadVersions()
 	}
 	idx := 0
@@ -786,29 +1072,28 @@ func (w *wizardScreen) enableWhitelist() {
 	}
 }
 
-func (w *wizardScreen) nextStep() bool {
-	if w.step < len(w.steps)-1 {
-		w.step++
-		w.cur = 0
-		w.err = ""
-		w.syncInput()
-		return true
+// nextStep abre el paso siguiente (y, si es el resumen, pide la resolución).
+func (w *wizardScreen) nextStep() tea.Cmd {
+	if w.step >= len(w.steps)-1 {
+		return nil
 	}
-	return false
+	w.step++
+	w.cur = 0
+	w.err = ""
+	w.syncInput()
+	return w.afterStepChange()
 }
 
+// pickRecommended marca la versión recomendada del motor como elección por
+// defecto. Si cambia la versión elegida, la resolución anterior deja de valer.
 func (w *wizardScreen) pickRecommended() {
-	// Marca la versión recomendada del motor como elección por defecto.
 	for _, v := range w.versions {
 		if v.Recommended && v.Compatible {
-			st := w.currentStep()
-			if st == nil {
-				return
-			}
-			for i, f := range st.fields {
+			for i, f := range w.steps[0].fields {
 				if f.key == "version" && f.value == "" {
 					f.value = v.ID()
-					st.fields[i] = f
+					w.steps[0].fields[i] = f
+					w.clearResolution()
 				}
 			}
 			return
@@ -817,15 +1102,25 @@ func (w *wizardScreen) pickRecommended() {
 }
 
 // buildRequest reúne los valores del asistente en una petición de creación.
+// buildRequest reúne los valores del asistente en una petición de creación. El
+// motor y la versión salen del objeto Resolved del SERVICIO (nunca de índices ni
+// de valores por defecto): es lo que garantiza que se cree exactamente lo que se
+// revisó en el resumen (AD-02).
 func (w *wizardScreen) buildRequest() provision.Request {
 	req := provision.Request{Engine: w.engine.Name, Start: true}
+	if w.resolution != nil {
+		if w.resEngine != "" {
+			req.Engine = w.resEngine
+		}
+		req.Version = w.resolution.Version
+	} else {
+		req.Version = strings.TrimSpace(w.versionValue())
+	}
 	for _, st := range w.steps {
 		for _, f := range st.fields {
 			switch f.key {
 			case "name":
 				req.Name = f.value
-			case "version":
-				req.Version = f.value
 			case "seed":
 				req.Seed = f.value
 			case "memory":
@@ -883,6 +1178,9 @@ func (w *wizardScreen) idleConfig() (idle.Config, bool) {
 	return idle.Config{}, false
 }
 
+// create crea la instancia con la resolución VIGENTE ya mostrada en el resumen y
+// VERIFICA después que la configuración persistida coincide con ella: si no
+// coincide, no se informa de un éxito silencioso (AD-02/T-08).
 func (w *wizardScreen) create() tea.Cmd {
 	req := w.buildRequest()
 	if strings.TrimSpace(req.Name) == "" {
@@ -892,31 +1190,76 @@ func (w *wizardScreen) create() tea.Cmd {
 		w.syncInput()
 		return nil
 	}
+	if !w.readyToCreate() {
+		w.err = "falta la resolución del catálogo (motor, versión y pines): vuelve a pulsar [Enter]"
+		return nil
+	}
 	w.err = ""
 	ref := w.svc
 	cfg, wantIdle := w.idleConfig()
+	// La resolución viaja por copia: el payload y la verificación usan los MISMOS
+	// valores que vio el usuario en el resumen.
+	res := *w.resolution
+	engine := req.Engine
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 		defer cancel()
-		slug, outcome, err := ref.Creator.Create(ctx, req)
-		if err != nil {
-			return wizardCreatedMsg{slug: slug, outcome: outcome, err: err}
+		out, err := ref.Creator.Create(ctx, req)
+		mismatch := ""
+		if err == nil && out.Spec != nil {
+			mismatch = createdMismatch(engine, res, out.Spec)
 		}
-		if wantIdle {
-			_ = ref.Idle.Set(ctx, slug, cfg)
+		if err == nil && wantIdle {
+			_ = ref.Idle.Set(ctx, out.Slug, cfg)
 		}
-		return wizardCreatedMsg{slug: slug, outcome: outcome}
+		return wizardCreatedMsg{slug: out.Slug, outcome: out.Outcome, err: err, mismatch: mismatch}
 	})
 }
 
-// createErrorText redacta el fallo de creación distinguiendo un fallo total de
-// uno PARCIAL (la instancia ya quedó escrita) (AC-10).
+// createdMismatch compara la configuración PERSISTIDA con el resumen revisado:
+// motor, versión y pines obligatorios. Devuelve el texto de la discrepancia ("" si
+// coinciden). Se comparan VALORES, nunca índices (AD-02).
+func createdMismatch(engine string, res engines.Resolved, spec *instance.Spec) string {
+	if spec == nil {
+		return "no se pudo leer la configuración creada para verificarla"
+	}
+	eng := engines.Paper
+	if e, ok := engines.ByName(engine); ok {
+		eng = e
+	}
+	var diffs []string
+	if spec.Engine != eng.Name {
+		diffs = append(diffs, "motor guardado «"+spec.Engine+"» ≠ «"+eng.Name+"»")
+	}
+	if res.Version != "" && spec.Version != res.Version {
+		diffs = append(diffs, "versión guardada «"+spec.Version+"» ≠ «"+res.Version+"»")
+	}
+	for _, dep := range engines.RequiredPins(eng) {
+		want := strings.TrimSpace(res.Pins[dep])
+		got := ""
+		if spec.Pins != nil {
+			got = strings.TrimSpace(spec.Pins[dep])
+		}
+		if want != got {
+			diffs = append(diffs, "pin "+dep+": guardado «"+got+"» ≠ resuelto «"+want+"»")
+		}
+	}
+	if len(diffs) == 0 {
+		return ""
+	}
+	return strings.Join(diffs, " · ")
+}
+
+// createErrorText redacta el fallo de creación distinguiendo un fallo total de uno
+// PARCIAL (la instancia ya quedó escrita) (AC-10).
 func createErrorText(msg wizardCreatedMsg) string {
 	if msg.outcome == result.OutcomePartial {
 		return "no se pudo terminar de crear (quedó parcialmente aplicada; revisa «" + msg.slug + "»): " + msg.err.Error()
 	}
 	return "no se pudo crear: " + msg.err.Error()
-} // --- Vista (§5.12): todo dentro de paneles y ajustado a width×height ---
+}
+
+// --- Vista (§5.12): todo dentro de paneles y ajustado a width×height ---
 
 // View pinta el asistente: el modo, el paso actual o la ayuda larga, siempre
 // dentro de paneles. El resultado ocupa exactamente height líneas de width
@@ -987,14 +1330,17 @@ func (w *wizardScreen) modeView(width, height int) string {
 
 // stepView pinta el Stepper en una línea y, debajo, el panel del paso (o el
 // selector de versiones) con el panel AYUDA lateral cuando hay ancho (§5.12).
+// stepView pinta el Stepper en una línea y, debajo, el panel del paso con su panel
+// lateral: las VERSIONES cuando el selector está abierto (UX-03) o la AYUDA del
+// campo. En terminales estrechas el selector ocupa el cuerpo entero.
 func (w *wizardScreen) stepView(width, height int) string {
 	stepper := truncCells(components.Stepper(w.stepTitles(), w.step, w.pal), width)
 	panelH := height - 1
 	if panelH < 2 {
 		return stepper
 	}
-	title, right := w.panelHead()
-	formW, helpW, split := wizardSplit(width)
+	formW, sideW, split := wizardSplit(width, w.pickingVer)
+	title, right := w.panelHead(split)
 	inner := width - 2
 	if split {
 		inner = formW - 2
@@ -1003,15 +1349,26 @@ func (w *wizardScreen) stepView(width, height int) string {
 	if !split {
 		return stepper + "\n" + panel
 	}
-	help := components.Panel("AYUDA", "", strings.Join(w.helpBody(helpW-2, panelH-2), "\n"), helpW, panelH, false, w.pal, w.ascii)
-	return stepper + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, panel, help)
+	sideTitle, sideRight := "AYUDA", ""
+	sideBody := w.helpBody(sideW-2, panelH-2)
+	if w.pickingVer {
+		// Panel LATERAL de versiones: rejilla alineada, agrupada por versión mayor
+		// y con el pie de teclas (Enter elige, Esc cierra, R actualiza).
+		sideTitle, sideRight = "VERSIONES", w.engine.Label
+		sideBody = w.pickerBody(sideW-2, panelH-2)
+	}
+	side := components.Panel(sideTitle, sideRight, strings.Join(sideBody, "\n"), sideW, panelH, true, w.pal, w.ascii)
+	return stepper + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, panel, side)
 }
 
 // panelHead devuelve el título y el contador del panel activo: el selector de
 // versiones y el paso Revisar tienen su propio título (§5.12).
-func (w *wizardScreen) panelHead() (title, right string) {
+// panelHead devuelve el título y el contador del panel activo. Con el selector de
+// versiones abierto y sin panel lateral (terminal estrecha), el cuerpo ES el panel
+// de versiones; el resumen tiene su propio título (§5.12).
+func (w *wizardScreen) panelHead(split bool) (title, right string) {
 	switch {
-	case w.pickingVer:
+	case w.pickingVer && !split:
 		return "VERSIONES", w.engine.Label
 	case w.step == len(w.steps)-1:
 		return "REVISAR", w.stepCounter()
@@ -1040,7 +1397,9 @@ func (w *wizardScreen) stepTitles() []string {
 // panelBody compone el cuerpo del panel activo: formulario, versiones o resumen.
 func (w *wizardScreen) panelBody(inner, budget int, sideHelp bool) []string {
 	switch {
-	case w.pickingVer:
+	case w.pickingVer && !sideHelp:
+		// Sin sitio para el panel lateral, el selector de versiones ocupa el
+		// cuerpo entero del panel.
 		return w.pickerBody(inner, budget)
 	case w.step == len(w.steps)-1:
 		return w.reviewBody(inner, budget)
@@ -1051,22 +1410,39 @@ func (w *wizardScreen) panelBody(inner, budget int, sideHelp bool) []string {
 // wizardSplit reparte el ancho entre el panel del formulario y el de ayuda: en
 // terminales anchas hay panel lateral; en las estrechas el formulario ocupa todo
 // el ancho y la ayuda corta va bajo cada campo (§4.1).
-func wizardSplit(w int) (formW, helpW int, ok bool) {
+// wizardSplit reparte el ancho entre el panel del formulario y el lateral. El
+// selector de versiones necesita más sitio que la ayuda: sus columnas deben verse
+// alineadas y con separación visible (UX-03/QC-05).
+func wizardSplit(w int, versions bool) (formW, sideW int, ok bool) {
 	if w < 100 {
 		return w, 0, false
 	}
-	helpW = w * 34 / 100
-	if helpW < 30 {
-		helpW = 30
+	if versions {
+		sideW = w * 55 / 100
+		if sideW < 30 {
+			sideW = 30
+		}
+		if sideW > 70 {
+			sideW = 70
+		}
+		formW = w - sideW
+		if formW < 48 {
+			return w, 0, false
+		}
+		return formW, sideW, true
 	}
-	if helpW > 56 {
-		helpW = 56
+	sideW = w * 34 / 100
+	if sideW < 30 {
+		sideW = 30
 	}
-	formW = w - helpW
+	if sideW > 56 {
+		sideW = 56
+	}
+	formW = w - sideW
 	if formW < 52 {
 		return w, 0, false
 	}
-	return formW, helpW, true
+	return formW, sideW, true
 }
 
 // formBody compone el formulario del paso en `budget` líneas: mantiene visible
@@ -1122,7 +1498,16 @@ func (w *wizardScreen) formBody(inner, budget int, sideHelp bool) []string {
 }
 
 // fieldPrefix compone el prefijo de un campo (puntero + etiqueta + «: »).
+// fieldPrefix compone el prefijo de un campo (puntero + etiqueta + «: »). La celda
+// de continuación no es un campo: se pinta como el botón que es.
 func (w *wizardScreen) fieldPrefix(f wizField, focused bool) string {
+	if f.kind == "continue" {
+		label := w.continueLabel()
+		if focused {
+			return components.Pointer(w.ascii) + " " + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.Accent)).Render(label)
+		}
+		return "  " + lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render(label)
+	}
 	label := f.key
 	if h, ok := help.Get(f.key); ok && h.Title != "" {
 		label = h.Title
@@ -1138,11 +1523,19 @@ func (w *wizardScreen) fieldPrefix(f wizField, focused bool) string {
 
 // fieldValue pinta el valor de un campo: el texto en edición, el valor guardado
 // o el estado explícito cuando aún no hay valor (nunca un hueco en blanco).
+// fieldValue pinta el valor de un campo: el texto en edición, el valor guardado
+// o el estado explícito cuando aún no hay valor (nunca un hueco en blanco).
 func (w *wizardScreen) fieldValue(f wizField) string {
 	switch f.kind {
+	case "continue":
+		// La celda no tiene valor: el prefijo ya lleva el texto completo.
+		return ""
 	case "bool":
 		return onOff(f.boolVal)
 	case "version":
+		if w.verErr != "" && len(w.versions) == 0 {
+			return "no disponible: Enter reintenta la carga"
+		}
 		if f.value == "" {
 			if w.verLoading {
 				return "cargando versiones…"
@@ -1199,14 +1592,16 @@ func (w *wizardScreen) statusBlocks(inner int) [][]string {
 }
 
 // versionIssue avisa si la versión elegida está marcada como no utilizable.
+// versionIssue avisa si la versión elegida está marcada como no utilizable por el
+// SERVICIO (nunca por un filtro propio de la UI).
 func (w *wizardScreen) versionIssue() string {
 	v := w.versionValue()
 	if v == "" {
 		return ""
 	}
 	for _, ver := range w.versions {
-		if ver.ID() == v && !ver.Compatible {
-			return "esa versión no se puede usar: " + ver.IncompatibleWhy
+		if ver.ID() == v && ver.Compatibility == engines.CompatibilityIncompatible {
+			return "esa versión no se puede usar: " + versionIncompatibleWhy(ver)
 		}
 	}
 	return ""
@@ -1224,6 +1619,10 @@ func (w *wizardScreen) versionValue() string {
 
 // pickerBody lista las versiones dentro del panel VERSIONES, con la ventana
 // centrada en el cursor y el pie de teclas siempre visible (RF-5).
+// pickerBody lista las versiones dentro del panel VERSIONES, con la ventana
+// centrada en el cursor y el pie de teclas siempre visible (RF-5). Ante un fallo
+// o una lista vacía muestra un error CLARO con reintento y, si la lista procede de
+// caché vencida, lo dice (nunca una lista vacía silenciosa, §2.2).
 func (w *wizardScreen) pickerBody(inner, budget int) []string {
 	if budget < 1 {
 		return nil
@@ -1232,30 +1631,54 @@ func (w *wizardScreen) pickerBody(inner, budget int) []string {
 		inner = 8
 	}
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted))
-	hint := truncCells(muted.Render("[S] "+snapToggle(w.showSNAPS)+" · [Enter] Elegir · [Esc] Cerrar"), inner)
-	switch {
-	case w.verLoading:
-		return []string{muted.Render("⟳ cargando catálogo…"), hint}
-	case len(w.versions) == 0:
-		return []string{muted.Render("(sin versiones; se usará el catálogo embebido)"), hint}
+	bad := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Bad))
+	warn := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Warn))
+	hint := truncCells(muted.Render("[R] Actualizar · [S] "+snapToggle(w.showSNAPS)+" · [Enter] Elegir · [Esc] Cerrar"), inner)
+	if w.verLoading {
+		return []string{muted.Render("⟳ cargando el catálogo…"), hint}
 	}
-	// El selector único decide modo (lista/rejilla), ancho de columna fijo y
-	// columnas adaptables al ancho de terminal (QC-05).
+	if len(w.versions) == 0 {
+		msg := "no hay versiones que mostrar para " + w.engine.Label
+		if w.verErr != "" {
+			msg = w.verErr
+		}
+		out := []string{bad.Render(components.Cross(w.ascii) + " " + truncCells(msg, inner-2))}
+		if note := w.verNote(); note != "" {
+			out = append(out, warn.Render(truncCells(note, inner)))
+		}
+		out = append(out, muted.Render("[R] Reintentar la carga · [Esc] Cerrar"))
+		return out[:min(len(out), budget)]
+	}
+	// El selector único decide modo (lista/rejilla), ancho de columna fijo,
+	// columnas adaptables al ancho de terminal y los grupos por versión mayor
+	// (QC-05).
 	w.pickerW = inner
 	sel := w.verSelect(inner)
-	w.pickerCols = sel.GridColumns(inner, w.versionValue())
-	lines := sel.Render(inner, w.versionValue(), w.pal, w.ascii)
-	reserved := 1 // el pie de teclas
-	if w.verErr != "" {
-		reserved++
+	cols := sel.GridColumns(inner, w.versionValue())
+	if sel.Mode == components.SelectList {
+		cols = 1
 	}
+	w.pickerCols = cols
+	lines := sel.Render(inner, w.versionValue(), w.pal, w.ascii)
+	focus := sel.FocusLine(cols)
+	reserved := 1 // el pie de teclas
+	notes := 0
+	if w.verErr != "" {
+		notes++
+	}
+	if w.verNote() != "" {
+		notes++
+	}
+	reserved += notes
 	if reserved > budget {
 		reserved = budget
 	}
-	focus := sel.Cursor() / max(1, w.pickerCols)
 	out := windowLines(lines, focus, budget-reserved)
 	if w.verErr != "" {
-		out = append(out, truncCells(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Bad)).Render(components.Cross(w.ascii)+" "+w.verErr), inner))
+		out = append(out, warn.Render(truncCells("⚠ "+w.verErr+" · [R] Reintentar", inner)))
+	}
+	if note := w.verNote(); note != "" {
+		out = append(out, warn.Render(truncCells(note, inner)))
 	}
 	out = append(out, hint)
 	if len(out) > budget {
@@ -1264,8 +1687,30 @@ func (w *wizardScreen) pickerBody(inner, budget int) []string {
 	return out
 }
 
+// verNote etiqueta la frescura del catálogo mostrado: una cache vencida (stale) o
+// el catálogo embebido se dicen tal cual, con su antigüedad legible (§2.2/Fase 4).
+func (w *wizardScreen) verNote() string {
+	var parts []string
+	if w.verStale {
+		note := "⚠ caché vencida (stale)"
+		if w.verAge != "" {
+			note += " · " + w.verAge
+		}
+		parts = append(parts, note)
+	}
+	if strings.TrimSpace(w.verWarning) != "" {
+		parts = append(parts, "⚠ "+w.verWarning)
+	}
+	return strings.Join(parts, " · ")
+}
+
 // reviewBody resume la instancia a crear dentro del panel REVISAR, dejando
 // visibles el error (si lo hubo) y la tecla de creación (§8).
+// reviewBody resume la instancia a crear dentro del panel REVISAR: primero la
+// RESOLUCIÓN del servicio (motor, versión, loader, build, Java, imagen, pines,
+// compatibilidad y aviso) y después el resto de valores del asistente. Lo que se
+// ve aquí es exactamente lo que se guarda (AD-02/UX-05), y la creación se verifica
+// contra ello.
 func (w *wizardScreen) reviewBody(inner, budget int) []string {
 	if budget < 1 {
 		return nil
@@ -1274,12 +1719,16 @@ func (w *wizardScreen) reviewBody(inner, budget int) []string {
 		inner = 8
 	}
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted))
-	var lines []string
+	lines := append([]string{}, w.resolutionLines(inner)...)
+	lines = append(lines, "")
 	for _, st := range w.steps {
 		if st.title == "Revisar" {
 			continue
 		}
 		for _, f := range st.fields {
+			if f.kind == "continue" {
+				continue
+			}
 			label := f.key
 			if h, ok := help.Get(f.key); ok && h.Title != "" {
 				label = h.Title
@@ -1295,7 +1744,7 @@ func (w *wizardScreen) reviewBody(inner, budget int) []string {
 	}
 	var tail []string
 	if w.err != "" {
-		tail = append(tail, truncCells(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Bad)).Render(components.Cross(w.ascii)+" "+w.err), inner))
+		tail = append(tail, blockLines(components.Cross(w.ascii), w.err, w.pal.Bad, inner)...)
 	}
 	if w.offlineRisk() {
 		// El resumen repite el riesgo antes de crear, como bloque completo (sin
@@ -1309,12 +1758,119 @@ func (w *wizardScreen) reviewBody(inner, budget int) []string {
 	if avail < 0 {
 		avail = 0
 	}
+	// La resolución manda: si no cabe todo, se recorta la lista de valores del
+	// asistente, pero se dice CUÁNTOS quedan fuera (nunca un recorte silencioso).
 	out := append([]string{}, lines[:min(len(lines), avail)]...)
+	if ocultos := len(lines) - len(out); ocultos > 0 && len(out) > 0 {
+		out[len(out)-1] = muted.Render(truncCells("  … ("+itoa(ocultos)+" valores más en los pasos · [Esc] para revisar)", inner))
+	}
 	out = append(out, tail...)
 	if len(out) > budget {
 		out = out[:budget]
 	}
 	return out
+}
+
+// resolutionLines describe los valores FINALES que el servicio va a aplicar:
+// son los del objeto Resolved (motor, versión, loader, build, Java, imagen y
+// pines) más el veredicto de compatibilidad y su aviso.
+func (w *wizardScreen) resolutionLines(inner int) []string {
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted))
+	head := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.Accent)).Render("Resolución del servicio de catálogo")
+	if w.resolving {
+		return []string{head, muted.Render("  ⟳ resolviendo motor, versión y pines…")}
+	}
+	if w.resErr != "" {
+		return append([]string{head},
+			blockLines(components.Cross(w.ascii), w.resErr+" · vuelve a pulsar [Enter] para reintentar", w.pal.Bad, inner)...)
+	}
+	if w.resolution == nil {
+		return []string{head, muted.Render("  (se resolverá antes de crear)")}
+	}
+	r := w.resolution
+	// El orden es el de PRIORIDAD: si el cuerpo es corto, se recortan las últimas
+	// filas y nunca desaparecen motor, versión, compatibilidad ni Java.
+	rows := [][2]string{
+		{"Motor", engineLabel(w.resEngine)},
+		{"Versión", r.Version},
+		{"Compatibilidad", w.compatibilityText(r.Compatibility)},
+		{"Java", w.javaText(r)},
+		{"Build", orDash(r.Build)},
+		{"Loader", orDash(r.LoaderVersion)},
+		{"Pines", pinsText(r.Pins)},
+		{"Imagen", orDash(r.Image)},
+	}
+	out := []string{head}
+	for _, row := range rows {
+		out = append(out, truncCells("  "+row[0]+": "+row[1], inner))
+	}
+	if strings.TrimSpace(r.Warning) != "" {
+		out = append(out, blockLines(components.Warn(w.ascii), "Aviso: "+r.Warning, w.pal.Warn, inner)...)
+	}
+	return out
+}
+
+// engineLabel describe el motor que aplicará el servicio (con respaldo).
+func engineLabel(name string) string {
+	if e, ok := engines.ByName(name); ok {
+		return e.Label + " (" + e.Name + ")"
+	}
+	if strings.TrimSpace(name) == "" {
+		return "(sin motor)"
+	}
+	return name
+}
+
+// javaText redacta el requisito de Java y su ORIGEN: verificado por el proveedor,
+// inferido por regla o desconocido (nunca se asume Java 8, AC-05).
+func (w *wizardScreen) javaText(r *engines.Resolved) string {
+	if r.JavaMajor <= 0 {
+		return components.Warn(w.ascii) + " desconocido (no se puede confirmar)"
+	}
+	origin := "sin origen declarado"
+	switch r.JavaStatus {
+	case engines.JavaStatusVerified:
+		origin = "verificado por el proveedor"
+	case engines.JavaStatusInferred:
+		origin = "inferido por regla"
+	case engines.JavaStatusUnknown:
+		origin = "desconocido"
+	}
+	return strconv.Itoa(r.JavaMajor) + " (" + origin + ")"
+}
+
+// compatibilityText traduce el veredicto TRIVALENTE con icono y texto (nunca solo
+// color): compatible, incompatible o sin verificar.
+func (w *wizardScreen) compatibilityText(c engines.Compatibility) string {
+	switch c {
+	case engines.CompatibilityCompatible:
+		return components.Check(w.ascii) + " compatible"
+	case engines.CompatibilityIncompatible:
+		return components.Cross(w.ascii) + " incompatible"
+	case engines.CompatibilityUnknown:
+		return components.Warn(w.ascii) + " sin verificar (unknown)"
+	}
+	if c == "" {
+		return components.Warn(w.ascii) + " sin verificar"
+	}
+	return string(c)
+}
+
+// pinsText lista los pines obligatorios resueltos, en orden estable.
+func pinsText(pins map[string]string) string {
+	if len(pins) == 0 {
+		return "(ninguno)"
+	}
+	keys := make([]string, 0, len(pins))
+	for k := range pins {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, k+"="+pins[k])
+	}
+	return strings.Join(parts, " · ")
 }
 
 // helpBody compone el panel AYUDA con la explicación del campo enfocado.
@@ -1447,11 +2003,20 @@ func (w *wizardScreen) Actions() []components.Action {
 		}
 	}
 	out := []components.Action{}
-	if w.step == len(w.steps)-1 {
-		out = append(out, components.Action{
+	last := w.step == len(w.steps)-1
+	if last {
+		// El resumen no promete crear antes de tener la resolución del servicio: si
+		// falta, la acción se muestra deshabilitada con el motivo (nunca un éxito
+		// que no coincide con lo revisado, AD-02/T-08).
+		act := components.Action{
 			ID: "wizard.create", Verb: "Crear", Object: "la instancia", Key: "enter",
-			Hint: "Crea la instancia con los valores revisados.", Kind: components.Primary,
-		})
+			Hint: "Crea la instancia con los valores resueltos del resumen.", Kind: components.Primary,
+		}
+		if !w.readyToCreate() {
+			act.Disabled = true
+			act.DisabledReason = "falta la resolución del catálogo"
+		}
+		out = append(out, act)
 	} else {
 		out = append(out, components.Action{
 			ID: "wizard.next", Verb: "Siguiente", Object: "paso", Key: "tab",
@@ -1482,7 +2047,7 @@ func (w *wizardScreen) Invoke(id string) tea.Cmd {
 	case "wizard.advanced":
 		return w.start(1)
 	case "wizard.next":
-		w.nextStep()
+		return w.nextStep()
 	case "wizard.whitelist":
 		w.enableWhitelist()
 	case "wizard.useport":

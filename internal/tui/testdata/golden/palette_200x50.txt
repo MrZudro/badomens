@@ -8,6 +8,7 @@
 │ │   Reiniciar «survival»  r                                  │                                                                                                                                       │
 │ │   Crear backup ahora  b                                    │                                                                                                                                       │
 │ │   Copiar dirección de conexión  c                          │                                                                                                                                       │
+│ │   Eliminar «survival» para siempre  D                      │                                                                                                                                       │
 │ │   Ver detalle de «survival»  enter                         │                                                                                                                                       │
 │ │   Abrir Salud del sistema  F2                              │                                                                                                                                       │
 │ │   Crear una instancia nueva  ctrl+n                        │                                                                                                                                       │
@@ -17,7 +18,6 @@
 │ │                                                            │                                                                                                                                       │
 │ │                                                            │                                                                                                                                       │
 │ ╰────────────────────────────────────────────────────────────╯                                                                                                                                       │
-│                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │
 │                                                                                                                                                                                                      │

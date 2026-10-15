@@ -8,8 +8,8 @@
 │ │    El programa que ejecuta el servidor; define si puedes usar plugins o mods.                                                            ││los backup: por eso solo admite minúsculas, números y │ │
 │ │  Versión de Minecraft: 1.21.4                                                                                                            ││guiones. No se puede cambiar después de crear la      │ │
 │ │    Los jugadores deben usar esta versión. La marcada ★ es la recomendada.                                                                ││instancia.                                            │ │
-│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││                                                      │ │
-│ │                                                                                                                                          ││Ejemplo: survival-amigos                              │ │
+│ │  Continuar a Mundo →                                                                                                                     ││                                                      │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││Ejemplo: survival-amigos                              │ │
 │ │                                                                                                                                          ││Por defecto: obligatorio                              │ │
 │ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││Solo al crear                                         │ │

@@ -5,7 +5,7 @@
 │ ╭─ BACKUPS ───────────── 3 copias ─╮ │
 │ │▶ 20260114T101500         128.5 MB│ │
 │ │[B] Crear backup ahora            │ │
-│ │[X] Restaurar (crea backup previo)│ │
+│ │[X] Restaurar (valida checksum)   │ │
 │ │[Shift+X] Podar antiguos          │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │

@@ -13,7 +13,7 @@
 │ │✓ Puerto 25565 · libre                                          │ │
 │ │Nadie lo está usando: la instancia puede publicarlo.            │ │
 │ │                                                                │ │
-│ │[R] Comprobar de nuevo · [C] Copiar dirección                   │ │
+│ │[R] Comprobar de nuevo · [C] Elegir dirección a copiar          │ │
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                 │

@@ -1563,14 +1563,20 @@ func TestRedEstadosPuerto(t *testing.T) {
 	inst.portErr = ""
 
 	// La pista de atajos y las teclas [R]/[C] de la pestaña Red.
-	if !strings.Contains(stripANSI(inst.netView(106, 24)), "[R] Comprobar de nuevo · [C] Copiar dirección") {
-		t.Fatal("la pista de atajos [R]/[C] debe verse en el panel de puerto")
+	pista := stripANSI(inst.netView(106, 24))
+	if !strings.Contains(pista, "[R] Comprobar de nuevo") || !strings.Contains(pista, "[C] Elegir") {
+		t.Fatalf("la pista de atajos [R]/[C] debe verse en el panel de puerto:\n%s", pista)
 	}
 	if _, cmd := a.Update(press("R")); cmd == nil {
 		t.Fatal("R debe pedir una nueva comprobación del puerto")
 	}
-	if _, cmd := a.Update(press("C")); cmd == nil {
-		t.Fatal("C debe copiar la dirección de conexión")
+	// [C] en Red ofrece ELEGIR la dirección a copiar (y la copia si solo hay una).
+	_, cmdC := a.Update(press("C"))
+	if cmdC == nil {
+		t.Fatal("C debe ofrecer la dirección de conexión a copiar")
+	}
+	if msg := ejecutaCmd(cmdC); msg == nil {
+		t.Fatal("C debe producir un aviso de copiado o un selector")
 	}
 
 	// Compacto: una sola columna (paneles apilados), sin desborde.

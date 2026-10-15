@@ -34,7 +34,7 @@ func TestNewFakeListaYDetalla(t *testing.T) {
 
 func TestFakeLifecycleRegistra(t *testing.T) {
 	s := NewFake([]*instance.Spec{fakeSpec("alpha")})
-	lf := s.Lifecycle.(*fakeLifecycle)
+	lf := s.Lifecycle.(*FakeLifecycle)
 	ctx := context.Background()
 	_ = lf.Start(ctx, "alpha")
 	_ = lf.Stop(ctx, "alpha")

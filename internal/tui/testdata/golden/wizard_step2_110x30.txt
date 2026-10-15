@@ -14,9 +14,9 @@
 │ │    Solo entran los jugadores que apruebes. Muy recomendada si el m…││                                  │ │
 │ │  Operadores:                                                       ││                                  │ │
 │ │    Jugadores con poder de administrador dentro del juego (comandos…││                                  │ │
+│ │  Continuar a Recursos →                                            ││                                  │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││                                  │ │
 │ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││                                  │ │
-│ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │

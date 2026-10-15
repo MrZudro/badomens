@@ -3,7 +3,7 @@
 │ Survival  🟢 En línea   Resumen   Consola   [Jugadores]   Backups   Mundos   Plugins/Mods (SOON)   Red   Auto-apagado   Ajustes                                                                      │
 │ ╭─ ▸ ACCESO ────────────────────────────────────────────────────────────────────────────────────────────── en vivo ─╮╭─ OPERADORES ──────────────────────────────────────────────────────────── 1 ─╮ │
 │ │Whitelist: ✓ ACTIVADA                                                                                              ││  ▶ ana                                                                      │ │
-│ │En línea: no se pudo medir (¿servidor apagado?)                                                                    ││                                                                             │ │
+│ │En línea: 3 de 20 conectados ahora (Server List Ping)                                                              ││                                                                             │ │
 │ │                                                                                                                   ││                                                                             │ │
 │ │Jugadores permitidos                                                                                               ││                                                                             │ │
 │ │  ▶ ana                                                                                                            ││                                                                             │ │
@@ -47,4 +47,4 @@
 │ │[R] Verificar de nuevo                                                                                             ││                                                                             │ │
 │ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯╰─────────────────────────────────────────────────────────────────────────────╯ │
 │ Whitelist: ✓ ACTIVADA                                                                                                                                                                                │
-└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [C] Copiar   [V] Cambiar   [G] Regenerar   [L] Cargar   [D] Borrar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────────────────────┘
+└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [C] Copiar   [B] Backup   [V] Cambiar   [G] Regenerar   [L] Cargar   [D] Borrar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ──────────┘

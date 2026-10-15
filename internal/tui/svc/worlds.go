@@ -86,6 +86,12 @@ func (r *realWorlds) stopIfRunning(ctx context.Context, slug string) (bool, erro
 }
 
 // Regenerate borra el mundo activo y guarda la nueva semilla en el registro.
+//
+// POLÍTICA ÚNICA de regeneración (RG-03/SEC-09): si la instancia está corriendo se
+// DETIENE, se borran los mundos, se guarda la semilla y se vuelve a ARRANCAR. No
+// hay una segunda política («programada para el próximo arranque»): la UI está
+// obligada a declarar esta política en el diálogo ANTES de confirmar y a mostrar el
+// progreso mientras está en curso (la notificación del resultado llega después).
 func (r *realWorlds) Regenerate(ctx context.Context, slug, seed string) error {
 	spec, err := r.m.Load(slug)
 	if err != nil {
@@ -202,10 +208,15 @@ type WorldCall struct {
 // FakeWorlds es el adaptador determinista de Worlds para los tests (sin disco ni
 // Docker): registra cada llamada y mantiene la biblioteca en memoria. Se obtiene
 // del servicio con una aserción de tipo: s.Worlds.(*svc.FakeWorlds).
+//
+// Regenerate e ImportZip también aplican el efecto sobre el registro del fake
+// (la semilla queda guardada), para que la verificación posterior de la UI (T-08)
+// se comporte como con el servicio real.
 type FakeWorlds struct {
 	mu      sync.Mutex
 	library []string
 	known   map[string]bool
+	specs   map[string]*instance.Spec
 	calls   []WorldCall
 	err     error
 }
@@ -220,7 +231,11 @@ func newFakeWorlds(specs []*instance.Spec, opts FakeOptions) *FakeWorlds {
 	}
 	library := append([]string{}, opts.WorldLibrary...)
 	sort.Strings(library)
-	return &FakeWorlds{library: library, known: known, err: opts.WorldErr}
+	bySlug := make(map[string]*instance.Spec, len(specs))
+	for _, s := range specs {
+		bySlug[s.Slug] = s
+	}
+	return &FakeWorlds{library: library, known: known, specs: bySlug, err: opts.WorldErr}
 }
 
 // Library devuelve la biblioteca en memoria.
@@ -234,7 +249,8 @@ func (f *FakeWorlds) Library(context.Context) ([]string, error) {
 	return append([]string{}, f.library...), nil
 }
 
-// Regenerate registra la regeneración (slug + semilla).
+// Regenerate registra la regeneración (slug + semilla) y guarda la semilla en el
+// spec del fake, como hace el servicio real.
 func (f *FakeWorlds) Regenerate(_ context.Context, slug, seed string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -242,7 +258,13 @@ func (f *FakeWorlds) Regenerate(_ context.Context, slug, seed string) error {
 	if f.err != nil {
 		return f.err
 	}
-	return f.unknown(slug)
+	if err := f.unknown(slug); err != nil {
+		return err
+	}
+	if s, ok := f.specs[slug]; ok {
+		s.Seed = strings.TrimSpace(seed)
+	}
+	return nil
 }
 
 // ImportZip registra la importación (archivo + nombre) y añade el mundo a la

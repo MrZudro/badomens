@@ -6,9 +6,9 @@
 │ │    Número por el que se conectan los jugadores. Lo elegimos li…│ │
 │ │  Mensaje del servidor (MOTD):                                  │ │
 │ │    Texto que ven los jugadores en la lista de servidores.      │ │
+│ │  Continuar a Automatización →                                  │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
 │ │  cualquiera entra. Pulsa [W] para activar la lista blanca.     │ │
-│ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │

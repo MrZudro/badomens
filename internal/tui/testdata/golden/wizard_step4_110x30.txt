@@ -6,9 +6,9 @@
 │ │    Número por el que se conectan los jugadores. Lo elegimos libre …││de conexión (por defecto 25565).  │ │
 │ │  Mensaje del servidor (MOTD):                                      ││badomens comprueba que esté libre │ │
 │ │    Texto que ven los jugadores en la lista de servidores.          ││en tu equipo, en Docker y en la   │ │
-│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││tailnet y propone el primero libre│ │
-│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││si no lo está. Cambiarlo requiere │ │
-│ │                                                                    ││reiniciar.                        │ │
+│ │  Continuar a Automatización →                                      ││tailnet y propone el primero libre│ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││si no lo está. Cambiarlo requiere │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││reiniciar.                        │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││Ejemplo: 25565                    │ │
 │ │                                                                    ││                                  │ │

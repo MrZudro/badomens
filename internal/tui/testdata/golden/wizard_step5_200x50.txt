@@ -8,8 +8,8 @@
 │ │    Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máximo 24 h.                                                                   ││juega.                                                │ │
 │ │  Arrancar al crear: sí                                                                                                                   ││Por defecto: desactivado                              │ │
 │ │    Inicia el servidor en cuanto termina la creación.                                                                                     ││                                                      │ │
+│ │  Continuar a Revisar →                                                                                                                   ││                                                      │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││                                                      │ │
-│ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │

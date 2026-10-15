@@ -8,9 +8,9 @@
 │ │    El programa que ejecuta el servidor; define si puedes usar plug…││técnico (slug) que nombra la      │ │
 │ │  Versión de Minecraft: 1.21.4                                      ││carpeta, el contenedor y los      │ │
 │ │    Los jugadores deben usar esta versión. La marcada ★ es la recom…││backup: por eso solo admite       │ │
-│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││minúsculas, números y guiones. No │ │
-│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││se puede cambiar después de crear │ │
-│ │                                                                    ││la instancia.                     │ │
+│ │  Continuar a Mundo →                                               ││minúsculas, números y guiones. No │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││se puede cambiar después de crear │ │
+│ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││la instancia.                     │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││Ejemplo: survival-amigos          │ │
 │ │                                                                    ││Por defecto: obligatorio          │ │

@@ -3,7 +3,7 @@
 │ Survival  🟢 En línea   Resumen   Consola   [Jugadores]   Backups   Mundos   Plugins/Mods (SOON)   Red  …  │
 │ ╭─ ▸ ACCESO ──────────────────────────────────────── en vivo ─╮╭─ OPERADORES ──────────────────────── 1 ─╮ │
 │ │Whitelist: ✓ ACTIVADA                                        ││  ▶ ana                                  │ │
-│ │En línea: no se pudo medir (¿servidor apagado?)              ││                                         │ │
+│ │En línea: 3 de 20 conectados ahora (Server List Ping)        ││                                         │ │
 │ │                                                             ││                                         │ │
 │ │Jugadores permitidos                                         ││                                         │ │
 │ │  ▶ ana                                                      ││                                         │ │

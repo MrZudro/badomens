@@ -216,3 +216,68 @@ pantalla actual.
   asistente y la consola conservan su uso de la tecla.
 - Las teclas de la hoja de Ayuda se pintan con `components.DisplayKey`, la misma
   traducción que usa la barra inferior: un solo formato `[Tecla] Etiqueta` (P-04).
+
+## Flujos de creación y funciones de instancia (Fases 7 y 9) — ampliación
+
+Casos nuevos: complementan los `UI-*`, `KEY-*`, `SEL-*`, `WLD-*`, `CON-*` y
+`ACL-*` anteriores (no duplican ninguna suite) y se ejecutan contra `App` +
+`Router` + `svc` (fake determinista, sin Docker ni red).
+
+### Creación rápida y avanzada (Fase 7: UX-02, UX-03, UX-04, UX-05)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| WIZ-01 | Paso 1 con el foco en la lista de campos: pulsar `↓` hasta el final y `Enter` sobre la celda «Continuar a Recursos →» | `↓` **nunca** cambia de paso (se detiene en la última celda); `Enter` sobre la celda de continuación (o `Tab`) sí avanza. `↑` vuelve sin cambiar de paso. |
+| WIZ-02 | `Enter` sobre **Versión** en ancho: panel lateral de versiones; navegar con las 4 flechas; `Enter` selecciona y cierra; `Esc` cierra sin cambiar | El panel usa el selector único en rejilla (ancho de columna fijo, columnas adaptables, grupos por versión mayor y snapshots/betas aparte); `Enter` guarda el **valor** señalado y `Esc` no cambia la selección. |
+| WIZ-03 | Fallo de carga de versiones con `stale` | Error claro en el panel con `[R] Reintentar` y la etiqueta de caché vencida con su antigüedad. Nunca una lista vacía silenciosa. |
+| WIZ-04 | Cambiar de motor en el asistente | Se **resetea** la versión, se descarta la resolución anterior y se recarga la lista válida del nuevo motor; `Esc` conserva motor y versión elegidos. |
+| WIZ-05 | Recorrer combinaciones motor/versión, cambiar de motor, retroceder con `Esc`, avanzar y crear | La config **persistida** coincide con la selección y con el resumen (motor, versión y pines obligatorios) en el 100 % de los casos. |
+| WIZ-06 | La configuración persistida difiere del resumen (fallo simulado) | No hay éxito silencioso: se avisa de la discrepancia con el detalle (T-08/AD-02). |
+| WIZ-07 | `[R]` en el panel de versiones | Fuerza el refresco del catálogo por la misma ruta del servicio (`catalog refresh`), deja el panel cargando y retira la etiqueta de caché vencida al terminar. |
+| WIZ-08 | Resolución tardía de un motor/versión anterior | Se descarta sin tocar el estado vigente (patrón de secuencia). |
+| WIZ-09 | Versiones del servicio | La UI lista **todas** las versiones que devuelve el servicio (no reintroduce filtros); solo marca como no elegible lo que el servicio declara `incompatible`, explicando el motivo, y anota lo que no está verificado. |
+
+### Jugadores (Fase 9/§7: UX-08)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| PLAY-01 | Servidor en 🟡 Cargando y `[R]`/apertura de la pestaña | **No se consulta** (0 peticiones) y el mensaje dice que está iniciando y que se reintentará. |
+| PLAY-02 | Apagado, iniciando, consulta no disponible (RCON/SLP) y error de conexión | Cuatro mensajes **distintos**, con la causa y la acción recomendada (arrancar, esperar, habilitar el método, reintentar). |
+| PLAY-03 | Respuesta tardía de otra instancia (o de una consulta anterior) | No pisa el estado de la instancia actual. |
+| PLAY-04 | Servidor en línea | Se muestran jugadores y cupo con el método (Server List Ping / RCON) y se consulta una sola vez. |
+
+### Regeneración (Fase 9/§9: UX-10, RG-01..03)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| REG-01 | `[G]` → semilla → diálogo | El diálogo **declara la política** («apagar y regenerar»: se detiene, se borra el mundo y se vuelve a arrancar) antes de confirmar, detalla qué se pierde, ofrece backup previo y arranca con el foco en el botón seguro; `↑/↓` y `←/→` mueven el foco; cancelar no llama al servicio. |
+| REG-02 | Confirmar la regeneración | Progreso visible: semáforo 🟡 Cargando + indicador **persistente** «Regeneración en curso» en la pestaña Mundos y operación en curso en la barra de estado; al terminar, el indicador desaparece y el resultado se notifica (semilla y backup). |
+| REG-03 | `[B]` en el diálogo | Se crea **un** backup previo y después se regenera. |
+| REG-04 | Fallo del servicio y resultado no verificable | Un fallo deja estado recuperable y lo explica («revisa el estado: si quedó detenido, arráncalo con [S]»); un resultado que no se puede verificar no se presenta como éxito (T-08). |
+
+### Borrado (Fase 9/§11: UX-13)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| DEL-01 | `[D]` desde la lista; `Esc`; nombre que no coincide | Nunca se borra sin confirmación: abrir el diálogo y cancelar no llaman al servicio; un nombre distinto no borra y el diálogo sigue abierto. |
+| DEL-02 | `[D]` desde la lista con el nombre exacto (servidor en línea) | El diálogo detalla qué se elimina (contenedor, datos, mundo, backups) y avisa del apagado; se **detiene antes** de borrar (`stop` → `delete`); se verifica que la instancia ya no existe, la fila desaparece y el resultado se notifica. |
+| DEL-03 | `[D]` desde el detalle | La misma confirmación reforzada y el mismo resultado (la acción está disponible en la barra con la etiqueta «Borrar»). |
+| DEL-04 | `Ctrl+B` en el diálogo | Con el nombre escrito hace un backup previo y después borra; **sin** el nombre no borra (la confirmación reforzada es obligatoria). |
+| DEL-05 | Fallo al borrar | No se informa de éxito: se explica el estado recuperable (puede haber quedado detenida) y la instancia sigue en el registro. |
+
+### Copiar dirección (Fase 9/§10: UX-12)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| COPY-01 | `[c]` en la lista y en el detalle | Copia la dirección preferida (tailnet) y lo confirma citando la dirección. |
+| COPY-02 | Sin ninguna dirección posible | El mensaje explica **por qué** no hay dirección y **qué hacer** (arrancar con `[S]`, ejecutar `tailscale up`). |
+| COPY-03 | Varias direcciones válidas (tailnet + MagicDNS + red local) en la pestaña Red con `[C]` | Se abre el selector único para **elegir**; `↑/↓` navegan, `Enter` copia la elegida y `Esc` cierra. |
+| COPY-04 | Antes del primer arranque, sin tailnet pero con IP local | La dirección se deriva de la IP local + puerto y se copia indicando por qué red funciona. |
+
+### Backup (Fase 9/§13)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| BK-01 | `[B] Backup` en la lista y en el detalle | El atajo está visible con la etiqueta «Backup» y crea la copia desde ambas pantallas. |
+| BK-02 | `[X]` restaurar | Pide confirmación explicando que se valida el checksum y se crea un backup previo; `Esc` no restaura; `[y]` restaura el backup señalado. |
+| BK-03 (svc) | Restaurar un backup dañado o sin `sha256` | La restauración se rechaza **antes** de tocar `server/`, no se crea el backup previo y el error explica el problema de integridad. |

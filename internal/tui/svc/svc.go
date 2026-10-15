@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/MrZudro/badomens/internal/config"
 	"github.com/MrZudro/badomens/internal/dockerx"
 	"github.com/MrZudro/badomens/internal/engines"
+	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/events"
 	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/instance"
@@ -124,8 +126,12 @@ type IdleCtrl interface {
 // reglas de versiones ni de pines: pide y aplica lo que devuelve el servicio.
 type Catalog interface {
 	// Versions lista las versiones del motor (includeUnstable incluye
-	// snapshots/betas) por la ruta única del servicio.
-	Versions(ctx context.Context, engine string, includeUnstable bool) ([]engines.Version, error)
+	// snapshots/betas) por la ruta única del servicio, con su estado y su
+	// etiqueta de caché vencida: nunca una lista vacía silenciosa.
+	Versions(ctx context.Context, engine string, includeUnstable bool) (engines.ListResult, error)
+	// Refresh fuerza una consulta al proveedor (ignora el TTL) conservando el
+	// último catálogo válido si el refresco falla.
+	Refresh(ctx context.Context, engine string) (engines.RefreshResult, error)
 	// Resolve resuelve motor+versión a los pins finales, ya validados.
 	Resolve(ctx context.Context, engine, version string) (engines.Resolved, error)
 	// Status devuelve el estado del catálogo SIN tocar la red.
@@ -136,7 +142,17 @@ type Catalog interface {
 // (applied/partial/failed) viaja al llamante para poder informar de que la
 // operación quedó parcialmente aplicada (AC-10).
 type Creator interface {
-	Create(ctx context.Context, req provision.Request) (slug string, outcome result.Outcome, err error)
+	Create(ctx context.Context, req provision.Request) (CreateOutcome, error)
+}
+
+// CreateOutcome es el resultado de crear una instancia: el desenlace (applied,
+// partial, failed), el slug y el spec PERSISTIDO (nil si no llegó a escribirse).
+// El consumidor lo usa para VERIFICAR que la configuración guardada coincide con
+// lo que mostró en su resumen (T-08/AD-02).
+type CreateOutcome struct {
+	Slug    string
+	Spec    *instance.Spec
+	Outcome result.Outcome
 }
 
 // Services es la fachada que la TUI conoce.
@@ -154,6 +170,7 @@ type Services struct {
 	Idle         IdleCtrl
 	Catalog      Catalog
 	Creator      Creator
+	Players      Players
 	Access       Access
 	Worlds       Worlds
 	Infra        Infra
@@ -211,12 +228,13 @@ func New(cfg *config.Config) (*Services, error) {
 		Engines:      engines.Order,
 		Instances:    &realInstances{m: m, rt: rt},
 		Lifecycle:    &realLifecycle{rt: rt, m: m},
-		Backups:      &realBackups{be: be},
+		Backups:      &realBackups{be: be, m: m, rt: rt},
 		Ports:        &allocPorts{a: alloc},
 		DockerState:  &realDocker{cfg: cfg},
 		Idle:         &realIdle{cfg: cfg, m: m, rt: rt, be: be},
 		Catalog:      NewCatalog(catalog),
 		Creator:      &realCreator{cfg: cfg, m: m, rt: rt, catalog: catalog, alloc: alloc},
+		Players:      &realPlayers{m: m, rt: rt},
 		Access:       &realAccess{m: m, rt: rt},
 		Worlds:       &realWorlds{cfg: cfg, m: m, rt: rt, wm: &worlds.Manager{DataDir: cfg.DataDir}},
 		Infra:        newRealInfra(cfg),
@@ -452,12 +470,14 @@ type realCatalog struct{ svc *engines.CatalogService }
 // unificado (T-01). También la usan las pruebas de paridad con el servicio real.
 func NewCatalog(service *engines.CatalogService) Catalog { return &realCatalog{svc: service} }
 
-func (c *realCatalog) Versions(ctx context.Context, engine string, includeUnstable bool) ([]engines.Version, error) {
-	res, err := c.svc.ListVersions(ctx, engine, engines.Filters{IncludeUnstable: includeUnstable})
-	if err != nil {
-		return nil, err
-	}
-	return res.Versions, nil
+func (c *realCatalog) Versions(ctx context.Context, engine string, includeUnstable bool) (engines.ListResult, error) {
+	// El estado (caché fresca/vencida, aviso) viaja CON la lista: la UI puede
+	// etiquetar una caché vencida sin inventarse el dato.
+	return c.svc.ListVersions(ctx, engine, engines.Filters{IncludeUnstable: includeUnstable})
+}
+
+func (c *realCatalog) Refresh(ctx context.Context, engine string) (engines.RefreshResult, error) {
+	return c.svc.RefreshCatalog(ctx, engine)
 }
 
 func (c *realCatalog) Resolve(ctx context.Context, engine, version string) (engines.Resolved, error) {
@@ -478,17 +498,17 @@ type realCreator struct {
 	alloc   *ports.Allocator
 }
 
-func (c *realCreator) Create(ctx context.Context, req provision.Request) (string, result.Outcome, error) {
+func (c *realCreator) Create(ctx context.Context, req provision.Request) (CreateOutcome, error) {
 	res, err := provision.Create(ctx, provision.Deps{
 		Cfg: c.cfg, Manager: c.m, Resolver: c.catalog, Runtime: c.rt, Ports: c.alloc,
 	}, req)
-	if err != nil {
-		if res != nil && res.Spec != nil {
-			return res.Spec.Slug, res.Outcome, err
-		}
-		return "", result.OutcomeFailed, err
+	if res != nil && res.Spec != nil {
+		return CreateOutcome{Slug: res.Spec.Slug, Spec: res.Spec, Outcome: res.Outcome}, err
 	}
-	return res.Spec.Slug, res.Outcome, nil
+	if err != nil {
+		return CreateOutcome{Outcome: result.OutcomeFailed}, err
+	}
+	return CreateOutcome{}, nil
 }
 
 type realInstances struct {
@@ -600,27 +620,139 @@ func (l *realLifecycle) Delete(ctx context.Context, slug string) error {
 	return l.m.Remove(slug)
 }
 
-type realBackups struct{ be *backup.Backend }
+// realBackups opera sobre las copias de seguridad. Restaurar exige que la
+// instancia esté detenida (igual que el resto de escrituras sobre server/): el
+// adaptador la detiene si corría y la reanuda al terminar. Además VERIFICA el
+// sha256 del backup ANTES de tocar los datos: un archivo alterado, o sin
+// checksum, no se aplica nunca (T-08/§13).
+type realBackups struct {
+	be *backup.Backend
+	m  *instance.Manager
+	rt *runtime.Runtime
+}
 
 func (b *realBackups) List(ctx context.Context, slug string) ([]backup.Info, error) {
 	return b.be.List(slug)
 }
 
+// Create zipea server/ con el mundo ya volcado a disco cuando la instancia corre.
 func (b *realBackups) Create(ctx context.Context, slug string) error {
+	if b.running(ctx, slug) {
+		// Best-effort: el mundo se guarda antes de la copia; un fallo del volcado
+		// no impide crear el backup (el usuario ve el error de la copia si lo hay).
+		_ = b.rt.Console(ctx, slug, "save-all flush")
+	}
 	_, err := b.be.Create(slug, "")
 	return err
 }
 
+// Restore valida el checksum, detiene la instancia (si corría), crea un backup
+// previo y sustituye server/ por el contenido del backup elegido.
 func (b *realBackups) Restore(ctx context.Context, slug, name string) error {
-	// Restaurar siempre crea un backup previo (P-03).
-	if _, err := b.be.Create(slug, "pre-restore"); err != nil {
+	if verr := b.Verify(slug, name); verr != nil {
+		return verr
+	}
+	was, err := b.stopIfRunning(ctx, slug)
+	if err != nil {
 		return err
 	}
-	return b.be.Restore(slug, name)
+	// Restaurar siempre crea un backup previo (P-03).
+	if _, err := b.be.Create(slug, "pre-restore"); err != nil {
+		b.resume(slug, was)
+		return err
+	}
+	if rerr := b.be.Restore(slug, name); rerr != nil {
+		// Estado recuperable (AC-10): si la detuvimos para restaurar y el
+		// restaurar falló, se vuelve a arrancar lo que había.
+		b.resume(slug, was)
+		return rerr
+	}
+	if !was {
+		return nil
+	}
+	return b.start(slug)
 }
 
 func (b *realBackups) Prune(ctx context.Context, slug string, keep int) ([]string, error) {
 	return b.be.Prune(slug, keep)
+}
+
+// Verify comprueba que el backup existe y que su sha256 coincide con el
+// registrado. Sin checksum no se restaura: no se puede afirmar la integridad.
+func (b *realBackups) Verify(slug, name string) error {
+	items, err := b.be.List(slug)
+	if err != nil {
+		return err
+	}
+	for _, it := range items {
+		if it.Name != name {
+			continue
+		}
+		if strings.TrimSpace(it.Sha256) == "" {
+			return errx.New(errx.CodeGeneral,
+				"el backup «"+name+"» no tiene checksum: no se puede verificar su integridad",
+				"vuelve a crear el backup para poder restaurarlo")
+		}
+		sum, serr := worlds.Sha256(it.Path)
+		if serr != nil {
+			return serr
+		}
+		if !strings.EqualFold(sum, it.Sha256) {
+			return errx.New(errx.CodeGeneral,
+				"el backup «"+name+"» está dañado: el checksum no coincide",
+				"conserva el archivo y usa otro backup")
+		}
+		return nil
+	}
+	return errx.NotFound("el backup «"+name+"» no existe", "actualiza la lista de backups")
+}
+
+// running indica si la instancia corre ahora mismo (sin runtime: no).
+func (b *realBackups) running(ctx context.Context, slug string) bool {
+	if b.rt == nil {
+		return false
+	}
+	state, err := b.rt.State(ctx, slug)
+	return err == nil && state == "running"
+}
+
+// stopIfRunning detiene la instancia si estaba corriendo y dice si lo estaba.
+func (b *realBackups) stopIfRunning(ctx context.Context, slug string) (bool, error) {
+	if b.rt == nil {
+		return false, nil
+	}
+	state, err := b.rt.State(ctx, slug)
+	if err != nil {
+		return false, err
+	}
+	if state != "running" {
+		return false, nil
+	}
+	return true, b.rt.Stop(ctx, slug)
+}
+
+// resume reanuda la instancia tras un fallo si la habíamos detenido, con su
+// propio contexto: el del llamante puede estar agotado y no queremos dejar el
+// servidor apagado por un fallo de la restauración (AC-10).
+func (b *realBackups) resume(slug string, was bool) {
+	if !was {
+		return
+	}
+	_ = b.start(slug)
+}
+
+// start arranca la instancia con un contexto propio (recuperación).
+func (b *realBackups) start(slug string) error {
+	if b.m == nil || b.rt == nil {
+		return nil
+	}
+	spec, err := b.m.Load(slug)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	return b.rt.Start(ctx, spec)
 }
 
 type realDocker struct{ cfg *config.Config }

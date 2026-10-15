@@ -132,9 +132,10 @@ func TestAsistenteDebounceRetrasa(t *testing.T) {
 
 // countingCatalog cuenta las peticiones de versiones por motor + snapshots.
 type countingCatalog struct {
-	mu    sync.Mutex
-	calls map[string]int
-	items map[string][]engines.Version
+	mu        sync.Mutex
+	calls     map[string]int
+	refreshes int
+	items     map[string][]engines.Version
 }
 
 // catKey es la clave de conteo del catálogo falso (motor + snapshots), definida
@@ -161,11 +162,25 @@ func newCountingCatalog() *countingCatalog {
 	}
 }
 
-func (c *countingCatalog) Versions(_ context.Context, engine string, snaps bool) ([]engines.Version, error) {
+func (c *countingCatalog) Versions(_ context.Context, engine string, snaps bool) (engines.ListResult, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.calls[catKey(engine, snaps)]++
-	return c.items[catKey(engine, snaps)], nil
+	return engines.ListResult{
+		Engine: engine, Versions: c.items[catKey(engine, snaps)],
+		Status: engines.CatalogStatus{Engine: engine, State: engines.CatalogFresh, Source: "fake"},
+	}, nil
+}
+
+// Refresh fuerza la consulta del catálogo falso (los tests cuentan la petición).
+func (c *countingCatalog) Refresh(_ context.Context, engine string) (engines.RefreshResult, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.refreshes++
+	return engines.RefreshResult{
+		Engine: engine, Versions: c.items[catKey(engine, false)],
+		Status: engines.CatalogStatus{Engine: engine, State: engines.CatalogFresh, Source: "fake"},
+	}, nil
 }
 
 // Resolve y Status completan la fachada de catálogo (T-01) sin red: la versión

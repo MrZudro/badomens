@@ -3,17 +3,17 @@
 │ Survival  🟢 En línea   [Resumen]   Consola   Jugadores   Backups   Mundos   Plugins/Mods (SOON)   Red  …  │
 │ ╭────────────────────────────────────────────────────────────╮                                             │
 │ │ Confirmar eliminar                                         │                                             │
-│ │ Se borrarán el contenedor y todos los datos de «survival». │                                             │
+│ │ Se eliminarán el contenedor, los datos del servidor, el    │                                             │
+│ │ mundo (Overworld, Nether y End), los backups y la          │                                             │
+│ │ configuración de «survival». El servidor está EN MARCHA:   │                                             │
+│ │ se detendrá antes de borrar. Pulsa [Ctrl+B] para hacer un  │                                             │
+│ │ backup antes (recomendado).                                │                                             │
 │ │                                                            │                                             │
 │ │ Escribe «survival»: ▌                                      │                                             │
 │ │                                                            │                                             │
 │ │ · Sí, eliminar survival para siempre — escribe el nombre   │                                             │
 │ │  [N] No, volver                                            │                                             │
 │ ╰────────────────────────────────────────────────────────────╯                                             │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
-│                                                                                                            │
 │                                                                                                            │
 │                                                                                                            │
 │                                                                                                            │

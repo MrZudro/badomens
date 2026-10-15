@@ -62,6 +62,10 @@ func gDetail(tab int) func() *App {
 			inst.memHist = []float64{180, 210, 260, 240, 300, 280, 320, 300}
 			inst.memUsedMB, inst.memLimitMB = 512, 4096
 			if tab == 2 {
+				// Medición de jugadores determinista (llega por playersCmd en la app
+				// real): la captura muestra el caso correcto con su método.
+				inst.playersOnline, inst.playersKnown, inst.playersMethod = 3, true, "slp"
+				inst.playersMax = 20
 				inst.access = svc.AccessState{
 					WhitelistEnabled: true,
 					Whitelist:        []string{"ana", "luis"},
@@ -120,6 +124,20 @@ func gWizard(mode, step int) func() *App {
 			wz.step = step
 			wz.cur = 0
 			wz.syncInput()
+			if step == len(wz.steps)-1 {
+				// El resumen se captura con la RESOLUCIÓN del servicio ya en la mano
+				// (es lo que se ve antes de crear y lo que se verifica): valores
+				// deterministas para la captura dorada.
+				wz.noteResolved(wizardResolvedMsg{
+					engine: wz.engine.Name, version: wz.versionValue(), seq: wz.resSeq,
+					res: engines.Resolved{
+						Version: "1.21.4", Pins: map[string]string{"PAPER_BUILD": "123"},
+						Build: "123", JavaMajor: 21, JavaStatus: engines.JavaStatusVerified,
+						Image:         "itzg/minecraft-server:java21",
+						Compatibility: engines.CompatibilityCompatible, Source: "paper",
+					},
+				})
+			}
 		}
 		return a
 	}

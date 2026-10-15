@@ -24,7 +24,7 @@
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │
-│ │[B] Crear backup ahora · [X] Restaurar (crea backup previo) · [Shift+X] Podar antiguos                  │ │
+│ │[B] Crear backup ahora · [X] Restaurar (valida checksum) · [Shift+X] Podar antiguos                     │ │
 │ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                                                         │
 └─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ──┘

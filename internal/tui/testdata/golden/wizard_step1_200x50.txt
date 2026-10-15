@@ -4,8 +4,8 @@
 │ ╭─ Mundo ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 2/7 ─╮╭─ AYUDA ──────────────────────────────────────────────╮ │
 │ │▶ Semilla: > -2844874353865282585                                                                                                         ││La semilla fija la generación del terreno: con la     │ │
 │ │    Texto/número que genera el mapa; la misma semilla da el mismo mundo. Vacío = aleatoria.                                               ││misma semilla obtienes el mismo mundo. Déjala vacía   │ │
-│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││para un mundo aleatorio. Solo aplica al crear el      │ │
-│ │                                                                                                                                          ││mundo.                                                │ │
+│ │  Continuar a Jugadores →                                                                                                                 ││para un mundo aleatorio. Solo aplica al crear el      │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││mundo.                                                │ │
 │ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││Ejemplo: -2844874353865282585                         │ │
 │ │                                                                                                                                          ││                                                      │ │

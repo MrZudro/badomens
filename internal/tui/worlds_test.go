@@ -115,8 +115,8 @@ func TestWorldsRegenerarConConfirmacion(t *testing.T) {
 	if inst.modal == nil || inst.modalKind != "world_regen" || inst.modalValue != "42" {
 		t.Fatalf("debía abrirse el modal de regeneración: %+v", inst.modal)
 	}
-	if inst.modal.Focused != 1 {
-		t.Fatal("el foco inicial del modal debe estar en cancelar, no en el destructivo")
+	if got := inst.modal.Actions[inst.modal.Focused].ID; got != "cancel" {
+		t.Fatalf("el foco inicial del modal debe estar en cancelar, tengo %q", got)
 	}
 	out := stripANSI(a.View())
 	for _, want := range []string{"se pierde el actual", "BORRARÁ", "Nether y End", "conservar"} {
@@ -141,8 +141,15 @@ func TestWorldsRegenerarConConfirmacion(t *testing.T) {
 	a.Update(press("4"))
 	a.Update(press("2"))
 	a.Update(worldsEnter())
-	a.Update(worldsLeft())
-	if inst.modal == nil || inst.modal.Focused != 0 {
+	// ← recorre las acciones hacia la izquierda hasta «Sí, apagar y regenerar»
+	// (el diálogo ofrece además el backup previo).
+	for i := 0; i < len(inst.modal.Actions); i++ {
+		if inst.modal != nil && inst.modal.Actions[inst.modal.Focused].ID == "confirm" {
+			break
+		}
+		a.Update(worldsLeft())
+	}
+	if inst.modal == nil || inst.modal.Actions[inst.modal.Focused].ID != "confirm" {
 		t.Fatalf("← debe llevar el foco a la acción de confirmar: %+v", inst.modal)
 	}
 	_, cmd := a.Update(worldsEnter())

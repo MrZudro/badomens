@@ -260,6 +260,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.pushToast(a.cat.Tf("app.toast.docker_still", map[string]string{"cause": msg.diag.Message}), components.Destructive)
 		}
 		return a, nil
+	case chooserOpenMsg:
+		// Selector modal reutilizable (p. ej. elegir qué dirección copiar, §10):
+		// consume las teclas mientras está abierto.
+		a.router.SetOverlay(newChooserScreen(msg, a.pal, a.ascii))
+		return a, nil
+	case chooserPickedMsg:
+		a.router.ClearOverlay()
+		return a, a.applyChooserPick(msg)
 	case openInstanceMsg:
 		a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, msg.slug))
 		return a, a.router.Top().Init()
@@ -272,6 +280,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.router.Update(msg)
 		}
 		a.router.Pop()
+		if msg.mismatch != "" {
+			// T-08/AD-02: se creó, pero la configuración PERSISTIDA no coincide con
+			// el resumen revisado. Se dice tal cual, con aviso, en vez de un «creado»
+			// que ocultaría la discrepancia.
+			a.pushToast("⚠ «"+msg.slug+"» creada, pero la configuración guardada no coincide con el resumen: "+msg.mismatch, components.Destructive)
+			return a, a.poller.Cmds(nowUTC(), true, false)
+		}
 		a.pushToast(a.cat.Tf("app.toast.created", map[string]string{"name": msg.slug}))
 		return a, a.poller.Cmds(nowUTC(), true, false)
 	case themeChangedMsg:
@@ -514,6 +529,24 @@ func (a *App) invoke(id string) tea.Cmd {
 func (a *App) copyAction() tea.Cmd {
 	if inv, ok := a.router.Active().(Actioner); ok {
 		return inv.Invoke("instance.copy")
+	}
+	return nil
+}
+
+// applyChooserPick ejecuta el efecto de una opción elegida en el chooser. El
+// chooser solo ELIGE; el efecto (copiar al portapapeles) vive aquí, con su
+// notificación de corta duración (SPEC 2 §12).
+func (a *App) applyChooserPick(msg chooserPickedMsg) tea.Cmd {
+	switch msg.ID {
+	case chooserCopyAddress:
+		addr := strings.TrimSpace(msg.Value)
+		if addr == "" {
+			return nil
+		}
+		if err := copyToClipboard(addr); err != nil {
+			return a.pushToast("✖ No se pudo copiar: "+err.Error(), components.Destructive)
+		}
+		return a.pushToast("✓ Copiado: " + addr)
 	}
 	return nil
 }

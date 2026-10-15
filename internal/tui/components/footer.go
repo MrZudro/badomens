@@ -28,7 +28,7 @@ var footerKeyText = map[string]string{
 	"f1": "F1", "f2": "F2", "f3": "F3",
 	"tab": "TAB", "shift+tab": "Shift+Tab", "esc": "Esc", "enter": "Enter",
 	"ctrl+p": "Ctrl+P", "ctrl+q": "Ctrl+Q", "ctrl+n": "Ctrl+N",
-	"ctrl+c": "Ctrl+C", "ctrl+r": "Ctrl+R", "ctrl+t": "Ctrl+T",
+	"ctrl+c": "Ctrl+C", "ctrl+r": "Ctrl+R", "ctrl+t": "Ctrl+T", "ctrl+b": "Ctrl+B",
 	"up": "↑", "down": "↓", "left": "←", "right": "→", " ": "Espacio",
 }
 

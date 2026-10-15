@@ -5,7 +5,7 @@
 │ │ Comandos                       │   │
 │ │ ▶ Iniciar «survival»  s        │   │
 │ │   Detener «survival» (guarda … │   │
-│ │ ▼ 7 más                        │   │
+│ │ ▼ 8 más                        │   │
 │ │ Escribe para filtrar…  Enter   │   │
 │ │ ejecutar · Esc cerrar          │   │
 │ Comandos                             │

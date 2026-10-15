@@ -14,8 +14,8 @@
 │ │    Solo entran los jugadores que apruebes. Muy recomendada si el modo online está inactivo.                                              ││                                                      │ │
 │ │  Operadores:                                                                                                                             ││                                                      │ │
 │ │    Jugadores con poder de administrador dentro del juego (comandos, modo creativo).                                                      ││                                                      │ │
+│ │  Continuar a Recursos →                                                                                                                  ││                                                      │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││                                                      │ │
-│ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │

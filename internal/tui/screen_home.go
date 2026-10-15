@@ -54,6 +54,8 @@ type homeReqMsg struct {
 	dockerOK bool
 	tsIP     string
 	tsOK     bool
+	// localIP es la IPv4 local del equipo (LAN); "" si no se pudo resolver.
+	localIP string
 }
 
 // homeScreen es el dashboard: lista de instancias + detalle + tarjeta de conexión.
@@ -84,6 +86,13 @@ type homeScreen struct {
 	// magic es el estado EN VIVO de MagicDNS (Fase 8 §5): alimenta la tarjeta de
 	// conexión en lugar del valor persistido y obsoleto del Spec.
 	magic magicState
+	// modal es la confirmación explícita del borrado (§11): nunca se borra sin
+	// pasar por él, ni desde la lista ni desde el detalle.
+	modal     *components.Modal
+	modalSlug string
+	// localIP es la IPv4 local (LAN), resuelta en un Cmd: permite ofrecer una
+	// dirección copiable antes del primer arranque (§10).
+	localIP string
 	// cache guarda el detalle por slug con TTL corto (§5.2).
 	cache map[string]detailCacheEntry
 	// zone es el foco entre las zonas/paneles de Inicio (lista · detalle ·
@@ -105,7 +114,7 @@ func (s *homeScreen) Init() tea.Cmd {
 		defer cancel()
 		diag, _ := s.svc.DockerState.Status(ctx)
 		ip, _ := tailscale.ResolveIPv4(ctx)
-		return homeReqMsg{dockerOK: diag.State.Ready(), tsIP: ip, tsOK: ip != ""}
+		return homeReqMsg{dockerOK: diag.State.Ready(), tsIP: ip, tsOK: ip != "", localIP: localIPv4()}
 	}
 }
 
@@ -113,7 +122,38 @@ func (s *homeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case homeReqMsg:
 		s.dockerOK, s.tsIP, s.tsOK, s.reqs = msg.dockerOK, msg.tsIP, msg.tsOK, true
+		if msg.localIP != "" {
+			s.localIP = msg.localIP
+		}
 		return s, nil
+	case localIPMsg:
+		s.localIP = msg.ip
+		return s, nil
+	case instanceDeletedMsg:
+		// El borrado ya se verificó en el servicio de la pantalla (deleteCmd): la
+		// fila desaparece de la lista y se confirma con una notificación.
+		out := s.rows[:0]
+		for _, r := range s.rows {
+			if r.Slug != msg.slug {
+				out = append(out, r)
+			}
+		}
+		s.rows = out
+		if s.cursor >= len(s.rows) && s.cursor > 0 {
+			s.cursor--
+		}
+		delete(s.cache, msg.slug)
+		delete(s.memHist, msg.slug)
+		delete(s.idleSince, msg.slug)
+		if s.detail != nil && s.detail.Spec != nil && s.detail.Spec.Slug == msg.slug {
+			s.detail = nil
+		}
+		if len(s.rows) == 0 {
+			s.status = "no hay instancias todavía"
+		}
+		return s, func() tea.Msg {
+			return toastMsg{Text: "✓ Instancia «" + msg.slug + "» eliminada (contenedor y datos)"}
+		}
 	case magicProbeMsg:
 		// El estado en vivo reevalúa MagicDNS: si se resuelve, el aviso desaparece.
 		s.magic = magicStateFrom(msg.rep)
@@ -208,6 +248,11 @@ func (s *homeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 }
 
 func (s *homeScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
+	// Una confirmación abierta captura las teclas: el borrado nunca se ejecuta sin
+	// pasar por el diálogo (§11).
+	if s.modal != nil {
+		return s, s.handleModalKey(msg)
+	}
 	switch msg.String() {
 	case "j", "down":
 		return s.move(1)
@@ -228,6 +273,8 @@ func (s *homeScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		return s, s.invokeOp("instance.backup")
 	case "c":
 		return s, s.copyAddress()
+	case "D":
+		return s, s.startDeletePrompt()
 	case "tab":
 		// «Desplazarse»: mueve el foco entre las zonas/paneles de Inicio sin
 		// salir de la pantalla (SPEC 2 §1.2/§15).
@@ -253,8 +300,144 @@ func (s *homeScreen) Invoke(id string) tea.Cmd {
 		}
 	case "instance.copy":
 		return s.copyAddress()
+
+	case "instance.delete":
+		return s.startDeletePrompt()
 	}
 	return nil
+}
+
+// handleModalKey atiende la confirmación del borrado desde la lista: Esc cancela
+// sin tocar nada, Ctrl+B hace un backup previo y Enter solo borra cuando el
+// nombre exacto ya está escrito (confirmación reforzada, §11).
+func (s *homeScreen) handleModalKey(msg tea.KeyMsg) tea.Cmd {
+	m := *s.modal
+	key := msg.String()
+	if key == "ctrl+b" {
+		// La confirmación reforzada sigue siendo obligatoria: sin el nombre exacto
+		// no se borra nada (el backup no sustituye la confirmación).
+		if !m.Enabled() {
+			return func() tea.Msg {
+				return toastMsg{Text: "✖ Escribe el nombre exacto para confirmar; el backup no sustituye la confirmación", Kind: components.Destructive}
+			}
+		}
+		return s.confirmDelete(true)
+	}
+	if m.RequireText != "" {
+		if r := []rune(key); len(r) == 1 && r[0] >= 32 {
+			m.Typed += string(r[0])
+			s.modal = &m
+			return nil
+		}
+	}
+	switch key {
+	case "esc":
+		s.clearModal()
+		return nil
+	case "left", "h", "shift+tab", "up":
+		if m.Focused > 0 {
+			m.Focused--
+		}
+		s.modal = &m
+		return nil
+	case "right", "l", "tab", "down":
+		if m.Focused < len(m.Actions)-1 {
+			m.Focused++
+		}
+		s.modal = &m
+		return nil
+	case "backspace":
+		if r := []rune(m.Typed); len(r) > 0 {
+			m.Typed = string(r[:len(r)-1])
+			s.modal = &m
+		}
+		return nil
+	case "enter":
+		if !m.Enabled() {
+			return nil
+		}
+		return s.confirmDelete(false)
+	}
+	return nil
+}
+
+// confirmDelete ejecuta el borrado ya confirmado desde la lista, con backup previo
+// opcional (Ctrl+B).
+func (s *homeScreen) confirmDelete(withBackup bool) tea.Cmd {
+	slug := s.modalSlug
+	s.clearModal()
+	if strings.TrimSpace(slug) == "" {
+		return nil
+	}
+	return s.deleteCmd(slug, withBackup)
+}
+
+// clearModal cierra la confirmación sin ejecutar nada.
+func (s *homeScreen) clearModal() {
+	s.modal, s.modalSlug = nil, ""
+}
+
+// startDeletePrompt abre la confirmación reforzada del borrado con el foco en el
+// botón seguro: detalla qué se elimina, avisa si el servidor está en marcha y
+// ofrece un backup previo con Ctrl+B (§11).
+func (s *homeScreen) startDeletePrompt() tea.Cmd {
+	slug, ok := s.selectedSlug()
+	if !ok {
+		return func() tea.Msg {
+			return toastMsg{Text: "⚠ selecciona una instancia para borrarla", Kind: components.Destructive}
+		}
+	}
+	running := false
+	for _, r := range s.rows {
+		if r.Slug == slug {
+			running = r.State == "running"
+		}
+	}
+	body := "Se eliminarán el contenedor, los datos del servidor, el mundo (Overworld, Nether y End), " +
+		"los backups y la configuración de «" + slug + "»."
+	if running {
+		body += " El servidor está EN MARCHA: se detendrá antes de borrar."
+	}
+	body += " Pulsa [Ctrl+B] para hacer un backup antes (recomendado)."
+	m := components.DestroyConfirm("eliminar", slug)
+	m.Actions[0].DisabledReason = "escribe el nombre"
+	m.Body = body
+	s.modal, s.modalSlug = &m, slug
+	return nil
+}
+
+// deleteCmd elimina la instancia verificando el resultado: si el servidor está en
+// marcha se detiene antes, se puede hacer un backup previo y, si el borrado no se
+// puede comprobar, no se informa de éxito (T-08).
+func (s *homeScreen) deleteCmd(slug string, withBackup bool) tea.Cmd {
+	ref := s.svc
+	running := false
+	for _, r := range s.rows {
+		if r.Slug == slug {
+			running = r.State == "running"
+		}
+	}
+	return tea.Batch(busyCmd(true), func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+		defer cancel()
+		if withBackup {
+			if err := ref.Backups.Create(ctx, slug); err != nil {
+				return toastMsg{Text: "✖ Backup previo falló; no se borró «" + slug + "»: " + err.Error(), Kind: components.Destructive}
+			}
+		}
+		if running {
+			if err := ref.Lifecycle.Stop(ctx, slug); err != nil {
+				return toastMsg{Text: "✖ No se pudo detener «" + slug + "» antes de borrar; no se borró nada: " + err.Error(), Kind: components.Destructive}
+			}
+		}
+		if err := ref.Lifecycle.Delete(ctx, slug); err != nil {
+			return toastMsg{Text: "✖ No se pudo borrar «" + slug + "»: " + err.Error() + " · puede haber quedado detenida; revisa el estado", Kind: components.Destructive}
+		}
+		if _, err := ref.Instances.Detail(ctx, slug); err == nil {
+			return toastMsg{Text: "⚠ «" + slug + "»: el borrado no se pudo verificar (la instancia sigue en el registro)", Kind: components.Destructive}
+		}
+		return instanceDeletedMsg{slug: slug}
+	})
 }
 
 func (s *homeScreen) invokeOp(id string) tea.Cmd {
@@ -414,27 +597,53 @@ func (s *homeScreen) backup(slug string) tea.Cmd {
 }
 
 func (s *homeScreen) copyAddress() tea.Cmd {
-	if s.detail == nil || s.detail.Spec == nil {
+	return copyAddressCmd(s.copyCandidates(), s.selected())
+}
+
+// (Elegir entre varias direcciones vive en el detalle, pestaña Red: [C]. En la
+// lista, [c] copia la preferida con una sola pulsación.)
+
+// copyCandidates reúne las direcciones copiables de la instancia seleccionada: IP
+// del tailnet, nombre MagicDNS (estado EN VIVO si se conoce) y red local.
+func (s *homeScreen) copyCandidates() []copyCandidate {
+	spec := s.selectedSpec()
+	if spec == nil {
 		return nil
 	}
-	addr := connectionInfo(s.detail.Spec, s.detail.Host, s.magic).Preferred()
-	if addr == "" {
-		return func() tea.Msg {
-			return toastMsg{Text: "⚠ No hay dirección de conexión todavía", Kind: components.Destructive}
+	host := s.tsIP
+	if s.detail != nil && s.detail.Spec != nil && s.detail.Spec.Slug == spec.Slug {
+		if s.detail.Host != "" {
+			host = s.detail.Host
 		}
 	}
-	if err := copyToClipboard(addr); err != nil {
-		return func() tea.Msg {
-			return toastMsg{Text: "✖ No se pudo copiar: " + err.Error(), Kind: components.Destructive}
-		}
+	return addressCandidates(spec, host, s.magic, s.localIP)
+}
+
+// selectedSpec devuelve el Spec de la instancia seleccionada si ya se cargó.
+func (s *homeScreen) selectedSpec() *instance.Spec {
+	if s.detail != nil && s.detail.Spec != nil && s.detail.Spec.Slug == s.selected() {
+		return s.detail.Spec
 	}
-	return func() tea.Msg { return toastMsg{Text: "✓ Copiado: " + addr} }
+	for _, r := range s.rows {
+		if r.Slug != s.selected() {
+			continue
+		}
+		// Sin detalle cargado se usa un Spec mínimo: el puerto es el dato que
+		// permite derivar la dirección ANTES del primer arranque (§10).
+		return &instance.Spec{Slug: r.Slug, Name: r.Name, Engine: r.Engine, Version: r.Version, Port: r.Port}
+	}
+	return nil
 }
 
 // View pinta el panel de Inicio por regiones (lista · detalle · actividad) según
 // la clase de tamaño (§5.2). Todo el estado vive en paneles con borde; las
 // acciones van en la barra inferior de la carcasa, no dentro del cuerpo.
 func (s *homeScreen) View(w, h int) string {
+	// Una confirmación abierta ocupa la vista: se pinta sola para que no la recorte
+	// el alto reservado ni quede tapada por las columnas de Inicio.
+	if s.modal != nil {
+		return s.modal.Render(w, s.pal, s.ascii)
+	}
 	if len(s.rows) == 0 {
 		s.zone.set(1)
 		switch {
@@ -776,9 +985,15 @@ func (s *homeScreen) Actions() []components.Action {
 		{ID: "instance.restart", Verb: "Reiniciar", Object: name, Key: "r", Hint: "Recrea el contenedor aplicando cambios.", Kind: components.Secondary, Disabled: !running, DisabledReason: "El servidor no está en marcha"},
 		{ID: "instance.backup", Verb: "Crear", Object: "backup ahora", Key: "b", Hint: "Guarda una copia de seguridad con checksum.", Kind: components.Secondary},
 		{ID: "instance.copy", Verb: "Copiar", Object: "dirección de conexión", Key: "c", Hint: "Copia la dirección ip:puerto al portapapeles.", Kind: components.Secondary},
+
+		{ID: "instance.delete", Verb: "Eliminar", Object: name + " para siempre", Key: "D", Hint: "Borra el contenedor y sus datos; pide escribir el nombre.", Kind: components.Destructive},
 		{ID: "instance.open", Verb: "Ver", Object: "detalle de " + name, Key: "enter", Hint: "Abre consola, logs, jugadores, backups y ajustes.", Kind: components.Navigation},
 	}
 }
+
+// CapturesInput: la lista captura las teclas mientras hay una confirmación
+// abierta (las letras del nombre no son atajos globales).
+func (s *homeScreen) CapturesInput() bool { return s.modal != nil }
 
 func (s *homeScreen) Title() string { return "Instancias" }
 func (s *homeScreen) ID() string    { return "home" }

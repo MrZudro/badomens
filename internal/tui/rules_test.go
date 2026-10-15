@@ -134,6 +134,11 @@ func TestCamposDelAsistenteTienenAyuda(t *testing.T) {
 		wiz.start(mode)
 		for _, st := range wiz.steps {
 			for _, f := range st.fields {
+				if f.kind == "continue" {
+					// La celda «Continuar a X →» no es un campo de datos: no tiene
+					// ayuda propia (su texto ya dice qué hace).
+					continue
+				}
 				h, ok := help.Get(f.key)
 				if !ok {
 					t.Errorf("el campo %q del paso %q no tiene entrada en el registro de ayudas", f.key, st.title)

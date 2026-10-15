@@ -13,7 +13,7 @@
 │ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │
-│ │[B] Crear backup ahora · [X] Restaurar (crea backup previo)     │ │
+│ │[B] Crear backup ahora · [X] Restaurar (valida checksum)        │ │
 │ │[Shift+X] Podar antiguos                                        │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                 │

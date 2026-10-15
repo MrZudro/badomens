@@ -8,9 +8,9 @@
 │ │    Cuánto tiempo sin nadie antes de apagar. Mínimo 1 min, máximo 2…││dentro, el contador no corre.     │ │
 │ │  Arrancar al crear: sí                                             ││Ahorra CPU y RAM cuando no se     │ │
 │ │    Inicia el servidor en cuanto termina la creación.               ││juega.                            │ │
-│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││Por defecto: desactivado          │ │
+│ │  Continuar a Revisar →                                             ││Por defecto: desactivado          │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││                                  │ │
 │ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││                                  │ │
-│ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │

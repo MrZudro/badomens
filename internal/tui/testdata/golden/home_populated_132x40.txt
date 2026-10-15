@@ -37,4 +37,4 @@
 │ │                                          │ │                                                      │ │                        │ │
 │ ╰──────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────╯ ╰────────────────────────╯ │
 │ Instancias                                                                                                                       │
-└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [B] Backup   [C] Copiar   [Enter] Ver   [F1] Ayuda   [TAB] Desplazarse ─────────────┘
+└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [B] Backup   [C] Copiar   [D] Borrar   [Enter] Ver   [F1] Ayuda   [TAB] Desplazarse ┘

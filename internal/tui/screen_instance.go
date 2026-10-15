@@ -63,9 +63,19 @@ type instanceIdleSetMsg struct {
 	err error
 }
 
+// instancePlayersMsg cierra una consulta de jugadores. Lleva slug y seq para
+// DESCARTAR una respuesta tardía de otra instancia o de una consulta anterior
+// (§7), y la CAUSA cuando no se pudo medir (mensajes diferenciados, §7).
 type instancePlayersMsg struct {
+	slug   string
+	seq    int
 	online int
+	max    int
 	known  bool
+	method string
+	reason svc.PlayerReason
+	detail string
+	err    error
 }
 
 // instanceSavedMsg cierra un guardado de Ajustes: lleva el Spec que se escribió
@@ -157,17 +167,26 @@ type worldsBrowseMsg struct {
 
 // worldsOpMsg cierra una operación de la pestaña Mundos (regenerar o importar):
 // la pantalla publica el desenlace como toast y, si fue bien, recarga el detalle
-// y la biblioteca.
+// y la biblioteca. `verify` explica que el resultado NO se pudo verificar ("" =
+// verificado): nunca se confirma un éxito sin comprobarlo (T-08).
 type worldsOpMsg struct {
-	what string // "regenerar" | "importar"
-	slug string
-	seed string // semilla aplicada al regenerar (vacío = aleatoria)
-	name string // nombre del mundo importado
-	err  error
+	what   string // "regenerar" | "importar"
+	slug   string
+	seed   string // semilla aplicada al regenerar (vacío = aleatoria)
+	name   string // nombre del mundo importado
+	verify string // motivo por el que no se pudo verificar ("" = verificado)
+	backup string // aviso del backup previo, si se pidió
+	err    error
 }
 
 // text redacta el desenlace de una operación de Mundos con su icono.
 func (m worldsOpMsg) text() string {
+	if m.err != nil {
+		return "✖ «" + m.slug + "»: no se pudo " + m.what + " el mundo: " + m.err.Error()
+	}
+	if m.verify != "" {
+		return "⚠ «" + m.slug + "»: el mundo se regeneró, pero no se pudo verificar (" + m.verify + ")"
+	}
 	if m.what == "importar" {
 		return "✓ «" + m.slug + "»: mundo «" + m.name + "» importado y activo"
 	}
@@ -175,7 +194,11 @@ func (m worldsOpMsg) text() string {
 	if seed == "" {
 		seed = "aleatoria"
 	}
-	return "✓ «" + m.slug + "»: mundo regenerado (semilla " + seed + ")"
+	out := "✓ «" + m.slug + "»: mundo regenerado (semilla " + seed + ")"
+	if m.backup != "" {
+		out += " · " + m.backup
+	}
+	return out
 }
 
 // instanceScreen es el detalle de una instancia con pestañas (RF-1/§5.2).
@@ -239,7 +262,21 @@ type instanceScreen struct {
 
 	playersOnline int
 	playersKnown  bool
-
+	playersMax    int
+	// playersSeq numera las consultas de jugadores: una respuesta tardía de otra
+	// instancia o de una consulta anterior se descarta (§7).
+	playersSeq int
+	// playersMethod es el método que respondió ("slp"/"rcon") y playersReason /
+	// playersDetail explican por qué NO se pudo medir (mensajes diferenciados).
+	playersMethod string
+	playersReason svc.PlayerReason
+	playersDetail string
+	// localIP es la IPv4 local (LAN), resuelta en un Cmd: permite ofrecer una
+	// dirección copiable antes del primer arranque (§10).
+	localIP string
+	// regenPending indica que hay una regeneración de mundo EN CURSO: se comunica
+	// como indicador persistente en la pestaña Mundos (no solo como notificación).
+	regenPending bool
 	// Estado de acceso (whitelist/operadores) con fuente y verificación (§6).
 	access       svc.AccessState
 	accessLoaded bool
@@ -340,7 +377,7 @@ func (s *instanceScreen) Init() tea.Cmd {
 	s.logsGen++
 	// El estado en vivo de MagicDNS se consulta al abrir el detalle: así el aviso
 	// de la tarjeta de conexión se reevalúa en vez de arrastrar el dato persistido.
-	return tea.Batch(s.load(), s.loadIdle(), magicProbeCmd())
+	return tea.Batch(s.load(), s.loadIdle(), magicProbeCmd(), localIPCmd())
 }
 
 func (s *instanceScreen) load() tea.Cmd {
@@ -399,23 +436,34 @@ func (s *instanceScreen) portCmd() tea.Cmd {
 	}
 }
 
+// playersCmd consulta los jugadores por la fachada de servicios (Server List Ping
+// como método principal y RCON como respaldo). NO consulta mientras el servidor
+// esté 🟡 Cargando ni apagado: en esos casos devuelve la causa sin gastar una
+// conexión (§7). Cada consulta lleva su secuencia y su slug.
 func (s *instanceScreen) playersCmd() tea.Cmd {
-	host, port := "", 0
-	if s.detail != nil && s.detail.Spec != nil {
-		port = s.detail.Spec.Port
-		host = s.detail.Host
-	}
-	if host == "" {
-		return func() tea.Msg { return instancePlayersMsg{known: false} }
-	}
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		st, err := idle.Ping(ctx, host, port, 1500*time.Millisecond)
-		if err != nil {
-			return instancePlayersMsg{known: false}
+	s.playersSeq++
+	seq := s.playersSeq
+	switch s.serverState() {
+	case components.ServerStarting:
+		return func() tea.Msg {
+			return instancePlayersMsg{slug: s.slug, seq: seq, reason: svc.PlayerStarting, detail: "el servidor está arrancando"}
 		}
-		return instancePlayersMsg{online: st.Players.Online, known: true}
+	case components.ServerStopped, components.ServerUnknown:
+		return func() tea.Msg {
+			return instancePlayersMsg{slug: s.slug, seq: seq, reason: svc.PlayerStopped, detail: "el servidor no está en marcha"}
+		}
+	}
+	ref, slug := s.svc, s.slug
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		rep, err := ref.Players.Report(ctx, slug)
+		return instancePlayersMsg{
+			slug: slug, seq: seq,
+			online: rep.Online, max: rep.Max, known: rep.Known, method: rep.Method,
+			reason: rep.Reason, detail: rep.Detail,
+			err: err,
+		}
 	}
 }
 
@@ -529,7 +577,16 @@ func (s *instanceScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		}
 		return s, nil
 	case instancePlayersMsg:
+		// Respuesta obsoleta: de otra instancia o de una consulta anterior. No pisa
+		// el estado de la instancia vigente (§7).
+		if msg.slug != s.slug || msg.seq != s.playersSeq {
+			return s, nil
+		}
 		s.playersOnline, s.playersKnown = msg.online, msg.known
+		s.playersMethod, s.playersReason, s.playersDetail = msg.method, msg.reason, msg.detail
+		if msg.max > 0 {
+			s.playersMax = msg.max
+		}
 	case accessMsg:
 		return s.handleAccessMsg(msg)
 	case instanceSavedMsg:
@@ -588,6 +645,10 @@ func (s *instanceScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		return s, nil
 	case magicProbeMsg:
 		s.magic = magicStateFrom(msg.rep)
+		return s, nil
+	case localIPMsg:
+		// IPv4 local para poder copiar una dirección antes del primer arranque (§10).
+		s.localIP = msg.ip
 		return s, nil
 	case lifecycleDoneMsg:
 		if msg.slug != s.slug {
@@ -683,8 +744,14 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		return s, s.lifecycle("restart")
 	case "c":
 		// [c] copia la dirección de conexión en cualquier pestaña del detalle
-		// (en Red, además, sigue funcionando [C]).
+		// (en Red, [C] ofrece ELEGIR entre las direcciones disponibles).
 		return s, s.Invoke("instance.copy")
+	case "b":
+		// [B] Backup siempre disponible en el detalle; en Auto-apagado, [B] sigue
+		// alternando «backup antes de apagar», que es la acción de esa pestaña.
+		if s.tab != 7 {
+			return s, s.createBackup()
+		}
 	case "f":
 		if s.tab == 1 {
 			s.follow = !s.follow
@@ -744,7 +811,10 @@ func (s *instanceScreen) switchTab(d int) (Screen, tea.Cmd) {
 	case 1:
 		return s, s.logsCmd()
 	case 2:
-		return s, s.accessCmd()
+		// Al abrir Jugadores se consultan el acceso Y los jugadores: el segundo no
+		// gasta conexión si el servidor está apagado o cargando (playersCmd lo
+		// resuelve y lo explica).
+		return s, tea.Batch(s.accessCmd(), s.playersCmd())
 	case 3:
 		return s, s.backupsCmd()
 	case 4:
@@ -859,7 +929,7 @@ func (s *instanceScreen) runPrompt(act, val string) tea.Cmd {
 				return toastMsg{Text: "✖ El nombre no coincide; no se borró nada", Kind: components.Destructive}
 			}
 		}
-		return s.deleteCmd()
+		return s.deleteCmd(false)
 	case "__version__":
 		s.openVersionModal(val)
 		return nil
@@ -872,14 +942,34 @@ func (s *instanceScreen) runPrompt(act, val string) tea.Cmd {
 	return s.consoleCmd(act + " " + val)
 }
 
-// deleteCmd borra el contenedor y los datos de la instancia (P-03).
-func (s *instanceScreen) deleteCmd() tea.Cmd {
+// deleteCmd elimina el contenedor y los datos de la instancia (§11/P-03). Si el
+// servidor está EN MARCHA se detiene antes (el diálogo lo avisa), opcionalmente se
+// hace un backup previo y, al terminar, se VERIFICA que la instancia ya no existe:
+// el resultado se notifica y un fallo deja un estado recuperable y explicado
+// (T-08/AC-10).
+func (s *instanceScreen) deleteCmd(withBackup bool) tea.Cmd {
 	ref, slug := s.svc, s.slug
+	running := s.detail != nil && s.detail.State == "running"
 	return tea.Batch(busyCmd(true), func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 		defer cancel()
+		if withBackup {
+			if err := ref.Backups.Create(ctx, slug); err != nil {
+				return toastMsg{Text: "✖ Backup previo falló; no se borró «" + slug + "»: " + err.Error(), Kind: components.Destructive}
+			}
+		}
+		if running {
+			if err := ref.Lifecycle.Stop(ctx, slug); err != nil {
+				return toastMsg{Text: "✖ No se pudo detener «" + slug + "» antes de borrar; no se borró nada: " + err.Error(), Kind: components.Destructive}
+			}
+		}
 		if err := ref.Lifecycle.Delete(ctx, slug); err != nil {
-			return toastMsg{Text: "✖ No se pudo borrar «" + slug + "»: " + err.Error(), Kind: components.Destructive}
+			return toastMsg{Text: "✖ No se pudo borrar «" + slug + "»: " + err.Error() + " · puede haber quedado detenida; revisa el estado", Kind: components.Destructive}
+		}
+		// Verificación (T-08): si la instancia sigue registrada, no se informa de
+		// éxito; se avisa de que el borrado quedó a medias.
+		if _, err := ref.Instances.Detail(ctx, slug); err == nil {
+			return toastMsg{Text: "⚠ «" + slug + "»: el borrado no se pudo verificar (la instancia sigue en el registro)", Kind: components.Destructive}
 		}
 		return instanceDeletedMsg{slug: slug}
 	})
@@ -919,15 +1009,23 @@ func (s *instanceScreen) changeVersionCmd(v string) tea.Cmd {
 	})
 }
 
-// startDeletePrompt abre la confirmación reforzada del borrado (§5.15/P-03) como
-// un modal con borde: exige escribir el nombre exacto y arranca con el foco en el
-// botón seguro («No, volver»), nunca en el destructivo.
+// startDeletePrompt abre la confirmación reforzada del borrado (§5.15/§11) como un
+// modal con borde: detalla QUÉ se elimina, avisa si el servidor está en marcha
+// (se detendrá antes), ofrece un backup previo con Ctrl+B y exige escribir el
+// nombre exacto. El foco arranca en el botón seguro, nunca en el destructivo.
 func (s *instanceScreen) startDeletePrompt() tea.Cmd {
+	running := s.detail != nil && s.detail.State == "running"
+	body := "Se eliminarán el contenedor, los datos del servidor, el mundo (Overworld, Nether y End), " +
+		"los backups y la configuración de «" + s.slug + "»."
+	if running {
+		body += " El servidor está EN MARCHA: se detendrá antes de borrar."
+	}
+	body += " Pulsa [Ctrl+B] para hacer un backup antes (recomendado)."
 	m := components.DestroyConfirm("eliminar", s.slug)
 	// Motivo corto para que el botón destructivo quepa en una línea junto a su
 	// etiqueta (el detalle de qué escribir ya está en el cuerpo del modal).
 	m.Actions[0].DisabledReason = "escribe el nombre"
-	m.Body = "Se borrarán el contenedor y todos los datos de «" + s.slug + "»."
+	m.Body = body
 	s.modal = &m
 	s.modalKind, s.modalValue = "delete", ""
 	return nil
@@ -951,11 +1049,16 @@ func (s *instanceScreen) openVersionModal(v string) {
 }
 
 // handleModalKey atiende el modal activo: captura todas las teclas, Esc cancela
-// sin mutar nada y Enter solo actúa sobre el botón enfocado (o sobre el
-// destructivo cuando el texto exigido ya coincide).
+// sin mutar nada y Enter solo actúa sobre el botón enfocado (o sobre el destructivo
+// cuando el texto exigido ya coincide). Ctrl+B (backup previo) se atiende ANTES de
+// que los caracteres imprimibles se escriban en la confirmación reforzada, y los
+// atajos de las acciones ([B], [N], [Y]) funcionan en los modales sin texto exigido.
 func (s *instanceScreen) handleModalKey(msg tea.KeyMsg) tea.Cmd {
 	m := *s.modal
 	key := msg.String()
+	if key == "ctrl+b" {
+		return s.modalBackupAction()
+	}
 	// Con texto exigido, cualquier carácter imprimible se escribe: una letra del
 	// nombre (p. ej. «h» o «l») nunca debe interpretarse como navegación (§5).
 	if m.RequireText != "" {
@@ -964,18 +1067,30 @@ func (s *instanceScreen) handleModalKey(msg tea.KeyMsg) tea.Cmd {
 			s.modal = &m
 			return nil
 		}
+	} else if act, ok := modalActionByKey(m, key); ok {
+		switch act.ID {
+		case "backup":
+			return s.modalBackupAction()
+		case "cancel":
+			s.clearModal()
+			return nil
+		case "confirm":
+			return s.confirmModal()
+		}
 	}
 	switch key {
 	case "esc":
 		s.clearModal()
 		return nil
-	case "left", "h", "shift+tab":
+	case "left", "h", "shift+tab", "up":
+		// ←/→ y ↑/↓ mueven el foco entre las acciones del diálogo (una fila de
+		// botones se recorre en cualquier dirección sin sorpresas).
 		if m.Focused > 0 {
 			m.Focused--
 		}
 		s.modal = &m
 		return nil
-	case "right", "l", "tab":
+	case "right", "l", "tab", "down":
 		if m.Focused < len(m.Actions)-1 {
 			m.Focused++
 		}
@@ -1008,14 +1123,34 @@ func (s *instanceScreen) handleModalKey(msg tea.KeyMsg) tea.Cmd {
 		case "cancel":
 			s.clearModal()
 			return nil
+		case "backup":
+			return s.modalBackupAction()
 		}
 		return nil
 	}
 	return nil
 }
 
+// modalActionByKey busca la acción de un modal cuya tecla coincida con una pulsación
+// imprimible de una sola letra (los modales sin texto exigido pueden anunciar [B],
+// [N], [Y] y estas deben funcionar de verdad).
+func modalActionByKey(m components.Modal, key string) (components.Action, bool) {
+	r := []rune(key)
+	if len(r) != 1 {
+		return components.Action{}, false
+	}
+	for _, act := range m.Actions {
+		if strings.EqualFold(strings.TrimSpace(act.Key), key) {
+			return act, true
+		}
+	}
+	return components.Action{}, false
+}
+
 // confirmModal aplica la acción del modal ya aceptado. El borrado conserva la
-// validación del nombre (runPrompt) aunque el botón ya estuviera habilitado.
+// validación del nombre (runPrompt) aunque el botón ya estuviera habilitado, y las
+// acciones con clave propia ([B] backup previo, Ctrl+B en el borrado) entran por
+// modalBackupAction.
 func (s *instanceScreen) confirmModal() tea.Cmd {
 	kind, val, name := s.modalKind, s.modalValue, s.modalName
 	typed := ""
@@ -1029,7 +1164,39 @@ func (s *instanceScreen) confirmModal() tea.Cmd {
 	case "version":
 		return s.changeVersionCmd(val)
 	case "world_regen":
-		return s.worldsRegenCmd(val)
+		return s.worldsRegenCmd(val, false)
+	case "restore":
+		return s.restoreBackupCmd(val)
+	case "world_import":
+		return s.worldsImportCmd(val, name)
+	}
+	return nil
+}
+
+// modalBackupAction ejecuta la acción «backup previo» del modal activo ([B] o
+// Ctrl+B): hace el backup y continúa con la operación destructiva que el usuario
+// ya eligió por esa vía. En el borrado, la confirmación reforzada sigue siendo
+// obligatoria (el backup no sustituye escribir el nombre).
+func (s *instanceScreen) modalBackupAction() tea.Cmd {
+	kind, val, name := s.modalKind, s.modalValue, s.modalName
+	enabled := true
+	if s.modal != nil {
+		enabled = s.modal.Enabled()
+	}
+	s.clearModal()
+	switch kind {
+	case "delete":
+		if !enabled {
+			return func() tea.Msg {
+				return toastMsg{Text: "✖ Escribe el nombre exacto para confirmar; el backup no sustituye la confirmación", Kind: components.Destructive}
+			}
+		}
+		return s.deleteCmd(true)
+	case "world_regen":
+		return s.worldsRegenCmd(val, true)
+	case "version":
+		// El cambio de versión ya hace su backup obligatorio antes de aplicar.
+		return s.changeVersionCmd(val)
 	case "world_import":
 		return s.worldsImportCmd(val, name)
 	}
@@ -1090,13 +1257,19 @@ func (s *instanceScreen) applyState(state string) tea.Cmd {
 		s.noteCrash()
 	}
 	s.lastState = state
+	// El estado pasó a «en línea»: si la pestaña Jugadores está abierta, se vuelve a
+	// consultar la lista (mientras carga no se consulta, §7).
+	var playersRefresh tea.Cmd
+	if state == "running" && s.tab == 2 {
+		playersRefresh = s.playersCmd()
+	}
 	// Gate de I/O: fuera de la pestaña Consola no se piden logs (tampoco en View).
 	// Excepción única: una caída recién detectada, que carga los logs una vez para
 	// deducir la causa aunque el usuario no esté en la consola.
 	if crashDetected || s.tab == 1 {
-		return s.logsCmd()
+		return tea.Batch(s.logsCmd(), playersRefresh)
 	}
-	return nil
+	return playersRefresh
 }
 
 // noteCrash registra una caída y activa la política de crash-loop (3 en 10 min).
@@ -1181,7 +1354,9 @@ func (s *instanceScreen) playersKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		}
 		return s, s.setWhitelistCmd(!s.access.WhitelistEnabled)
 	case "R":
-		return s, s.accessCmd()
+		// Verificar de nuevo refresca el acceso Y la lista de jugadores: son las dos
+		// caras de la misma pestaña (lista blanca/operadores + quién está dentro).
+		return s, tea.Batch(s.accessCmd(), s.playersCmd())
 	}
 	return s, nil
 }
@@ -1321,7 +1496,7 @@ func (s *instanceScreen) backupsKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case "b":
 		return s, s.createBackup()
 	case "x":
-		return s, s.restoreBackup()
+		return s, s.startRestorePrompt()
 	case "X":
 		return s, s.pruneBackups()
 	}
@@ -1340,14 +1515,46 @@ func (s *instanceScreen) createBackup() tea.Cmd {
 	})
 }
 
-// restoreBackup restaura el backup seleccionado (el servicio hace antes una
-// copia de seguridad del estado actual).
-func (s *instanceScreen) restoreBackup() tea.Cmd {
+// startRestorePrompt confirma la restauración: se sustituyen el mundo y la
+// configuración actuales por el backup elegido. El servicio VALIDA el checksum
+// antes de tocar los datos y crea un backup previo (§13/6.3), y el diálogo lo dice
+// antes de confirmar.
+func (s *instanceScreen) startRestorePrompt() tea.Cmd {
 	if len(s.backups) == 0 || s.bkCursor >= len(s.backups) {
+		return func() tea.Msg {
+			return toastMsg{Text: "⚠ no hay backups que restaurar: crea uno con [B]", Kind: components.Destructive}
+		}
+	}
+	info := s.backups[s.bkCursor]
+	body := "Se sustituirán el mundo y la configuración de «" + s.slug + "» por el backup «" + info.Name + "». " +
+		"Se validará su checksum ANTES de tocar nada y se creará un backup del estado actual."
+	if strings.TrimSpace(info.Sha256) == "" {
+		body += " Este backup no tiene checksum: no se puede verificar y no se restaurará."
+	}
+	if s.detail != nil && s.detail.State == "running" {
+		body += " El servidor está en marcha: se detendrá y se reiniciará después."
+	}
+	m := components.Modal{
+		Title: "Restaurar el backup «" + info.Name + "»",
+		Body:  body,
+		Actions: []components.Action{
+			{ID: "confirm", Verb: "Sí, restaurar", Object: "«" + info.Name + "»", Key: "y", Hint: "Valida el checksum, crea un backup previo y sustituye los datos.", Kind: components.Destructive},
+			{ID: "cancel", Verb: "No, conservar", Object: "lo actual", Key: "n", Hint: "Cierra sin tocar nada.", Kind: components.Secondary},
+		},
+		Focused: 1,
+	}
+	s.modal = &m
+	s.modalKind, s.modalValue = "restore", info.Name
+	return nil
+}
+
+// restoreBackupCmd restaura el backup confirmado: el servicio valida su checksum,
+// detiene la instancia si corría, hace un backup previo y sustituye los datos.
+func (s *instanceScreen) restoreBackupCmd(name string) tea.Cmd {
+	if strings.TrimSpace(name) == "" {
 		return nil
 	}
-	name := s.backups[s.bkCursor].Name
-	s.bkBusy = "restaurando «" + name + "»… (se crea un backup previo)"
+	s.bkBusy = "restaurando «" + name + "»… (valida checksum y crea backup previo)"
 	ref, slug := s.svc, s.slug
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
@@ -2072,11 +2279,12 @@ func (s *instanceScreen) summaryRightRows(spec *instance.Spec) [][2]string {
 }
 
 // playersText resume los jugadores conectados: «3/20» o «—» si no se pudo medir.
+// playersText resume los jugadores conectados: «3/20» o «-» si no se pudo medir.
 func (s *instanceScreen) playersText(spec *instance.Spec) string {
 	if !s.playersKnown {
 		return "—"
 	}
-	return itoa(s.playersOnline) + "/" + itoa(spec.MaxPlayers)
+	return itoa(s.playersOnline) + "/" + itoa(s.playerMax())
 }
 
 // difficultyText resume dificultad y modo de juego.
@@ -2550,11 +2758,61 @@ func (s *instanceScreen) playerLines(names []string, action string) []string {
 
 // onlineLine informa de los jugadores conectados ahora mismo. El dato llega por
 // mensaje (playersCmd): aquí no se consulta nada.
+// onlineLine informa de los jugadores conectados ahora mismo con un mensaje
+// DISTINTO por causa (SPEC 2 §7): servidor apagado, iniciando, consulta no
+// disponible (RCON/SLP deshabilitado), sin dirección o error de conexión. El dato
+// llega por mensaje (playersCmd): aquí no se consulta nada.
 func (s *instanceScreen) onlineLine() string {
+	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
+	warn := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn))
+	bad := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad))
 	if s.playersKnown {
-		return "En línea: " + itoa(s.playersOnline) + " conectados ahora"
+		line := "En línea: " + itoa(s.playersOnline) + " de " + itoa(s.playerMax()) + " conectados ahora"
+		switch s.playersMethod {
+		case "rcon":
+			line += " (RCON)"
+		case "slp":
+			line += " (Server List Ping)"
+		}
+		return line
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render("En línea: no se pudo medir (¿servidor apagado?)")
+	// Mientras hay una operación de ciclo de vida en vuelo, el estado manda: no se
+	// culpa al servidor de algo que aún se está resolviendo (§8).
+	switch s.serverState() {
+	case components.ServerStarting:
+		return warn.Render(components.Warn(s.ascii) + " Servidor iniciando: la lista de jugadores se consultará cuando acepte conexiones.")
+	case components.ServerStopped:
+		return muted.Render("Servidor apagado: no hay a quién preguntar · [S] Iniciar para verlo")
+	case components.ServerUnknown:
+		return muted.Render("Estado del servidor desconocido: no se puede consultar la lista de jugadores")
+	}
+	switch s.playersReason {
+	case svc.PlayerNoAddress:
+		return warn.Render(components.Warn(s.ascii) + " Sin dirección para consultar: falta la IP del tailnet y el servidor no ha arrancado · [S] Iniciar o ejecuta 'tailscale up'")
+	case svc.PlayerQueryDisabled:
+		return warn.Render(components.Warn(s.ascii) + " Consulta no disponible: el Server List Ping no respondió y RCON está deshabilitado en este servidor · habilita RCON para el respaldo")
+	case svc.PlayerUnreachable:
+		line := components.Cross(s.ascii) + " Error de conexión al consultar la lista"
+		if s.playersDetail != "" {
+			line += ": " + s.playersDetail
+		}
+		return bad.Render(line + " · [R] Reintentar")
+	case svc.PlayerStopped, svc.PlayerStarting:
+		// El servidor dejó de estar en línea entre la comprobación y la consulta.
+		return muted.Render("Servidor no disponible en el momento de la consulta · [R] Reintentar")
+	}
+	return muted.Render("En línea: consultando la lista de jugadores… · [R] Reintentar")
+}
+
+// playerMax es el cupo conocido (del Spec o del informe del servidor).
+func (s *instanceScreen) playerMax() int {
+	if s.playersMax > 0 {
+		return s.playersMax
+	}
+	if s.detail != nil && s.detail.Spec != nil {
+		return s.detail.Spec.MaxPlayers
+	}
+	return 0
 }
 
 // accessSourceTag etiqueta la fuente del dato en el borde del panel (§3): estado
@@ -2753,7 +3011,7 @@ func humanAgo(t time.Time) string {
 }
 
 // backupsShortcut es la línea de atajos de la pestaña Backups.
-const backupsShortcut = "[B] Crear backup ahora · [X] Restaurar (crea backup previo) · [Shift+X] Podar antiguos"
+const backupsShortcut = "[B] Crear backup ahora · [X] Restaurar (valida checksum) · [Shift+X] Podar antiguos"
 
 // backupsView dibuja la pestaña Backups dentro de un panel (§5.6): contador a la
 // derecha del título, filas con nombre, tamaño y checksum corto (la seleccionada
@@ -2907,7 +3165,7 @@ func windowRows(rows []string, keep, cursor int) []string {
 // --- Mundos (§5.7) ---
 
 // worldsShortcut es la línea de atajos de la pestaña Mundos.
-const worldsShortcut = "[G] Regenerar el mundo (borra el actual) · [L] Cargar desde un archivo (.zip)"
+const worldsShortcut = "[G] Regenerar el mundo (se apaga y reinicia) · [L] Cargar desde un archivo (.zip)"
 
 // browseShortcut es la línea de atajos del explorador de archivos.
 const browseShortcut = "[J/K] mover · [Enter] abrir carpeta o cargar el .zip · [←/H/Retroceso] subir · [Esc] cerrar"
@@ -2948,6 +3206,11 @@ func (s *instanceScreen) worldsBody(inner, h int) string {
 	var avisos []string
 	for _, ln := range wrapWords(components.Warn(s.ascii)+" [G] Regenerar borra el mundo actual: se pierden Overworld, Nether y End.", inner) {
 		avisos = append(avisos, warn.Render(ln))
+	}
+	if s.regenPending {
+		// Indicador PERSISTENTE (no una notificación fugaz) mientras la
+		// regeneración está en curso: la política dice que se apaga y se reinicia.
+		avisos = append(avisos, warn.Render("⟳ Regeneración en curso: el servidor se apaga y se reinicia con el mundo nuevo."))
 	}
 	foot := s.worldsFoot(inner)
 	lib := append([]string{lipgloss.NewStyle().Bold(true).Render("Biblioteca de mundos")}, s.worldsLibraryLines(inner)...)
@@ -3043,60 +3306,123 @@ func (s *instanceScreen) startRegenPrompt() tea.Cmd {
 	return s.input.Focus()
 }
 
-// openRegenModal advierte de la pérdida de datos antes de regenerar el mundo: el
-// mundo actual se borra y no se puede recuperar. El foco arranca en el botón
-// seguro, nunca en el destructivo (§5.15).
+// regenPolicy es la ÚNICA política de regeneración (RG-03/SEC-09): si el servidor
+// está en marcha se APAGA, se borra el mundo y se vuelve a ARRANCAR con la nueva
+// semilla. El diálogo la explica ANTES de confirmar y la pantalla la comunica
+// mientras está en curso; no hay una segunda política («programada») que el
+// usuario no pueda predecir.
+const regenPolicy = "Política: apagar y regenerar. Si el servidor está en marcha, se DETENDRÁ ahora, se borrará el mundo y se volverá a ARRANCAR con la nueva semilla."
+
+// openRegenModal advierte de la pérdida de datos ANTES de regenerar y declara la
+// política explícitamente, ofreciendo además un backup previo con [B]. El foco
+// arranca en el botón seguro, nunca en el destructivo (§5.15).
 func (s *instanceScreen) openRegenModal(seed string) {
 	seedText := "una semilla aleatoria"
 	if seed != "" {
 		seedText = "la semilla «" + seed + "»"
 	}
+	running := s.detail != nil && s.detail.State == "running"
 	body := "Se BORRARÁ el mundo actual de «" + s.slug + "» (Overworld, Nether y End) y se generará otro con " +
-		seedText + ". Esta acción no se puede deshacer."
-	if s.detail != nil && s.detail.State == "running" {
-		body += " El servidor está en marcha: se detendrá y volverá a arrancar."
+		seedText + ". Esta acción no se puede deshacer.\n\n" + regenPolicy
+	if !running {
+		body += " Ahora mismo el servidor está apagado, así que solo se borrará y se regenerará el mundo."
 	}
+	body += " Recomendado: pulsa [B] para hacer un backup antes."
 	m := components.Modal{
 		Title: "Regenerar el mundo (se pierde el actual)",
 		Body:  body,
 		Actions: []components.Action{
-			{ID: "confirm", Verb: "Sí, regenerar", Object: "el mundo", Key: "y", Hint: "Borra el mundo actual y lo genera de nuevo.", Kind: components.Destructive},
+			{ID: "confirm", Verb: "Sí, apagar y", Object: "regenerar", Key: "y", Hint: "Detiene el servidor si hace falta, borra el mundo y lo regenera.", Kind: components.Destructive},
+			{ID: "backup", Verb: "Backup antes y", Object: "regenerar", Key: "b", Hint: "Crea un backup del mundo actual y después regenera.", Kind: components.Secondary},
 			{ID: "cancel", Verb: "No, conservar", Object: "el mundo actual", Key: "n", Hint: "Cierra sin tocar el mundo.", Kind: components.Secondary},
 		},
-		Focused: 1,
+		Focused: 2,
 	}
 	s.modal = &m
 	s.modalKind, s.modalValue, s.modalName = "world_regen", seed, ""
 }
 
 // worldsRegenCmd regenera el mundo activo con la semilla indicada (vacío =
-// aleatoria). El servicio detiene el servidor si estaba en marcha y lo reanuda;
-// el resultado llega por worldsOpMsg.
-func (s *instanceScreen) worldsRegenCmd(seed string) tea.Cmd {
+// aleatoria). El SERVICIO cumple la política declarada: detiene el servidor si
+// estaba en marcha, borra el mundo, guarda la semilla y lo vuelve a arrancar.
+// Después se VERIFICA el resultado (semilla persistida y servidor de nuevo en
+// marcha) antes de informar de éxito (T-08): si no se puede verificar, se dice.
+func (s *instanceScreen) worldsRegenCmd(seed string, backupFirst bool) tea.Cmd {
 	ref, slug := s.svc, s.slug
+	wasRunning := s.detail != nil && s.detail.State == "running"
+	// Progreso visible: el semáforo pasa a 🟡 Cargando (la política apaga y
+	// reinicia) y el panel muestra el indicador persistente hasta el desenlace.
+	s.opPending = "regenerar"
+	s.regenPending = true
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 		defer cancel()
-		return worldsOpMsg{what: "regenerar", slug: slug, seed: seed, err: ref.Worlds.Regenerate(ctx, slug, seed)}
+		msg := worldsOpMsg{what: "regenerar", slug: slug, seed: seed}
+		if backupFirst {
+			if err := ref.Backups.Create(ctx, slug); err != nil {
+				msg.err = err
+				msg.verify = "el backup previo falló; el mundo no se tocó"
+				return msg
+			}
+			msg.backup = "con backup previo"
+		}
+		if err := ref.Worlds.Regenerate(ctx, slug, seed); err != nil {
+			msg.err = err
+			return msg
+		}
+		// Verificación: la semilla quedó persistida y, si estaba corriendo, el
+		// servidor está otra vez en marcha. Sin esto no se afirma el éxito.
+		detail, derr := ref.Instances.Detail(ctx, slug)
+		switch {
+		case derr != nil || detail == nil || detail.Spec == nil:
+			msg.verify = "no se pudo releer la instancia"
+		case strings.TrimSpace(detail.Spec.Seed) != strings.TrimSpace(seed):
+			msg.verify = "la semilla guardada no coincide con la pedida"
+		case wasRunning && detail.State == "exited":
+			// La política declara que se reinicia: si quedó detenido, no se confirma
+			// como éxito y se dice (T-08), para poder arrancarlo de nuevo con [S].
+			msg.verify = "el servidor quedó detenido después de regenerar"
+		}
+		return msg
 	})
 }
 
 // handleWorldsOp publica el desenlace de una operación de Mundos y, si fue bien,
 // recarga el detalle y la biblioteca (el mundo activo cambió). Importar cierra
-// además el explorador: ya no hay nada que elegir.
+// además el explorador: ya no hay nada que elegir. Limpia el indicador persistente
+// de regeneración en curso.
 func (s *instanceScreen) handleWorldsOp(msg worldsOpMsg) tea.Cmd {
+	if msg.what == "regenerar" {
+		s.regenPending = false
+		s.opPending = ""
+	}
 	if msg.err != nil {
+		// Estado recuperable (AC-10): se recarga el detalle para que el semáforo y
+		// los datos reflejen lo que quedó de verdad (p. ej. el servidor detenido).
 		text := "✖ no se pudo " + msg.what + " el mundo de «" + msg.slug + "»: " + msg.err.Error()
-		return func() tea.Msg { return toastMsg{Text: text, Kind: components.Destructive} }
+		if msg.what == "regenerar" {
+			text += " · revisa el estado: si quedó detenido, arráncalo con [S]"
+		}
+		return tea.Batch(
+			func() tea.Msg { return toastMsg{Text: text, Kind: components.Destructive} },
+			s.load(),
+		)
 	}
 	if msg.what == "importar" {
 		s.closeBrowse()
 	}
-	return tea.Batch(
+	cmds := []tea.Cmd{
 		func() tea.Msg { return toastMsg{Text: msg.text()} },
 		s.load(),
 		s.worldsLibCmd(),
-	)
+	}
+	if msg.verify != "" {
+		// No se confirma un éxito que no se pudo comprobar (T-08): el aviso lo dice.
+		cmds = append(cmds, func() tea.Msg {
+			return toastMsg{Text: msg.text(), Kind: components.Destructive}
+		})
+	}
+	return tea.Batch(cmds...)
 }
 
 // startBrowse abre el explorador de archivos en la carpeta personal del usuario o,
@@ -3419,7 +3745,7 @@ func (s *instanceScreen) pluginsView(w, h int) string {
 // --- Red (§5.9) ---
 
 // netShortcut es la línea de atajos de la pestaña Red.
-const netShortcut = "[R] Comprobar de nuevo · [C] Copiar dirección"
+const netShortcut = "[R] Comprobar de nuevo · [C] Elegir dirección a copiar"
 
 // netView dibuja la pestaña Red dentro de paneles (§5.9). En medio y ancho reparte
 // dos paneles contiguos cuyos anchos suman exactamente w: CONEXIÓN (con las líneas
@@ -3557,7 +3883,8 @@ func (s *instanceScreen) netKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case "R":
 		return s, s.portCmd()
 	case "C":
-		return s, s.Invoke("instance.copy")
+		// Elige entre las direcciones disponibles (si solo hay una, la copia).
+		return s, s.Invoke("instance.choose-address")
 	}
 	return s, nil
 }
@@ -3796,6 +4123,7 @@ func (s *instanceScreen) Actions() []components.Action {
 		{ID: "instance.restart", Verb: "Reiniciar", Object: name, Key: "r", Hint: "Recrea el contenedor aplicando cambios.", Kind: components.Secondary, Disabled: restartDisabled, DisabledReason: restartWhy},
 		{ID: "instance.console", Verb: "Escribir", Object: "en la consola", Key: "/", Hint: "Escribe un comando para el servidor.", Kind: components.Secondary},
 		{ID: "instance.copy", Verb: "Copiar", Object: "dirección de conexión", Key: "c", Hint: "Copia ip:puerto al portapapeles.", Kind: components.Secondary},
+		{ID: "instance.backup", Verb: "Crear", Object: "backup ahora", Key: "b", Hint: "Guarda una copia de seguridad con checksum.", Kind: components.Secondary, Disabled: s.tab == 7, DisabledReason: "En Auto-apagado, [B] alterna el backup antes de apagar"},
 		{ID: "instance.version", Verb: "Cambiar", Object: "la versión de " + name, Key: "v", Hint: "Hace un backup y cambia la versión (reinicia para aplicar).", Kind: components.Secondary},
 		{ID: "instance.world.regen", Verb: "Regenerar", Object: "el mundo", Key: "g", Hint: "Pide una semilla y borra el mundo actual (se pierde Overworld, Nether y End).", Kind: components.Secondary},
 		{ID: "instance.world.load", Verb: "Cargar", Object: "un mundo desde .zip", Key: "l", Hint: "Explora tus archivos e importa un .zip como mundo activo.", Kind: components.Secondary},
@@ -3831,21 +4159,28 @@ func (s *instanceScreen) Invoke(id string) tea.Cmd {
 	case "instance.back":
 		return func() tea.Msg { return popScreenMsg{} }
 	case "instance.copy":
-		if s.detail == nil {
-			return nil
-		}
-		addr := connectionFromSpecWithHost(s.detail.Spec, s.detail.Host).Preferred()
-		if addr == "" {
-			return func() tea.Msg { return toastMsg{Text: "⚠ No hay dirección todavía", Kind: components.Destructive} }
-		}
-		if err := copyToClipboard(addr); err != nil {
-			return func() tea.Msg {
-				return toastMsg{Text: "✖ No se pudo copiar: " + err.Error(), Kind: components.Destructive}
-			}
-		}
-		return func() tea.Msg { return toastMsg{Text: "✓ Copiado: " + addr} }
+		// Copia la dirección preferida (tailnet → MagicDNS → red local); el dato
+		// persistido permite derivarla ANTES del primer arranque y, si no hay
+		// ninguna, se explica por qué y qué hacer (§10).
+		return copyAddressCmd(s.copyCandidates(), s.slug)
+	case "instance.choose-address":
+		// Con varias direcciones válidas, se elige cuál copiar (§10).
+		return chooseAddressCmd(s.copyCandidates(), s.slug)
 	}
 	return nil
+}
+
+// copyCandidates reúne las direcciones copiables de la instancia: IP del tailnet,
+// nombre MagicDNS (estado EN VIVO si se conoce) y red local.
+func (s *instanceScreen) copyCandidates() []copyCandidate {
+	if s.detail == nil || s.detail.Spec == nil {
+		return nil
+	}
+	host := s.detail.Host
+	if host == "" && s.detail.Spec.Connection != nil {
+		host = s.detail.Spec.Connection.Host
+	}
+	return addressCandidates(s.detail.Spec, host, s.magic, s.localIP)
 }
 
 // zoneCountFor declara cuántas zonas/paneles tiene la pestaña activa en un

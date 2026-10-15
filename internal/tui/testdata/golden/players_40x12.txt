@@ -4,7 +4,7 @@
 │  [Jugadores]  3/9                    │
 │ ╭─ ACCESO ─────────────── en vivo ─╮ │
 │ │Whitelist: ✓ ACTIVADA             │ │
-│ │En línea: no se pudo medir (¿serv…│ │
+│ │En línea: 3 de 20 conectados ahor…│ │
 │ │Jugadores permitidos              │ │
 │ │  ▶ ana                           │ │
 │ ╰──────────────────────────────────╯ │

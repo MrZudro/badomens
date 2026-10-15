@@ -4,9 +4,9 @@
 │ ╭─ Mundo ────────────────────────────────────────────────── 2/7 ─╮ │
 │ │▶ Semilla: > -2844874353865282585                               │ │
 │ │    Texto/número que genera el mapa; la misma semilla da el mis…│ │
+│ │  Continuar a Jugadores →                                       │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
 │ │  cualquiera entra. Pulsa [W] para activar la lista blanca.     │ │
-│ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │

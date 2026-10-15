@@ -4,8 +4,8 @@
 │ ╭─ Recursos ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 4/7 ─╮╭─ AYUDA ──────────────────────────────────────────────╮ │
 │ │▶ Memoria (RAM): > 4G                                                                                                                     ││La RAM es el máximo que puede usar la máquina virtual │ │
 │ │    RAM máxima del servidor. Más no siempre es mejor; te sugerimos una según tu equipo.                                                   ││de Java. Darla de más a un servidor quita memoria a   │ │
-│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││otros y no siempre mejora el rendimiento; darla de    │ │
-│ │                                                                                                                                          ││menos provoca cierres por falta de memoria. La        │ │
+│ │  Continuar a Red →                                                                                                                       ││otros y no siempre mejora el rendimiento; darla de    │ │
+│ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││menos provoca cierres por falta de memoria. La        │ │
 │ │                                                                                                                                          ││sugerencia sale de la RAM de tu equipo y de cuántos   │ │
 │ │                                                                                                                                          ││servidores tienes corriendo.                          │ │
 │ │                                                                                                                                          ││                                                      │ │

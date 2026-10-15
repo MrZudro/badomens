@@ -19,14 +19,14 @@ import (
 	"github.com/MrZudro/badomens/internal/result"
 )
 
-// fakeInstances es un adaptador en memoria.
-type fakeInstances struct {
+// FakeInstances es un adaptador en memoria.
+type FakeInstances struct {
 	mu    sync.Mutex
 	specs map[string]*instance.Spec
 	state map[string]string
 }
 
-func (f *fakeInstances) Rows(ctx context.Context) ([]Row, error) {
+func (f *FakeInstances) Rows(ctx context.Context) ([]Row, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := make([]Row, 0, len(f.specs))
@@ -49,7 +49,7 @@ func (f *fakeInstances) Rows(ctx context.Context) ([]Row, error) {
 	return out, nil
 }
 
-func (f *fakeInstances) Detail(ctx context.Context, slug string) (*Detail, error) {
+func (f *FakeInstances) Detail(ctx context.Context, slug string) (*Detail, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	s, ok := f.specs[slug]
@@ -59,40 +59,94 @@ func (f *fakeInstances) Detail(ctx context.Context, slug string) (*Detail, error
 	return &Detail{Spec: s, State: f.state[slug], Host: "100.64.0.1"}, nil
 }
 
-func (f *fakeInstances) Logs(context.Context, string, int) (string, error) {
+func (f *FakeInstances) Logs(context.Context, string, int) (string, error) {
 	return "línea 1\nlínea 2", nil
 }
 
-func (f *fakeInstances) Console(context.Context, string, string) error { return nil }
+func (f *FakeInstances) Console(context.Context, string, string) error { return nil }
 
-func (f *fakeInstances) Save(ctx context.Context, spec *instance.Spec) error {
+func (f *FakeInstances) Save(ctx context.Context, spec *instance.Spec) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.specs[spec.Slug] = spec
 	return nil
 }
 
-// fakeLifecycle registra las llamadas sin ejecutar nada.
-type fakeLifecycle struct {
+// SetState fija el estado de una instancia en el fake (tests de estado).
+func (f *FakeInstances) SetState(slug, state string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.state[slug] = state
+}
+
+// remove quita una instancia del registro del fake (borrado).
+func (f *FakeInstances) remove(slug string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.specs, slug)
+	delete(f.state, slug)
+}
+
+// FakeLifecycle registra las llamadas sin ejecutar nada. Delete sí quita la
+// instancia del registro del fake: así la verificación posterior al borrado (T-08)
+// se comporta como con el servicio real.
+type FakeLifecycle struct {
 	mu    sync.Mutex
 	calls []string
+	inst  *FakeInstances
 }
 
-func (f *fakeLifecycle) Start(_ context.Context, slug string) error { return f.record("start", slug) }
-
-func (f *fakeLifecycle) Stop(_ context.Context, slug string) error { return f.record("stop", slug) }
-
-func (f *fakeLifecycle) Close(_ context.Context, slug string) error { return f.record("close", slug) }
-
-func (f *fakeLifecycle) Restart(_ context.Context, slug string) error {
-	return f.record("restart", slug)
+func (f *FakeLifecycle) Start(_ context.Context, slug string) error {
+	if err := f.record("start", slug); err != nil {
+		return err
+	}
+	f.setState(slug, "running")
+	return nil
 }
 
-func (f *fakeLifecycle) Delete(_ context.Context, slug string) error {
-	return f.record("delete", slug)
+func (f *FakeLifecycle) Stop(_ context.Context, slug string) error {
+	if err := f.record("stop", slug); err != nil {
+		return err
+	}
+	f.setState(slug, "exited")
+	return nil
 }
 
-func (f *fakeLifecycle) record(op, slug string) error {
+func (f *FakeLifecycle) Close(_ context.Context, slug string) error {
+	if err := f.record("close", slug); err != nil {
+		return err
+	}
+	f.setState(slug, "exited")
+	return nil
+}
+
+func (f *FakeLifecycle) Restart(_ context.Context, slug string) error {
+	if err := f.record("restart", slug); err != nil {
+		return err
+	}
+	f.setState(slug, "running")
+	return nil
+}
+
+// setState refleja el efecto del ciclo de vida en el registro del fake (como haría
+// Docker), para que las verificaciones posteriores de la UI sean significativas.
+func (f *FakeLifecycle) setState(slug, state string) {
+	if f.inst != nil {
+		f.inst.SetState(slug, state)
+	}
+}
+
+func (f *FakeLifecycle) Delete(_ context.Context, slug string) error {
+	if err := f.record("delete", slug); err != nil {
+		return err
+	}
+	if f.inst != nil {
+		f.inst.remove(slug)
+	}
+	return nil
+}
+
+func (f *FakeLifecycle) record(op, slug string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, op+":"+slug)
@@ -100,7 +154,7 @@ func (f *fakeLifecycle) record(op, slug string) error {
 }
 
 // Calls devuelve las operaciones registradas.
-func (f *fakeLifecycle) Calls() []string {
+func (f *FakeLifecycle) Calls() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	out := make([]string, len(f.calls))
@@ -108,16 +162,44 @@ func (f *fakeLifecycle) Calls() []string {
 	return out
 }
 
-// fakeBackups devuelve una lista fija.
-type fakeBackups struct {
+// FakeBackups devuelve una lista fija y registra lo que se pidió (List, Create,\n// Restore y Prune son observables desde los tests).
+type FakeBackups struct {
+	mu    sync.Mutex
 	items []backup.Info
+	calls []string
+	// restoreErr fuerza el fallo de la restauración.
+	restoreErr error
 }
 
-func (f *fakeBackups) List(context.Context, string) ([]backup.Info, error) { return f.items, nil }
-func (f *fakeBackups) Create(context.Context, string) error                { return nil }
-func (f *fakeBackups) Restore(context.Context, string, string) error       { return nil }
-func (f *fakeBackups) Prune(context.Context, string, int) ([]string, error) {
+func (f *FakeBackups) List(context.Context, string) ([]backup.Info, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.items, nil
+}
+
+func (f *FakeBackups) Create(_ context.Context, slug string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, "create:"+slug)
+	return nil
+}
+
+func (f *FakeBackups) Restore(_ context.Context, slug, name string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, "restore:"+slug+":"+name)
+	return f.restoreErr
+}
+
+func (f *FakeBackups) Prune(context.Context, string, int) ([]string, error) {
 	return nil, nil
+}
+
+// Calls devuelve las operaciones registradas.
+func (f *FakeBackups) Calls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string{}, f.calls...)
 }
 
 // fakeIdle guarda la configuración de auto-apagado en memoria y simula el
@@ -185,10 +267,48 @@ type fakeCatalog struct {
 	items []engines.Version
 	// resolveErr, si no es nil, hace fallar toda resolución.
 	resolveErr error
+	// stale etiqueta el catálogo como caché vencida y warning lo describe.
+	stale   bool
+	warning string
+	// listErr hace fallar la lista (nunca una lista vacía silenciosa) y
+	// refreshErr el refresco forzado.
+	listErr    error
+	refreshErr error
 }
 
-func (f *fakeCatalog) Versions(context.Context, string, bool) ([]engines.Version, error) {
-	return f.items, nil
+func (f *fakeCatalog) Versions(context.Context, string, bool) (engines.ListResult, error) {
+	if f.listErr != nil {
+		return engines.ListResult{Engine: "fake", Stale: f.stale, Status: f.status()}, f.listErr
+	}
+	return engines.ListResult{
+		Engine: "fake", Versions: f.items, Stale: f.stale, Status: f.status(), Warning: f.warning,
+	}, nil
+}
+
+// Refresh fuerza la consulta: los fakes no tienen red, así que devuelve el mismo
+// catálogo y limpia la etiqueta de caché vencida.
+func (f *fakeCatalog) Refresh(context.Context, string) (engines.RefreshResult, error) {
+	if f.refreshErr != nil {
+		return engines.RefreshResult{
+			Engine: "fake",
+			Status: engines.CatalogStatus{Engine: "fake", State: engines.CatalogStale, Warning: "sin red"},
+		}, f.refreshErr
+	}
+	f.stale, f.warning = false, ""
+	return engines.RefreshResult{Engine: "fake", Versions: f.items, Status: f.status()}, nil
+}
+
+// status informa del estado del catálogo falso (fresco o vencido).
+func (f *fakeCatalog) status() engines.CatalogStatus {
+	state := engines.CatalogFresh
+	if f.stale {
+		state = engines.CatalogStale
+	}
+	st := engines.CatalogStatus{Engine: "fake", State: state, Source: "fake", Versions: len(f.items)}
+	if f.stale {
+		st.Warning = f.warning
+	}
+	return st
 }
 
 // Resolve imita al servicio: devuelve la versión pedida (o la recomendada) con
@@ -222,9 +342,7 @@ func (f *fakeCatalog) Resolve(_ context.Context, engine, version string) (engine
 
 // Status informa de un catálogo fresco (los fakes no usan disco).
 func (f *fakeCatalog) Status(context.Context, string) (engines.CatalogStatus, error) {
-	return engines.CatalogStatus{
-		State: engines.CatalogFresh, Source: "fake", Versions: len(f.items),
-	}, nil
+	return f.status(), nil
 }
 
 // fakePorts informa de que todo está libre (o del resultado guionizado).
@@ -248,21 +366,56 @@ func (*fakeDocker) Ensure(context.Context) (dockerx.Diagnosis, error) {
 	return dockerx.Diagnosis{State: dockerx.StateOK}, nil
 }
 
-// fakeCreator registra las peticiones de creación.
+// fakeCreator registra las peticiones de creación y deja el spec «persistido»
+// en el registro del fake, para poder verificar que coincide con el resumen.
 type fakeCreator struct {
 	mu    sync.Mutex
 	calls int
+	// m es el registro del fake donde queda el spec del alta.
+	m map[string]*instance.Spec
+	// versions permite resolver la versión por defecto como el servicio.
+	versions []engines.Version
+	// createErr fuerza un fallo PARCIAL (spec escrito, runtime no).
+	createErr error
 }
 
-func (f *fakeCreator) Create(_ context.Context, req provision.Request) (string, result.Outcome, error) {
+func (f *fakeCreator) Create(_ context.Context, req provision.Request) (CreateOutcome, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
 	slug, err := instance.NormalizeSlug(req.Name)
 	if err != nil {
-		return "", result.OutcomeFailed, err
+		return CreateOutcome{Outcome: result.OutcomeFailed}, err
 	}
-	return slug, result.OutcomeApplied, nil
+	spec := f.specFor(req, slug)
+	if f.createErr != nil {
+		return CreateOutcome{Slug: slug, Spec: spec, Outcome: result.OutcomePartial}, f.createErr
+	}
+	return CreateOutcome{Slug: slug, Spec: spec, Outcome: result.OutcomeApplied}, nil
+}
+
+// specFor construye el spec que «se persiste»: motor, versión y los pines
+// obligatorios del motor, como hace el servicio de catálogo.
+func (f *fakeCreator) specFor(req provision.Request, slug string) *instance.Spec {
+	engine := req.Engine
+	if engine == "" {
+		engine = engines.Paper.Name
+	}
+	version := req.Version
+	if version == "" && len(f.versions) > 0 {
+		version = f.versions[len(f.versions)-1].Version
+	}
+	pins := map[string]string{}
+	if e, ok := engines.ByName(engine); ok {
+		for _, dep := range engines.RequiredPins(e) {
+			pins[dep] = "1"
+		}
+	}
+	spec := &instance.Spec{Slug: slug, Name: req.Name, Engine: engine, Version: version, Pins: pins}
+	if f.m != nil {
+		f.m[slug] = spec
+	}
+	return spec
 }
 
 // fakeCatalogItems es el catálogo por defecto de los fakes: la recomendada y una
@@ -275,6 +428,15 @@ func fakeCatalogItems(opts FakeOptions) []engines.Version {
 		{Version: "1.21.4", Channel: engines.ChannelRelease, Recommended: true, Compatible: true, JavaMajor: 21},
 		{Version: "1.20.1", Channel: engines.ChannelRelease, Compatible: true, JavaMajor: 17},
 	}
+}
+
+// fakePlayerReport es el informe de jugadores por defecto de los fakes: el SLP
+// respondió, así que la pestaña muestra una medición correcta.
+func fakePlayerReport(opts FakeOptions) PlayerReport {
+	if opts.PlayerReport != nil {
+		return *opts.PlayerReport
+	}
+	return PlayerReport{Online: 0, Max: 20, Known: true, State: "running", Method: "slp"}
 }
 
 // NewFake construye una fachada falsa para los tests de la TUI.
@@ -316,6 +478,24 @@ type FakeOptions struct {
 	// CatalogVersions, si no está vacío, sustituye la lista de versiones del
 	// catálogo falso.
 	CatalogVersions []engines.Version
+	// CatalogStale etiqueta la lista como caché vencida y CatalogWarning es su
+	// aviso (etiqueta «stale» del panel de versiones).
+	CatalogStale   bool
+	CatalogWarning string
+	// CatalogListErr hace fallar la lista de versiones (ruta de error y reintento).
+	CatalogListErr error
+	// CatalogRefreshErr hace fallar el refresco forzado del catálogo.
+	CatalogRefreshErr error
+	// PlayerReport es el informe que devuelve la consulta de jugadores.
+	PlayerReport *PlayerReport
+	// PlayerErr hace fallar la consulta de jugadores.
+	PlayerErr error
+	// CreateErr fuerza un fallo PARCIAL del alta (spec escrito, runtime no).
+	CreateErr error
+	// Backups fija la lista de backups del fake.
+	Backups []backup.Info
+	// BackupRestoreErr hace fallar la restauración.
+	BackupRestoreErr error
 }
 
 // NewFakeWith construye una fachada falsa con opciones.
@@ -325,15 +505,16 @@ func NewFakeWith(specs []*instance.Spec, opts FakeOptions) *Services {
 	for _, s := range specs {
 		m[s.Slug] = s
 	}
+	inst := &FakeInstances{specs: m, state: state}
 	return &Services{
 		MaxParallel:  3,
 		MaxInstances: 5,
 		DataDir:      ".",
 		Repo:         "MrZudro/badomens",
 		Engines:      engines.Order,
-		Instances:    &fakeInstances{specs: m, state: state},
-		Lifecycle:    &fakeLifecycle{},
-		Backups:      &fakeBackups{},
+		Instances:    inst,
+		Lifecycle:    &FakeLifecycle{inst: inst},
+		Backups:      &FakeBackups{items: opts.Backups, restoreErr: opts.BackupRestoreErr},
 		Ports:        &fakePorts{res: opts.PortResult},
 		DockerState:  &fakeDocker{},
 		Idle: &fakeIdle{
@@ -342,8 +523,13 @@ func NewFakeWith(specs []*instance.Spec, opts FakeOptions) *Services {
 			watchEvents: opts.IdleEvents,
 			watchErr:    opts.IdleWatchErr,
 		},
-		Catalog: &fakeCatalog{items: fakeCatalogItems(opts), resolveErr: opts.CatalogResolveErr},
-		Creator: &fakeCreator{},
+		Catalog: &fakeCatalog{
+			items: fakeCatalogItems(opts), resolveErr: opts.CatalogResolveErr,
+			stale: opts.CatalogStale, warning: opts.CatalogWarning,
+			listErr: opts.CatalogListErr, refreshErr: opts.CatalogRefreshErr,
+		},
+		Creator: &fakeCreator{m: m, versions: fakeCatalogItems(opts), createErr: opts.CreateErr},
+		Players: &FakePlayers{report: fakePlayerReport(opts), err: opts.PlayerErr},
 		Access:  newFakeAccess(specs, opts),
 		Worlds:  newFakeWorlds(specs, opts),
 		Infra:   &fakeInfra{DaemonDown: opts.InfraDaemonDown, Installed: opts.InfraDaemonInstalled},

@@ -2,16 +2,16 @@
 ├────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
 │ ╭─ REVISAR ──────────────────────────────────────────────── 7/7 ─╮ │
-│ │  Nombre: (auto)                                                │ │
-│ │  Motor: paper                                                  │ │
-│ │  Versión de Minecraft: 1.21.4                                  │ │
-│ │  Semilla: (auto)                                               │ │
-│ │  Jugadores máximos: 20                                         │ │
-│ │  Dificultad: normal                                            │ │
-│ │  Modo de juego: survival                                       │ │
-│ │  Cuentas premium (modo online): no                             │ │
-│ │  Lista blanca: no                                              │ │
-│ │  Operadores: (ninguno)                                         │ │
+│ │Resolución del servicio de catálogo                             │ │
+│ │  Motor: Paper (paper)                                          │ │
+│ │  Versión: 1.21.4                                               │ │
+│ │  Compatibilidad: ✓ compatible                                  │ │
+│ │  Java: 21 (verificado por el proveedor)                        │ │
+│ │  Build: 123                                                    │ │
+│ │  Loader: —                                                     │ │
+│ │  Pines: PAPER_BUILD=123                                        │ │
+│ │  Imagen: itzg/minecraft-server:java21                          │ │
+│ │  … (16 valores más en los pasos · [Esc] para revisar)          │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
 │ │  cualquiera entra. [W] activa la lista blanca.                 │ │
 │ │[Enter] Crear y arrancar · [Esc] Volver a editar                │ │

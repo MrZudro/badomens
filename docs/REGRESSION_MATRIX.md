@@ -1,4 +1,4 @@
-﻿# badomens — Matriz de regresión (Fase 0)
+# badomens — Matriz de regresión (Fase 0)
 
 > **Autor:** Auditor de contratos (Agente 1, Fase 0).
 > **Rama:** `fix/estabilizacion-plan-completo`. **Sin commit** (lo hace el orquestador).
@@ -225,3 +225,45 @@ modificaciones **ajenas a esta auditoría**:
   compilar (`go build ./...` = exit 0) tras las ediciones concurrentes, pero **no** se volvió a
   ejecutar la suite completa sobre el árbol ya modificado por otros agentes.
 - El Auditor de contratos **no** ha modificado ningún archivo `.go` de producción.
+
+## 11. Actualización de estado — Fases 7 y 9 (Agente de flujos)
+
+Sin duplicar la matriz: esta sección solo **actualiza el estado** de las filas ya
+registradas arriba y apunta a la prueba que ahora las cubre (los IDs nuevos están
+en `docs/TUI_ACCEPTANCE_TESTS.md`; la matriz de TUI no se duplica).
+
+| ID original | Estado tras Fases 7/9 | Dónde se corrigió | Prueba |
+|---|---|---|---|
+| **QC-01** (↑/↓ en los selectores) | **resuelto** | `screen_wizard.go` (lista de campos con `↑/↓`, comentado en `handleStepKey`) | `WIZ-01` |
+| **QC-02** (`↓` avanza de paso) | **resuelto** | `screen_wizard.go`: el paso solo cambia con `Enter` sobre la celda «Continuar a X →» o con `Tab`; `↓` se detiene en el último campo | `WIZ-01` |
+| **QC-03** (faltan versiones recientes) | **resuelto en la UI** (la causa técnica se corrigió en las Fases 2-5) | la TUI lista lo que devuelve el servicio, con `★` en la última estable y grupos por versión mayor | `WIZ-02`, `WIZ-09` |
+| **QC-04** (versiones que dan 404) | **resuelto en la UI** (filtro del servicio) | la UI no reintroduce filtros propios: solo marca lo que el servicio declara incompatible, explicando el motivo | `WIZ-09` |
+| **QC-05** (grid desordenado y pegado) | **resuelto** | `components/selector.go` (grupos por versión mayor, ancho de columna fijo y separación visible) + panel lateral `VERSIONES` | `WIZ-02`, `SEL-02`/`SEL-08` |
+| **AD-01** (selectores de la creación avanzada) | **resuelto** | mismos selectores y teclado que la creación rápida en `screen_wizard.go` | `WIZ-05` |
+| **AD-02** (se elige un motor/versión y arranca otro) | **resuelto**: al cambiar de motor se resetea la versión, se descarta la resolución, la selección va por valor y el payload de creación se construye desde el `Resolved` del servicio, **verificando** la config persistida contra el resumen | `screen_wizard.go` (`buildRequest`, `create`, `createdMismatch`, `noteResolved`), `svc.CreateOutcome` | `WIZ-04`, `WIZ-05`, `WIZ-06`, `WIZ-08` |
+| **RG-01** (regeneración con ←/→) | **resuelto** | el diálogo usa el componente único; `↑/↓`/`←/→` mueven el foco entre sus acciones | `REG-01` |
+| **RG-02** (sin feedback) | **resuelto** | 🟡 Cargando + indicador persistente «Regeneración en curso» + notificación de resultado y aviso cuando no se pudo verificar (T-08) | `REG-02`, `REG-04` |
+| **RG-03** / **SEC-09** (política no comunicada) | **resuelto y documentado**: política ÚNICA «apagar y regenerar», explicada en el diálogo antes de confirmar (`regenPolicy`) y en `svc/worlds.go` | `screen_instance.go` (`openRegenModal`), `svc/worlds.go` | `REG-01`, `REG-03` |
+| **SEC-07** (§7 jugadores) | **resuelto**: Server List Ping con respaldo RCON, sin consultar en 🟡 Cargando, con reintentos y mensajes diferenciados (apagado / iniciando / consulta no disponible / error de conexión) | `svc/players.go`, `screen_instance.go` (`playersCmd`, `onlineLine`) | `PLAY-01`…`PLAY-04` |
+| **SEC-10** (§10 copiar dirección) | **resuelto**: dirección derivada antes del primer arranque (tailnet, MagicDNS, red local), elección explícita cuando hay varias y mensaje que explica por qué y qué hacer cuando no hay ninguna | `address.go`, `screen_chooser.go`, `screen_instance.go`, `screen_home.go` | `COPY-01`…`COPY-04` |
+| **SEC-11** (§11 borrar instancias) | **resuelto**: `[D] Borrar` disponible en la lista y en el detalle, confirmación reforzada (nombre exacto), diálogo con lo que se elimina, backup previo (`Ctrl+B`), apagado previo con aviso y resultado verificado y notificado | `screen_home.go` (`startDeletePrompt`, `deleteCmd`), `screen_instance.go` | `DEL-01`…`DEL-05` |
+
+### Pendientes fuera del alcance de este agente (no-TUI)
+
+1. **RCON deshabilitado por defecto.** El compose que genera `internal/runtime`
+   escribe `ENABLE_RCON: "FALSE"` sin opción por instancia, así que el respaldo
+   RCON de la consulta de jugadores siempre falla hasta que el usuario lo active a
+   mano. La TUI lo diagnostica y lo explica («consulta no disponible: habilita
+   RCON para el respaldo»), pero **habilitarlo desde la UI requiere un campo nuevo
+   en `instance.Spec` y en la plantilla de `internal/runtime`** (fuera de mi
+   alcance). Recomendación: `spec.RCON {Enabled, Password}` + variable
+   `ENABLE_RCON`/`RCON_PASSWORD` en el compose, y un botón en Auto-apagado.
+2. **Pines desde la UI.** El payload de creación (`provision.Request`) no acepta
+   pines explícitos: la TUI resuelve con el servicio y **verifica** después que lo
+   persistido coincide, pero no puede inyectar el `Resolved` exacto que mostró.
+   Si se quiere coincidencia byte a byte incluso si el upstream publica un build
+   nuevo entre la revisión y la creación, `provision.Request` debería aceptar los
+   `Pins` ya resueltos (fuera de mi alcance).
+3. **Regeneración «programada»**: descartada a propósito (una sola política). Si
+   el producto la quisiera, necesitaría estado persistente de «regenerar al
+   arrancar» en el registro de instancias.

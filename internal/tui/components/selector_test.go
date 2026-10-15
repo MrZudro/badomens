@@ -137,3 +137,55 @@ func TestSelectorDeshabilitadoExplicaMotivo(t *testing.T) {
 		t.Fatal("Selected debe devolver el elemento con su estado Disabled")
 	}
 }
+
+// TestSelectorGridAgrupadoNavega: con cabeceras de grupo, la rejilla mantiene la
+// alineación, cada grupo se reparte en sus propias filas y las cuatro flechas
+// navegan sin cruzar a una columna inexistente.
+func TestSelectorGridAgrupadoNavega(t *testing.T) {
+	items := []SelectItem{
+		{Value: "1.21.4", Label: "1.21.4", Group: "Minecraft 1.21.x"},
+		{Value: "1.21.1", Label: "1.21.1", Group: "Minecraft 1.21.x"},
+		{Value: "1.20.6", Label: "1.20.6", Group: "Minecraft 1.20.x"},
+		{Value: "26.2-snap", Label: "26.2-snap", Group: "Snapshots"},
+	}
+	s := NewSelectorMode("Versiones", items, SelectGrid)
+	s.Cols = 2
+	cols := s.GridColumns(60, "")
+	if cols != 2 {
+		t.Fatalf("quiero 2 columnas forzadas, tengo %d", cols)
+	}
+	lines := s.RenderGrid(60, "", pal(), false)
+	out := strings.Join(lines, "\n")
+	for _, want := range []string{"MINECRAFT 1.21.X", "MINECRAFT 1.20.X", "SNAPSHOTS"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("la cabecera de grupo %q debe verse:\n%s", want, out)
+		}
+	}
+	// 3 cabeceras (una por grupo) + 3 filas de celdas (2+1+1 opciones con 2 columnas).
+	if len(lines) != 6 {
+		t.Fatalf("la rejilla agrupada debe ocupar 6 líneas, tengo %d:\n%s", len(lines), out)
+	}
+	first := layout.Width(lines[1])
+	for i, ln := range lines {
+		if layout.Width(ln) > first {
+			t.Fatalf("la fila %d mide %d celdas, más que la primera fila de celdas (%d): %q", i, layout.Width(ln), first, ln)
+		}
+	}
+	// → no escapa de la fila (el grupo 1.21.x solo tiene dos celdas).
+	s.SetCursor(1)
+	s.MoveGrid(1, 0, cols)
+	if s.Cursor() != 1 {
+		t.Fatalf("→ en la última columna de la fila no debe moverse, cursor = %d", s.Cursor())
+	}
+	// ↓ baja a la fila del grupo siguiente.
+	s.SetCursor(0)
+	s.MoveGrid(0, 1, cols)
+	if s.Value() != "1.20.6" {
+		t.Fatalf("↓ debe bajar a la fila del siguiente grupo, tengo %q", s.Value())
+	}
+	// ↑ vuelve al grupo anterior manteniendo la columna.
+	s.MoveGrid(0, -1, cols)
+	if s.Cursor() != 0 {
+		t.Fatalf("↑ debe volver a la primera fila, cursor = %d", s.Cursor())
+	}
+}
