@@ -64,8 +64,9 @@ Opciones principales:
    ventana a un tamaño conocido (p. ej. 110×30 celdas).
 2. Lanza la TUI (`go run ./cmd/badomens tui` o el binario) en esa ventana.
 3. Navega con `--keys` hasta el estado a capturar; evita depender del ratón.
-4. Captura cada pantalla y cada tamaño en `docs/capturas/` (o un directorio
-   temporal) con un nombre sin ambigüedad: `<pantalla>_<w>x<h>.png`.
+4. Captura cada pantalla y cada tamaño (o en un directorio temporal) con un
+   nombre sin ambigüedad: `<pantalla>_<w>x<h>.png`. `docs/capturas/` está en
+   `.gitignore`: son PNG binarios que se regeneran, no se versionan.
 5. **Pasa los PNG a un subagente de visión** (`visual-qa`) con la rúbrica:
    recortes/solapes, jerarquía de título/pestaña/estado/atajos, dónde se escribe
    y qué tiene el foco, consola fuera de su pestaña, footer fijo, densidad y

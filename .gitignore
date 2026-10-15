@@ -35,6 +35,12 @@ coverage/
 coverage.out
 *.prof
 
+# Capturas de pantalla de la TUI (PNG binarios): se generan localmente con la
+# skill terminal-capture para la revisión visual y no se versionan (engordan
+# cada clon). Los snapshots de texto de internal/tui/testdata/golden/ sí se
+# versionan.
+docs/capturas/
+
 # Go
 vendor/
 .gotmp/

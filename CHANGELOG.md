@@ -6,16 +6,17 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
-> 🧭 **Cierre del plan de implementación unificado (fases 0–12)** en la rama
-> `fix/estabilizacion-plan-completo`. Fusiona las dos specs (técnica y de
+## [1.3.0] - 2026-10-14
+
+> 🧭 **Cierre del plan de implementación unificado (fases 0–12)**. Fusiona las dos
+> especificaciones (técnica y de
 > bugs/UX): transporte HTTP, los cinco proveedores, selección y compatibilidad
 > trivalente, caché resiliente, servicio de catálogo único para CLI/TUI/MCP, la
 > TUI (componentes base, flujos de creación, funciones de instancia y pulido),
 > daemon/Docker/Tailscale, descarga segura de plugins, marketplaces y el cierre
 > de observabilidad y seguridad del runtime. **Antes de leer lo demás, mira los
 > cambios de SEMÁNTICA**: hay tres que afectan a quien consume el contrato JSON.
-> La matriz defecto → prueba está en `docs/REGRESSION_MATRIX.md` y el resumen
-> para el revisor en `docs/ENTREGA_FINAL.md`.
+> La matriz defecto → prueba está en `docs/REGRESSION_MATRIX.md`.
 
 ### 🔄 Cambios de SEMÁNTICA (léelos antes de consumir el contrato JSON)
 
@@ -358,6 +359,12 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ### 🔧 Cambiado
 
+- **Limpieza de documentos de sesión**: se retiran del repositorio
+  `docs/tui-auditoria.md`, `docs/TUI_IMPLEMENTATION_BRIEF.md`, el informe de
+  entrega y la verificación de upstream (documentos de trabajo ya cerrados), y
+  las capturas PNG de `docs/capturas/` (se regeneran con la skill
+  `terminal-capture`; ahora están en `.gitignore`). Se conserva
+  `docs/REGRESSION_MATRIX.md`, con el mapeo defecto → prueba.
 - `internal/engines/{paper,fabric,forge,neoforge}.go` reciben cambios
   **estrictamente aditivos**: fijan `Compatibility` en las entradas que su propio
   catálogo oficial publica. `pickVersion` se traslada a `select.go` con la firma
@@ -406,11 +413,11 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 - Ideas, mejoras y correcciones tras el primer uso en producción. Abre un issue
   en [el repositorio](https://github.com/MrZudro/badomens/issues) 🐛.
-- **Lo que sigue bloqueado o pendiente** (detalle en `docs/ENTREGA_FINAL.md` y
-  `docs/UPSTREAM_VERIFICATION.md`): Paper API v2 está retirada (ya migrado a Fill
-  v3), la regresión del Maven de NeoForge del 27-sep-2026 quedó **cerrada por el
-  upstream**, la API de CurseForge exige una **API key** (fuera de P1) y `-race`
-  no puede ejecutarse en el entorno de desarrollo actual (requiere cgo).
+- **Lo que sigue bloqueado o pendiente**: Paper API v2 está retirada (ya migrado
+  a Fill v3), la regresión del Maven de NeoForge del 27-sep-2026 quedó **cerrada
+  por el upstream**, la API de CurseForge exige una **API key** (fuera de P1) y
+  `-race` no puede ejecutarse en el entorno de desarrollo actual (requiere cgo,
+  sin compilador C).
 
 ## [1.2.1] - 2026-10-14
 
@@ -825,6 +832,7 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ---
 
+[1.3.0]: https://github.com/MrZudro/badomens/releases/tag/v1.3.0
 [1.2]: https://github.com/MrZudro/badomens/releases/tag/v1.2
 [1.0.1]: https://github.com/MrZudro/badomens/releases/tag/v1.0.1
 [1.0.0]: https://github.com/MrZudro/badomens/releases/tag/v1.0.0

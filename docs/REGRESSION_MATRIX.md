@@ -6,7 +6,9 @@
 > **Alcance:** reproducción **estática** (lectura de código + consulta real a los proveedores).
 > No se modifica lógica de negocio. No se crean suites paralelas: las pruebas de TUI se amplían
 > en `docs/TUI_ACCEPTANCE_TESTS.md`.
-> **Documento hermano:** `docs/UPSTREAM_VERIFICATION.md` (hechos externos y preguntas abiertas).
+> **Nota:** los hechos externos (Paper v2 retirada, Minecraft 26.x con Java 25 y
+> la regresión del Maven de NeoForge del 27-sep-2026) se verificaron contra las
+> fuentes oficiales al preparar esta matriz; cada fila cita la evidencia.
 
 ## 1. Cómo leer la matriz
 
@@ -51,7 +53,7 @@ Paquetes **sin** pruebas (`[no test files]`): `cmd/badomens`, `internal/doctor`,
 | ID | Síntoma | Causa raíz (confirmada / hipótesis) | Evidencia (archivo:línea o comando) | Estado | Prueba propuesta |
 |---|---|---|---|---|---|
 | **API-01** | Fallos transitorios de red se convierten en errores de operación. | **Confirmada.** El cliente no implementa reintentos pese a que el comentario del tipo los anuncia. | `internal/engines/client.go:12` ("con **reintento mínimo**"), `:21-23` `DefaultClient` (solo timeout 15 s), `:27-47` `Get` sin bucle de reintento. | confirmado | `TestClientReintentaTransitorios` (429/500/502/503/timeout con backoff), `TestClientRespetaRetryAfter`, `TestClientNoReintenta4xx` (400/401/403/404) |
-| **API-02** | Identificación deficiente del cliente; posible bloqueo del proveedor. | **Confirmada.** UA fijo `badomens/0`, sin versión ni contacto. | `internal/engines/client.go:22` `UserAgent: "badomens/0"`; `internal/plugins/plugins.go:136` `req.Header.Set("User-Agent", "badomens/0")`. Fill exige UA identificable: `docs/UPSTREAM_VERIFICATION.md` E-03. | confirmado | `TestClientUserAgentIdentificable` (incluye versión y, si aplica, contacto) |
+| **API-02** | Identificación deficiente del cliente; posible bloqueo del proveedor. | **Confirmada.** UA fijo `badomens/0`, sin versión ni contacto. | `internal/engines/client.go:22` `UserAgent: "badomens/0"`; `internal/plugins/plugins.go:136` `req.Header.Set("User-Agent", "badomens/0")`. Fill exige UA identificable (documentación oficial del servicio de descargas de Paper). | confirmado | `TestClientUserAgentIdentificable` (incluye versión y, si aplica, contacto) |
 | **API-03** | Paper se resuelve sin un pin de build verificable; catálogo Paper hoy roto. | **Confirmada.** Usa API v2 (**retirada: 404**) y silencia errores de builds; el parser espera el esquema v2 (`{"builds":[{build,channel}]}`) en vez del v3 (array de objetos con `id`/`channel`/`downloads`). | `internal/engines/paper.go:29` base `https://api.papermc.io/v2/projects/paper`; `:34` `ListVersions` con `apiVersions`; `:44-49` `paperBuilds` esquema v2; `:63` `if err := ...GetJSON(...); err == nil && len(builds.Builds) > 0 {` (error silenciado). Comando: `GET .../v2/projects/paper/versions` → **404** (`paper_v2/versions.json`). | confirmado (upstream: v2 retirada) | `TestPaperFillV3ListVersions`, `TestPaperResolveSeleccionaBuildEstable`, `TestPaperResolveSinBuildFalla` (no aceptar resolución sin pin) |
 | **API-04** | Resolución Fabric sin el pin del loader. | **Confirmada.** Usa el catálogo general `/v2/versions/loader` (no `/loader/{game_version}`) y silencia el error. | `internal/engines/fabric.go:57` `GetJSON(ctx, p.Base()+"/versions/loader", &loaders); err == nil && len(loaders) > 0`; `:58` `loaders[0].Version`. Endpoint específico existe y devuelve otra forma: `fabric/loader_26.3.json`. | confirmado | `TestFabricLoaderPorGameVersion`, `TestFabricResolveSinLoaderFalla` |
 | **API-05** | `latest` puede devolver la versión más antigua. | **Confirmada.** `pickVersion` asume que el último elemento es el más reciente; Fabric entrega **más nuevo primero**. | `internal/engines/paper.go:174-193` `pickVersion` (recorre desde `len-1`); `internal/engines/fabric.go:34-44` conserva el orden del proveedor sin invertir. Fabric newest-first: `fabric/versions_game.json` (E-08). | confirmado | `TestPickVersionIndependienteDelOrden`, `TestFabricLatestEsElMasReciente` |
@@ -199,7 +201,7 @@ para el origen, el recorte aplicado a cada archivo y las notas de esquema.
 ## 9. Reglas respetadas y efectos del trabajo
 
 - **No** se ha modificado lógica de negocio ni ningún `.go` de producción. Únicos artefactos nuevos:
-  `docs/UPSTREAM_VERIFICATION.md`, `docs/REGRESSION_MATRIX.md` e `internal/engines/testdata/**`.
+  `docs/REGRESSION_MATRIX.md` e `internal/engines/testdata/**`.
 - **No** se han creado suites paralelas: las pruebas de TUI se amplían en `docs/TUI_ACCEPTANCE_TESTS.md`.
 - **No** se ha ejecutado `commit`.
 

@@ -22,7 +22,7 @@ Todos siguen siendo JSON/XML **válidos** y parseables.
 - `GET /versions/{v}/builds` → **array** de `{"id":190,"time":…,"channel":"STABLE","commits":[…],"downloads":{"server:default":{"name":"paper-26.3-190.jar","checksums":{"sha256":…},"size":…,"url":…}}}`.
   El canal estable es `"STABLE"` (mayúsculas) y el número de build es `id` (no `build`).
 
-> Nota: `26.3` declara `java.version.minimum = 25`. Corrobora E-03/E-05 de `docs/UPSTREAM_VERIFICATION.md`.
+> Nota: `26.3` declara `java.version.minimum = 25` (Java 25, requisito de Minecraft 26.x).
 
 ## paper_v2/ — Paper, API v2 (**retirada**)
 
