@@ -1,23 +1,29 @@
-// Package plugins gestiona la instalación de plugins/mods de cada instancia.
-// La carpeta destino depende del motor: paper → plugins/, fabric|forge|neoforge
-// → mods/, vanilla no admite plugins. Al instalar se advierte del riesgo de
-// pérdida de TPS (la medición real llega en la fase F2 con doctor tps).
+// Package plugins es el catÃ¡logo de plugins/mods instalados en una instancia:
+// carpeta destino segÃºn el motor (paper â†’ plugins/, fabric|forge|neoforge â†’
+// mods/, vanilla no admite plugins), alta, baja y listado.
+//
+// La instalaciÃ³n (transporte, verificaciÃ³n y movimiento atÃ³mico) vive en los
+// mÃ³dulos internos:
+//
+//   - internal/plugins/download implementa la obtenciÃ³n segura del artefacto
+//     (streaming con lÃ­mite, temporal + rename atÃ³mico, https obligatorio y
+//     polÃ­tica anti-SSRF que valida la IP resuelta de cada conexiÃ³n);
+//   - internal/plugins/archive valida la ESTRUCTURA del JAR/ZIP con lÃ­mites de
+//     recursos y sin descomprimir nada.
+//
+// Un plugin/mod es cÃ³digo de terceros: ver ThirdPartyWarning.
 package plugins
 
 import (
-	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/MrZudro/badomens/internal/errx"
 	"github.com/MrZudro/badomens/internal/instance"
+	"github.com/MrZudro/badomens/internal/plugins/download"
 )
 
 // KnownHeavy son plugins/mods conocidos por su mayor coste de CPU/servidor. No
@@ -30,33 +36,6 @@ var KnownHeavy = map[string]bool{
 
 // Installer opera sobre la carpeta de plugins/mods de una instancia.
 type Installer struct{ DataDir string }
-
-// Add copia un archivo local o descarga una URL a la carpeta de plugins/mods.
-func (i *Installer) Add(ctx context.Context, spec *instance.Spec, source string) (string, error) {
-	if spec.Engine == "vanilla" {
-		return "", errx.Usage("vanilla no admite plugins ni mods", "usa un motor con soporte (paper, fabric, forge, neoforge)")
-	}
-	targetDir := i.Dir(spec)
-	if err := os.MkdirAll(targetDir, 0o755); err != nil {
-		return "", err
-	}
-
-	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		return i.download(ctx, source, targetDir)
-	}
-	name := filepath.Base(source)
-	if name == "." || name == string(os.PathSeparator) || name == "" {
-		return "", errx.Usage("ruta de plugin inválida", "indica un archivo .jar o una URL de descarga")
-	}
-	raw, err := os.ReadFile(source) // #nosec G304 -- ruta local de plugin indicada por el usuario (add)
-	if err != nil {
-		return "", errx.NotFound("no se pudo leer el archivo "+source, "revisa la ruta")
-	}
-	if err := os.WriteFile(filepath.Join(targetDir, name), raw, 0o644); err != nil { // #nosec G703 -- name viene de filepath.Base(source); sin separadores
-		return "", err
-	}
-	return name, nil
-}
 
 // Dir devuelve la carpeta destino de plugins/mods de la instancia.
 func (i *Installer) Dir(spec *instance.Spec) string {
@@ -82,7 +61,8 @@ func (i *Installer) List(spec *instance.Spec) ([]string, error) {
 	}
 	var out []string
 	for _, e := range entries {
-		if !e.IsDir() {
+		// Los temporales de badomens no son plugins instalados.
+		if !e.IsDir() && !download.IsTempFile(e.Name()) {
 			out = append(out, e.Name())
 		}
 	}
@@ -94,12 +74,12 @@ func (i *Installer) List(spec *instance.Spec) ([]string, error) {
 func (i *Installer) Remove(spec *instance.Spec, name string) error {
 	dir := i.Dir(spec)
 	if strings.Contains(name, "/") || strings.Contains(name, `\`) || strings.Contains(name, "..") {
-		return errx.Usage("nombre inválido", "usa 'plugin list'")
+		return errx.Usage("nombre invÃ¡lido", "usa 'plugin list'")
 	}
 	path := filepath.Join(dir, name)
 	if err := os.Remove(path); err != nil {
 		if os.IsNotExist(err) {
-			return errx.NotFound("el plugin %q no está instalado", "usa 'plugin list'")
+			return errx.NotFound("el plugin %q no estÃ¡ instalado", "usa 'plugin list'")
 		}
 		return err
 	}
@@ -116,49 +96,10 @@ func WarnFor(names []string) string {
 		}
 	}
 	if len(heavy) > 0 {
-		return fmt.Sprintf("AVISO DE RENDIMIENTO: %s son plugins exigentes; pueden bajar el TPS. Si notas caídas, ejecuta 'doctor tps'.", strings.Join(heavy, ", "))
+		return fmt.Sprintf("AVISO DE RENDIMIENTO: %s son plugins exigentes; pueden bajar el TPS. Si notas caÃ­das, ejecuta 'doctor tps'.", strings.Join(heavy, ", "))
 	}
 	if len(names) >= 8 {
-		return "AVISO DE RENDIMIENTO: hay más de 8 plugins/mods. Cada uno suma trabajo al servidor; vigila el TPS con 'doctor tps'."
+		return "AVISO DE RENDIMIENTO: hay mÃ¡s de 8 plugins/mods. Cada uno suma trabajo al servidor; vigila el TPS con 'doctor tps'."
 	}
 	return ""
-}
-
-func (i *Installer) download(ctx context.Context, source, targetDir string) (string, error) {
-	u, err := url.Parse(source)
-	if err != nil {
-		return "", errx.Usage("URL de descarga inválida", "revisa la URL")
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("User-Agent", "badomens/0")
-	client := &http.Client{Timeout: 2 * time.Minute}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", errx.Wrap(errx.CodeUnavailable, err, "no se pudo descargar el plugin", "comprueba la URL")
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return "", errx.Unavailable(fmt.Sprintf("la descarga respondió %d", resp.StatusCode), "revisa la URL")
-	}
-	name := filepath.Base(u.Path)
-	if name == "" || name == "." || name == "/" {
-		name = "plugin-" + time.Now().UTC().Format("20060102T150405")
-	}
-	if dec, derr := url.PathUnescape(name); derr == nil {
-		name = dec
-	}
-	if strings.Contains(name, "/") || strings.Contains(name, `\`) {
-		name = strings.NewReplacer("/", "-", `\`, "-").Replace(name)
-	}
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 256*1024*1024))
-	if err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(filepath.Join(targetDir, name), raw, 0o644); err != nil { // #nosec G703 -- name saneado desde la URL (base + sin separadores)
-		return "", err
-	}
-	return name, nil
 }
