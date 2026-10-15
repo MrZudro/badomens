@@ -1,0 +1,27 @@
+{
+  "pagination": {"count": 1, "limit": 25, "offset": 0},
+  "result": [
+    {
+      "createdAt": "2026-01-01T00:00:00.000000Z",
+      "id": 1,
+      "projectId": 6785,
+      "name": "3.0-velocity",
+      "visibility": "public",
+      "description": "Solo proxy.",
+      "stats": {"totalDownloads": 1},
+      "author": "xeef",
+      "reviewState": "reviewed",
+      "channel": {"name": "Snapshot", "color": "#000000", "flags": []},
+      "downloads": {
+        "VELOCITY": {
+          "fileInfo": {"name": "WirelessRedstoneTrigger-3.0-velocity.jar", "sizeBytes": 999, "sha256Hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+          "externalUrl": null,
+          "downloadUrl": "https://hangarcdn.papermc.io/plugins/xeef/WirelessRedstoneTrigger/versions/3.0-velocity/VELOCITY/x.jar"
+        }
+      },
+      "pluginDependencies": {},
+      "platformDependencies": {"VELOCITY": ["4.2.1"]},
+      "memberNames": ["xeef"]
+    }
+  ]
+}

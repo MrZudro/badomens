@@ -1,0 +1,29 @@
+{
+  "pagination": {"count": 1, "limit": 25, "offset": 0},
+  "result": [
+    {
+      "createdAt": "2024-06-30T19:29:53.843453Z",
+      "id": 7728,
+      "projectId": 1950,
+      "name": "2.0.1",
+      "visibility": "public",
+      "description": "Fixed rainbow permissions issue",
+      "stats": {"totalDownloads": 95, "platformDownloads": {"PAPER": 95}},
+      "author": "hhitt",
+      "reviewState": "reviewed",
+      "channel": {"name": "Release", "color": "#14b8a6", "flags": ["FROZEN", "PINNED"]},
+      "pinnedStatus": "CHANNEL",
+      "downloads": {
+        "PAPER": {
+          "fileInfo": null,
+          "externalUrl": "https://cdn.modrinth.com/data/2iTY9Hk2/versions/OoRsHc53/FancyGlow-2.0.1.jar",
+          "downloadUrl": null
+        }
+      },
+      "pluginDependencies": {"PAPER": [{"name": "PlaceholderAPI", "projectId": null, "required": false, "externalUrl": "https://www.spigotmc.org/resources/placeholderapi.6245/", "platform": "PAPER"}]},
+      "platformDependencies": {"PAPER": ["1.19", "1.20", "1.21"]},
+      "platformDependenciesFormatted": {"PAPER": ["1.19-1.21"]},
+      "memberNames": ["hhitt"]
+    }
+  ]
+}

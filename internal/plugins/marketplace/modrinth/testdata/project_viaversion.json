@@ -1,0 +1,14 @@
+{
+  "id": "P1OZGk5p",
+  "slug": "viaversion",
+  "project_type": "mod",
+  "team": "t0xQradN",
+  "title": "ViaVersion",
+  "description": "Allows the connection of newer clients to older server versions.",
+  "status": "approved",
+  "loaders": ["bungeecord", "fabric", "folia", "paper", "sponge", "velocity"],
+  "game_versions": ["1.20.6", "1.21", "1.21.1"],
+  "downloads": 3337563,
+  "icon_url": "https://cdn.modrinth.com/data/P1OZGk5p/icon.webp",
+  "license": {"id": "GPL-3.0-only", "name": "GNU General Public License v3.0 only", "url": null}
+}

@@ -1,0 +1,51 @@
+{
+  "pagination": {"count": 2, "limit": 25, "offset": 0},
+  "result": [
+    {
+      "createdAt": "2026-08-11T14:43:36.358171Z",
+      "id": 28830,
+      "projectId": 6785,
+      "name": "2.0",
+      "visibility": "public",
+      "description": "Remote can be enchanted with Curse of Vanishing.",
+      "stats": {"totalDownloads": 12, "platformDownloads": {"PAPER": 12}},
+      "author": "xeef",
+      "reviewState": "reviewed",
+      "channel": {"createdAt": "2026-08-11T14:37:10.142094Z", "name": "Release", "description": "The default channel", "color": "#06b6d4", "flags": ["SENDS_NOTIFICATIONS", "FROZEN", "PINNED"]},
+      "pinnedStatus": "CHANNEL",
+      "downloads": {
+        "PAPER": {
+          "fileInfo": {"name": "WirelessRedstoneTrigger-2.0.jar", "sizeBytes": 13042, "sha256Hash": "fd4258ebad90cdf448cb760f63870e244cd6a77f37e7d5b723a4f54fa124ba41"},
+          "externalUrl": null,
+          "downloadUrl": "https://hangarcdn.papermc.io/plugins/xeef/WirelessRedstoneTrigger/versions/2.0/PAPER/WirelessRedstoneTrigger-2.0.jar"
+        }
+      },
+      "pluginDependencies": {},
+      "platformDependencies": {"PAPER": ["1.21"]},
+      "platformDependenciesFormatted": {"PAPER": ["1.21-1.21"]},
+      "memberNames": ["xeef"]
+    },
+    {
+      "createdAt": "2026-08-01T14:43:36.358171Z",
+      "id": 28800,
+      "projectId": 6785,
+      "name": "1.0",
+      "visibility": "public",
+      "description": "Primera versión.",
+      "stats": {"totalDownloads": 5},
+      "author": "xeef",
+      "reviewState": "reviewed",
+      "channel": {"name": "Release", "color": "#06b6d4", "flags": []},
+      "downloads": {
+        "PAPER": {
+          "fileInfo": {"name": "WirelessRedstoneTrigger-1.0.jar", "sizeBytes": 12000, "sha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          "externalUrl": null,
+          "downloadUrl": "https://hangarcdn.papermc.io/plugins/xeef/WirelessRedstoneTrigger/versions/1.0/PAPER/WirelessRedstoneTrigger-1.0.jar"
+        }
+      },
+      "pluginDependencies": {"PAPER": [{"name": "PlaceholderAPI", "projectId": null, "required": true, "externalUrl": "https://www.spigotmc.org/resources/placeholderapi.6245/", "platform": "PAPER"}]},
+      "platformDependencies": {"PAPER": ["1.20.6", "1.21"]},
+      "memberNames": ["xeef"]
+    }
+  ]
+}

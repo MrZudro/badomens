@@ -1,0 +1,24 @@
+[
+  {
+    "game_versions": ["1.21.1"],
+    "loaders": ["neoforge"],
+    "id": "NFonly01",
+    "project_id": "gvQqBUqZ",
+    "name": "Lithium neoforge",
+    "version_number": "0.15.4",
+    "date_published": "2025-05-05T10:00:00.000000Z",
+    "downloads": 10,
+    "version_type": "release",
+    "status": "listed",
+    "files": [
+      {
+        "hashes": {"sha1": "4444444444444444444444444444444444444444", "sha512": "44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444"},
+        "url": "https://cdn.modrinth.com/data/gvQqBUqZ/versions/NFonly01/lithium-neoforge.jar",
+        "filename": "lithium-neoforge.jar",
+        "primary": true,
+        "size": 500000
+      }
+    ],
+    "dependencies": []
+  }
+]

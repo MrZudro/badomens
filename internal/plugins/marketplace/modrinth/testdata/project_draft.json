@@ -1,0 +1,12 @@
+{
+  "id": "draft123",
+  "slug": "borrador",
+  "project_type": "plugin",
+  "title": "Borrador",
+  "description": "Proyecto sin aprobar.",
+  "status": "draft",
+  "loaders": ["paper"],
+  "game_versions": ["1.21.1"],
+  "downloads": 0,
+  "license": {"id": "MIT", "name": "MIT License", "url": null}
+}

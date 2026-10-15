@@ -1,17 +1,25 @@
-// Package plugins es el catÃ¡logo de plugins/mods instalados en una instancia:
-// carpeta destino segÃºn el motor (paper â†’ plugins/, fabric|forge|neoforge â†’
+// Package plugins es el catálogo de plugins/mods instalados en una instancia:
+// carpeta destino según el motor (paper → plugins/, fabric|forge|neoforge →
 // mods/, vanilla no admite plugins), alta, baja y listado.
 //
-// La instalaciÃ³n (transporte, verificaciÃ³n y movimiento atÃ³mico) vive en los
-// mÃ³dulos internos:
+// La instalación (transporte, verificación y movimiento atómico) vive en los
+// módulos internos:
 //
-//   - internal/plugins/download implementa la obtenciÃ³n segura del artefacto
-//     (streaming con lÃ­mite, temporal + rename atÃ³mico, https obligatorio y
-//     polÃ­tica anti-SSRF que valida la IP resuelta de cada conexiÃ³n);
-//   - internal/plugins/archive valida la ESTRUCTURA del JAR/ZIP con lÃ­mites de
-//     recursos y sin descomprimir nada.
+//   - internal/plugins/download implementa la obtención segura del artefacto
+//     (streaming con límite, temporal + rename atómico, https obligatorio y
+//     política anti-SSRF que valida la IP resuelta de cada conexión);
+//   - internal/plugins/archive valida la ESTRUCTURA del JAR/ZIP con límites de
+//     recursos y sin descomprimir nada;
+//   - internal/plugins/marketplace (y sus subpaquetes modrinth, hangar, resolve e
+//     install) resuelve e instala desde un marketplace reutilizando exactamente
+//     esa maquinaria: ver docs/plugins-marketplace.md.
 //
-// Un plugin/mod es cÃ³digo de terceros: ver ThirdPartyWarning.
+// Este paquete mantiene además el registro de PROCEDENCIA de lo instalado
+// (provenance.go): de qué proyecto y versión salió cada archivo y con qué
+// checksum se verificó. Es aditivo: un registro antiguo con solo el nombre se
+// sigue leyendo, con origen desconocido.
+//
+// Un plugin/mod es código de terceros: ver ThirdPartyWarning.
 package plugins
 
 import (
@@ -74,12 +82,12 @@ func (i *Installer) List(spec *instance.Spec) ([]string, error) {
 func (i *Installer) Remove(spec *instance.Spec, name string) error {
 	dir := i.Dir(spec)
 	if strings.Contains(name, "/") || strings.Contains(name, `\`) || strings.Contains(name, "..") {
-		return errx.Usage("nombre invÃ¡lido", "usa 'plugin list'")
+		return errx.Usage("nombre inválido", "usa 'plugin list'")
 	}
 	path := filepath.Join(dir, name)
 	if err := os.Remove(path); err != nil {
 		if os.IsNotExist(err) {
-			return errx.NotFound("el plugin %q no estÃ¡ instalado", "usa 'plugin list'")
+			return errx.NotFound("el plugin %q no está instalado", "usa 'plugin list'")
 		}
 		return err
 	}
@@ -96,10 +104,10 @@ func WarnFor(names []string) string {
 		}
 	}
 	if len(heavy) > 0 {
-		return fmt.Sprintf("AVISO DE RENDIMIENTO: %s son plugins exigentes; pueden bajar el TPS. Si notas caÃ­das, ejecuta 'doctor tps'.", strings.Join(heavy, ", "))
+		return fmt.Sprintf("AVISO DE RENDIMIENTO: %s son plugins exigentes; pueden bajar el TPS. Si notas caídas, ejecuta 'doctor tps'.", strings.Join(heavy, ", "))
 	}
 	if len(names) >= 8 {
-		return "AVISO DE RENDIMIENTO: hay mÃ¡s de 8 plugins/mods. Cada uno suma trabajo al servidor; vigila el TPS con 'doctor tps'."
+		return "AVISO DE RENDIMIENTO: hay más de 8 plugins/mods. Cada uno suma trabajo al servidor; vigila el TPS con 'doctor tps'."
 	}
 	return ""
 }

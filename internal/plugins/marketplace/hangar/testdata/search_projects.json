@@ -1,0 +1,33 @@
+{
+  "pagination": {"count": 2, "limit": 20, "offset": 0},
+  "result": [
+    {
+      "createdAt": "2024-04-21T22:07:16.475599Z",
+      "id": 1950,
+      "name": "fancyglow",
+      "namespace": {"owner": "hhitt", "slug": "fancyglow"},
+      "stats": {"views": 6981, "downloads": 118},
+      "category": "gameplay",
+      "description": "The ultimate cosmetic plugin solution!",
+      "lastUpdated": "2024-06-30T19:29:53.843453Z",
+      "visibility": "public",
+      "settings": {"license": {"name": null, "url": null, "type": "GPL"}, "keywords": ["glow"]},
+      "supportedPlatforms": {"PAPER": ["1.19", "1.20", "1.21"]},
+      "avatarUrl": "https://hangarcdn.papermc.io/avatars/project/1950.webp?v=1"
+    },
+    {
+      "createdAt": "2026-08-11T14:37:10.072145Z",
+      "id": 6785,
+      "name": "WirelessRedstoneTrigger",
+      "namespace": {"owner": "xeef", "slug": "WirelessRedstoneTrigger"},
+      "stats": {"views": 688, "downloads": 12},
+      "category": "misc",
+      "description": "A simple Folia/Paper plugin for wireless redstone.",
+      "lastUpdated": "2026-08-11T14:43:36.358171Z",
+      "visibility": "unlisted",
+      "settings": {"license": {"name": null, "url": null, "type": "MIT"}, "keywords": ["redstone"]},
+      "supportedPlatforms": {"PAPER": ["1.21"], "VELOCITY": ["4.2.1"]},
+      "avatarUrl": "https://hangarcdn.papermc.io/avatars/project/6785.webp?v=1"
+    }
+  ]
+}

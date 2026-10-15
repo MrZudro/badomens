@@ -7,7 +7,11 @@ qué límites por defecto y **qué no se puede garantizar**.
 Ámbito: `internal/plugins/**` (catálogo + instalación), `internal/plugins/download`
 (descargador), `internal/plugins/archive` (inspección del JAR/ZIP) y
 `internal/cli/plugin.go` (comando `plugin add`). Los marketplaces (11.2) y las
-actualizaciones con procedencia (11.3) **no** están implementados todavía.
+actualizaciones con procedencia (11.3) se apoyan en esta política y no la
+sustituyen: ver `docs/plugins-marketplace.md`. La descarga de un artefacto
+resuelto por un marketplace pasa por **este** mismo descargador, así que los
+límites, el https obligatorio y el anti-SSRF de aquí se aplican también aquí
+(probado: un artefacto publicado apuntando a una IP privada se rechaza).
 
 ## Separación de responsabilidades
 
@@ -168,16 +172,22 @@ replicó el `download` previo (`plugins.go:127-164`) en un arnés aparte: acepta
 1 MiB pese a un límite de 4 KiB, aceptaba `http://127.0.0.1`, sobrescribía en
 silencio y instalaba basura que no era un JAR.
 
-## Pendientes para 11.2 y 11.3
+## Estado de 11.2 y 11.3
 
-- 11.2 Marketplaces: adaptadores Modrinth y Hangar (CurseForge exigirá API key),
-  catálogo/resolvedor con caché y compatibilidad por motor y versión de Minecraft;
-  la URL directa y la ruta local quedan como vía avanzada sobre `download`.
-- 11.3 Actualizaciones y dependencias: registrar proyecto de origen, versión
-  instalada/objetivo y checksum; comprobar actualizaciones sin instalarlas y
-  advertir de dependencias ausentes sin resolverlas de forma arbitraria.
-- Reutilizar `download.Request.SHA256`, `archive.Validate` y el registro de
-  `Installed` para la procedencia; no crear clientes HTTP ni parsers paralelos.
+- **11.2 Marketplaces**: implementado para Modrinth y Hangar en
+  `internal/plugins/marketplace` (catálogo, adaptador por proveedor, resolvedor
+  y descargador separados). CurseForge queda como punto de extensión documentado
+  (exige API key) y la URL directa o la ruta local siguen siendo la vía avanzada
+  sobre `download`. Ver `docs/plugins-marketplace.md`.
+- **11.3 Actualizaciones y dependencias**: implementado. El registro de
+  procedencia (`<data>/instances/<slug>/plugins.json`) guarda proyecto de
+  origen, versión instalada, versión objetivo y checksum, con migración aditiva
+  de los registros antiguos (solo el nombre). `CheckUpdates` comprueba si hay
+  versión nueva **sin instalar nada** y las dependencias obligatorias ausentes
+  bloquean la resolución con explicación, sin instalarlas arbitrariamente.
+- La descarga de artefactos de marketplace reutiliza `download.StageURL`,
+  `archive.Validate` y el movimiento atómico; el transporte HTTP es el común de
+  catálogos (`internal/engines.Client`) y **un parser por proveedor**.
 - Endurecimiento adicional pendiente (fuera del alcance de 11.1): pin de
   certificado o firma del artefacto, lista de orígenes permitidos y revalidación
   de lo ya instalado.

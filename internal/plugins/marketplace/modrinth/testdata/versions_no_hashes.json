@@ -1,0 +1,23 @@
+[
+  {
+    "game_versions": ["1.21.1"],
+    "loaders": ["paper"],
+    "id": "NOHASH01",
+    "project_id": "P1OZGk5p",
+    "name": "Sin checksum",
+    "version_number": "9.9.9",
+    "date_published": "2025-08-08T10:00:00.000000Z",
+    "version_type": "release",
+    "status": "listed",
+    "files": [
+      {
+        "hashes": {"sha1": "5555555555555555555555555555555555555555"},
+        "url": "https://cdn.modrinth.com/data/P1OZGk5p/versions/NOHASH01/ViaVersion-9.9.9.jar",
+        "filename": "ViaVersion-9.9.9.jar",
+        "primary": true,
+        "size": 42
+      }
+    ],
+    "dependencies": []
+  }
+]

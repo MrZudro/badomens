@@ -1,0 +1,22 @@
+{
+  "id": "gvQqBUqZ",
+  "slug": "lithium",
+  "project_type": "mod",
+  "team": "LjcZDkRW",
+  "organization": "CaffeineMC",
+  "title": "Lithium",
+  "description": "No-compromises game logic optimization mod.",
+  "body": "cuerpo largo omitido",
+  "published": "2021-01-03T00:56:52.292581Z",
+  "updated": "2026-09-28T03:43:31.367717Z",
+  "approved": "2021-01-03T00:56:52.292581Z",
+  "status": "approved",
+  "loaders": ["fabric", "neoforge", "quilt"],
+  "game_versions": ["1.21", "1.21.1", "1.21.2"],
+  "versions": ["1rb9wI5K"],
+  "downloads": 137347159,
+  "icon_url": "https://cdn.modrinth.com/data/gvQqBUqZ/icon.webp",
+  "license": {"id": "LGPL-3.0-only", "name": "GNU Lesser General Public License v3.0 only", "url": null},
+  "issues_url": null,
+  "source_url": "https://github.com/CaffeineMC/lithium"
+}

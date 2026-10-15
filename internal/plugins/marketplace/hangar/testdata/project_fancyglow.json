@@ -1,0 +1,25 @@
+{
+  "createdAt": "2024-04-21T22:07:16.475599Z",
+  "publishedAt": "2024-04-23T21:45:06.757645Z",
+  "id": 1950,
+  "name": "fancyglow",
+  "namespace": {"owner": "hhitt", "slug": "fancyglow"},
+  "stats": {"views": 6981, "downloads": 118, "recentViews": 270, "recentDownloads": 2, "stars": 0, "watchers": 0},
+  "category": "gameplay",
+  "description": "The ultimate cosmetic plugin solution!",
+  "lastUpdated": "2024-06-30T19:29:53.843453Z",
+  "visibility": "public",
+  "settings": {
+    "links": [],
+    "tags": [],
+    "license": {"name": null, "url": null, "type": "GPL"},
+    "keywords": ["glow", "cosmetic", "eula"],
+    "sponsors": "",
+    "unlisted": false,
+    "donation": {"subject": "", "enable": false}
+  },
+  "supportedPlatforms": {"PAPER": ["1.19", "1.19.1", "1.20", "1.20.1", "1.21"]},
+  "mainPageContent": null,
+  "memberNames": null,
+  "avatarUrl": "https://hangarcdn.papermc.io/avatars/project/1950.webp?v=1"
+}

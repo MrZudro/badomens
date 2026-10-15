@@ -1,0 +1,47 @@
+{
+  "hits": [
+    {
+      "project_id": "gvQqBUqZ",
+      "project_type": "mod",
+      "slug": "lithium",
+      "author": "jellysquid3",
+      "title": "Lithium",
+      "description": "No-compromises game logic optimization mod.",
+      "categories": ["fabric", "neoforge", "optimization", "quilt"],
+      "display_categories": ["fabric", "neoforge", "optimization", "quilt"],
+      "versions": ["1.21", "1.21.1", "1.21.2"],
+      "downloads": 137347159,
+      "follows": 23920,
+      "icon_url": "https://cdn.modrinth.com/data/gvQqBUqZ/icon.webp",
+      "date_created": "2021-01-03T00:56:52.292581+00:00",
+      "date_modified": "2026-09-28T03:43:31.367717+00:00",
+      "latest_version": "1rb9wI5K",
+      "license": "LGPL-3.0-only",
+      "client_side": "optional",
+      "server_side": "optional"
+    },
+    {
+      "project_id": "pfXeTlVF",
+      "project_type": "modpack",
+      "slug": "lithium-modpack",
+      "author": "Lartum",
+      "title": "Lithium Modpack",
+      "description": "A sodium based modpack.",
+      "categories": ["fabric", "lightweight", "optimization"],
+      "display_categories": ["lightweight", "optimization"],
+      "versions": ["1.20.4", "1.21.1"],
+      "downloads": 22881,
+      "follows": 2,
+      "icon_url": "https://cdn.modrinth.com/data/pfXeTlVF/icon.png",
+      "date_created": "2023-05-01T00:00:00.000000+00:00",
+      "date_modified": "2025-01-01T00:00:00.000000+00:00",
+      "latest_version": "abcd1234",
+      "license": "MIT",
+      "client_side": "required",
+      "server_side": "unsupported"
+    }
+  ],
+  "offset": 0,
+  "limit": 20,
+  "total_hits": 2
+}
