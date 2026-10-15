@@ -17,16 +17,16 @@ const (
 )
 
 // IsTempFile informa si el nombre corresponde a un archivo temporal de
-// badomens. El servidor nunca lo cargarÃƒÂ¡ (no termina en .jar) y no debe
+// badomens. El servidor nunca lo cargará (no termina en .jar) y no debe
 // aparecer en los listados.
 func IsTempFile(name string) bool {
 	return strings.HasPrefix(name, tempPrefix) && strings.HasSuffix(name, tempSuffix)
 }
 
-// CleanStaleTemps borra los temporales huÃƒÂ©rfanos de una descarga interrumpida
-// (proceso terminado a la fuerza) que sean mÃƒÂ¡s antiguos que olderThan. Nunca
+// CleanStaleTemps borra los temporales huérfanos de una descarga interrumpida
+// (proceso terminado a la fuerza) que sean más antiguos que olderThan. Nunca
 // toca archivos ajenos ni temporales recientes, para no interferir con una
-// descarga en curso. Es best-effort: devuelve cuÃƒÂ¡ntos archivos borrÃƒÂ³.
+// descarga en curso. Es best-effort: devuelve cuántos archivos borró.
 func CleanStaleTemps(dir string, olderThan time.Duration) (int, error) {
 	if olderThan <= 0 {
 		olderThan = time.Hour

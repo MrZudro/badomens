@@ -19,9 +19,9 @@ import (
 	"github.com/MrZudro/badomens/internal/errx"
 )
 
-// testPolicy es la polÃƒÂ­tica de las pruebas de camino feliz: httptest siempre
-// escucha en 127.0.0.1 y sirve http://, asÃƒÂ­ que se habilita loopback y http
-// EXPLÃƒÂCITAMENTE (la polÃƒÂ­tica por defecto los rechaza, y eso tambiÃƒÂ©n se prueba).
+// testPolicy es la política de las pruebas de camino feliz: httptest siempre
+// escucha en 127.0.0.1 y sirve http://, así que se habilita loopback y http
+// EXPLÍCITAMENTE (la política por defecto los rechaza, y eso también se prueba).
 func testPolicy() Policy {
 	pol := DefaultPolicy()
 	pol.AllowHTTP = true
@@ -37,7 +37,7 @@ func newServer(t *testing.T, h http.HandlerFunc) *httptest.Server {
 	return srv
 }
 
-// serveJar sirve un JAR mÃƒÂ­nimo vÃƒÂ¡lido.
+// serveJar sirve un JAR mínimo válido.
 func serveJar(t *testing.T, name string) *httptest.Server {
 	t.Helper()
 	return newServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +50,7 @@ func serveJar(t *testing.T, name string) *httptest.Server {
 	})
 }
 
-// minimalJar construye un ZIP/JAR mÃƒÂ­nimo en memoria.
+// minimalJar construye un ZIP/JAR mínimo en memoria.
 func minimalJar(t *testing.T) []byte {
 	t.Helper()
 	return zipBytes(t, map[string][]byte{
@@ -59,7 +59,7 @@ func minimalJar(t *testing.T) []byte {
 	})
 }
 
-// assertNoTemps verifica que no ha quedado ningÃƒÂºn archivo temporal o parcial.
+// assertNoTemps verifica que no ha quedado ningún archivo temporal o parcial.
 func assertNoTemps(t *testing.T, dir string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -71,7 +71,7 @@ func assertNoTemps(t *testing.T, dir string) {
 	}
 	for _, e := range entries {
 		if strings.Contains(e.Name(), ".badomens-") {
-			t.Errorf("quedÃƒÂ³ un archivo temporal/parcial: %s", e.Name())
+			t.Errorf("quedó un archivo temporal/parcial: %s", e.Name())
 		}
 	}
 }
@@ -80,7 +80,7 @@ func assertNoTemps(t *testing.T, dir string) {
 func assertNotExists(t *testing.T, path string) {
 	t.Helper()
 	if _, err := os.Stat(path); err == nil {
-		t.Errorf("el archivo %s no deberÃƒÂ­a existir", path)
+		t.Errorf("el archivo %s no debería existir", path)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("Stat(%s): %v", path, err)
 	}
@@ -141,7 +141,7 @@ func TestNormalizeName(t *testing.T) {
 	}
 }
 
-// TestStageURLRechazaDestinosSSRF comprueba que la polÃƒÂ­tica por defecto rechaza
+// TestStageURLRechazaDestinosSSRF comprueba que la política por defecto rechaza
 // loopback, redes privadas, link-local y metadatos de nube sin tocar la red.
 func TestStageURLRechazaDestinosSSRF(t *testing.T) {
 	dest := t.TempDir()
@@ -182,7 +182,7 @@ func TestStageURLRechazaDestinosSSRF(t *testing.T) {
 		t.Fatalf("ReadDir: %v", err)
 	}
 	if len(entries) != 0 {
-		t.Errorf("no deberÃƒÂ­a haberse creado nada en el destino: %v", entries)
+		t.Errorf("no debería haberse creado nada en el destino: %v", entries)
 	}
 }
 
@@ -193,11 +193,11 @@ func TestControlBloqueaIPResuelta(t *testing.T) {
 	pol := DefaultPolicy()
 	for _, addr := range blocked {
 		if err := pol.control(context.Background(), "tcp", addr, nil); err == nil {
-			t.Errorf("control(%s) deberÃƒÂ­a bloquearse con la polÃƒÂ­tica por defecto", addr)
+			t.Errorf("control(%s) debería bloquearse con la política por defecto", addr)
 		}
 	}
 	if err := pol.control(context.Background(), "tcp", "93.184.216.34:443", nil); err != nil {
-		t.Errorf("control(IP pÃƒÂºblica) = %v; se esperaba permitido", err)
+		t.Errorf("control(IP pública) = %v; se esperaba permitido", err)
 	}
 	loop := DefaultPolicy()
 	loop.AllowLoopback = true
@@ -216,7 +216,7 @@ func TestControlBloqueaIPResuelta(t *testing.T) {
 	}
 }
 
-// TestStageURLRequiereHTTPS: http:// se rechaza salvo polÃƒÂ­tica explÃƒÂ­cita.
+// TestStageURLRequiereHTTPS: http:// se rechaza salvo política explícita.
 func TestStageURLRequiereHTTPS(t *testing.T) {
 	srv := serveJar(t, "plugin.jar")
 	dest := t.TempDir()
@@ -225,7 +225,7 @@ func TestStageURLRequiereHTTPS(t *testing.T) {
 
 	_, err := StageURL(context.Background(), Request{URL: srv.URL + "/plugin.jar", DestDir: dest, Policy: pol})
 	if err == nil {
-		t.Fatal("se esperaba rechazo de http:// sin polÃƒÂ­tica explÃƒÂ­cita")
+		t.Fatal("se esperaba rechazo de http:// sin política explícita")
 	}
 	if errx.Details(err)["reason"] != "tls_requerido" {
 		t.Errorf("reason = %v; se esperaba tls_requerido (%v)", errx.Details(err)["reason"], err)
@@ -234,14 +234,14 @@ func TestStageURLRequiereHTTPS(t *testing.T) {
 	pol.AllowHTTP = true
 	st, err := StageURL(context.Background(), Request{URL: srv.URL + "/plugin.jar", DestDir: dest, Policy: pol})
 	if err != nil {
-		t.Fatalf("con AllowHTTP se esperaba ÃƒÂ©xito: %v", err)
+		t.Fatalf("con AllowHTTP se esperaba éxito: %v", err)
 	}
 	defer func() { _ = st.Discard() }()
 	if _, err := st.Commit(); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dest, "plugin.jar")); err != nil {
-		t.Fatalf("el archivo no estÃƒÂ¡ en el destino: %v", err)
+		t.Fatalf("el archivo no está en el destino: %v", err)
 	}
 	assertNoTemps(t, dest)
 }
@@ -268,7 +268,7 @@ func TestStageURLErroresHTTP(t *testing.T) {
 	}
 }
 
-// TestStageURLAbortaSiSuperaElLimite: el lÃƒÂ­mite se aplica DURANTE la descarga y
+// TestStageURLAbortaSiSuperaElLimite: el límite se aplica DURANTE la descarga y
 // el temporal se limpia.
 func TestStageURLAbortaSiSuperaElLimite(t *testing.T) {
 	srv := newServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -280,7 +280,7 @@ func TestStageURLAbortaSiSuperaElLimite(t *testing.T) {
 
 	_, err := StageURL(context.Background(), Request{URL: srv.URL + "/grande.jar", DestDir: dest, Policy: pol})
 	if err == nil {
-		t.Fatal("se esperaba error por superar el lÃƒÂ­mite")
+		t.Fatal("se esperaba error por superar el límite")
 	}
 	if !errx.Is(err, errx.CodeCapacity) {
 		t.Errorf("se esperaba error_capacity_exceeded, hubo %v", err)
@@ -295,8 +295,8 @@ func TestStageURLAbortaSiSuperaElLimite(t *testing.T) {
 	assertNoTemps(t, dest)
 }
 
-// TestStageURLContentLengthExcesivo: si el origen declara un tamaÃƒÂ±o mayor que
-// el lÃƒÂ­mite se aborta antes de transferir.
+// TestStageURLContentLengthExcesivo: si el origen declara un tamaño mayor que
+// el límite se aborta antes de transferir.
 func TestStageURLContentLengthExcesivo(t *testing.T) {
 	srv := newServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", "1048576")
@@ -312,7 +312,7 @@ func TestStageURLContentLengthExcesivo(t *testing.T) {
 	assertNoTemps(t, dest)
 }
 
-// TestStageURLRedireccionAPrivada: se valida CADA salto; una redirecciÃƒÂ³n a una
+// TestStageURLRedireccionAPrivada: se valida CADA salto; una redirección a una
 // IP privada se rechaza.
 func TestStageURLRedireccionAPrivada(t *testing.T) {
 	srv := newServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -321,7 +321,7 @@ func TestStageURLRedireccionAPrivada(t *testing.T) {
 	dest := t.TempDir()
 	_, err := StageURL(context.Background(), Request{URL: srv.URL + "/plugin.jar", DestDir: dest, Policy: testPolicy()})
 	if err == nil {
-		t.Fatal("se esperaba rechazo de la redirecciÃƒÂ³n a una IP privada")
+		t.Fatal("se esperaba rechazo de la redirección a una IP privada")
 	}
 	if errx.Details(err)["reason"] != "destino_no_permitido" {
 		t.Errorf("reason = %v; se esperaba destino_no_permitido (%v)", errx.Details(err)["reason"], err)
@@ -329,8 +329,8 @@ func TestStageURLRedireccionAPrivada(t *testing.T) {
 	assertNoTemps(t, dest)
 }
 
-// TestStageURLRedireccionAHTTPSDeshabilitado: una bajada de https a http sÃƒÂ­ se
-// permite en las pruebas de loopback, pero el nÃƒÂºmero de saltos estÃƒÂ¡ acotado.
+// TestStageURLRedireccionAHTTPSDeshabilitado: una bajada de https a http sí se
+// permite en las pruebas de loopback, pero el número de saltos está acotado.
 func TestStageURLLimiteDeRedirecciones(t *testing.T) {
 	srv := newServer(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/otra.jar", http.StatusFound)
@@ -348,7 +348,7 @@ func TestStageURLLimiteDeRedirecciones(t *testing.T) {
 	assertNoTemps(t, dest)
 }
 
-// TestStageURLNombreInvalido: los nombres derivados de la URL tambiÃƒÂ©n se validan.
+// TestStageURLNombreInvalido: los nombres derivados de la URL también se validan.
 func TestStageURLNombreInvalido(t *testing.T) {
 	srv := serveJar(t, "")
 	dest := t.TempDir()
@@ -356,7 +356,7 @@ func TestStageURLNombreInvalido(t *testing.T) {
 		srv.URL + "/%2e%2e%2fevil.jar", // ../evil.jar codificado
 		srv.URL + "/a%2fb.jar",         // a/b.jar codificado
 		srv.URL + "/",                  // sin nombre
-		srv.URL + "/plugin.txt",        // extensiÃƒÂ³n no permitida
+		srv.URL + "/plugin.txt",        // extensión no permitida
 	}
 	for _, raw := range urls {
 		_, err := StageURL(context.Background(), Request{URL: raw, DestDir: dest, Policy: testPolicy()})
@@ -370,12 +370,12 @@ func TestStageURLNombreInvalido(t *testing.T) {
 	}
 	_, err := StageURL(context.Background(), Request{URL: srv.URL + "/plugin.jar", DestDir: dest, Name: "../evil.jar", Policy: testPolicy()})
 	if err == nil {
-		t.Error("se esperaba rechazo del nombre explÃƒÂ­cito ../evil.jar")
+		t.Error("se esperaba rechazo del nombre explícito ../evil.jar")
 	}
 	assertNoTemps(t, dest)
 }
 
-// TestStageURLChecksum: un checksum incorrecto rechaza la instalaciÃƒÂ³n; el
+// TestStageURLChecksum: un checksum incorrecto rechaza la instalación; el
 // correcto se acepta.
 func TestStageURLChecksum(t *testing.T) {
 	jar := minimalJar(t)
@@ -401,7 +401,7 @@ func TestStageURLChecksum(t *testing.T) {
 		URL: srv.URL + "/plugin.jar", DestDir: dest, SHA256: strings.ToUpper(hex.EncodeToString(sum[:])), Policy: testPolicy(),
 	})
 	if err != nil {
-		t.Fatalf("con el checksum correcto se esperaba ÃƒÂ©xito: %v", err)
+		t.Fatalf("con el checksum correcto se esperaba éxito: %v", err)
 	}
 	if st.SHA256() != hex.EncodeToString(sum[:]) {
 		t.Errorf("SHA256() = %s", st.SHA256())
@@ -444,12 +444,12 @@ func TestCommitNoSobrescribe(t *testing.T) {
 	// El original sigue intacto.
 	raw, err := os.ReadFile(filepath.Join(dest, "plugin.jar"))
 	if err != nil || string(raw) != "antiguo" {
-		t.Errorf("el archivo original se modificÃƒÂ³: %q (%v)", raw, err)
+		t.Errorf("el archivo original se modificó: %q (%v)", raw, err)
 	}
 	assertNoTemps(t, dest)
 }
 
-// TestCommitRenombraYReemplaza: las polÃƒÂ­ticas explÃƒÂ­citas de conflicto.
+// TestCommitRenombraYReemplaza: las políticas explícitas de conflicto.
 func TestCommitRenombraYReemplaza(t *testing.T) {
 	jar := minimalJar(t)
 	srv := newServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -475,7 +475,7 @@ func TestCommitRenombraYReemplaza(t *testing.T) {
 		t.Errorf("renombrado inesperado: %+v", res)
 	}
 	if _, err := os.Stat(filepath.Join(dest, "plugin-2.jar")); err != nil {
-		t.Errorf("no se creÃƒÂ³ plugin-2.jar: %v", err)
+		t.Errorf("no se creó plugin-2.jar: %v", err)
 	}
 	assertNoTemps(t, dest)
 
@@ -499,13 +499,13 @@ func TestCommitRenombraYReemplaza(t *testing.T) {
 	}
 	raw, err := os.ReadFile(filepath.Join(dest2, "plugin.jar"))
 	if err != nil || !bytes.Equal(raw, jar) {
-		t.Errorf("el archivo no se reemplazÃƒÂ³ correctamente (%v)", err)
+		t.Errorf("el archivo no se reemplazó correctamente (%v)", err)
 	}
 	assertNoTemps(t, dest2)
 }
 
-// TestStageFileLocal: la ruta local tambiÃƒÂ©n pasa por temporal, lÃƒÂ­mite y
-// validaciÃƒÂ³n de nombre.
+// TestStageFileLocal: la ruta local también pasa por temporal, límite y
+// validación de nombre.
 func TestStageFileLocal(t *testing.T) {
 	dir := t.TempDir()
 	jar := minimalJar(t)
@@ -541,39 +541,39 @@ func TestStageFileLocal(t *testing.T) {
 	if _, err := StageFile(dir, Request{DestDir: dest, Policy: DefaultPolicy()}); err == nil {
 		t.Error("se esperaba error al pasar un directorio")
 	}
-	// ExtensiÃƒÂ³n no permitida.
+	// Extensión no permitida.
 	txt := filepath.Join(dir, "notas.txt")
 	if err := os.WriteFile(txt, []byte("hola"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := StageFile(txt, Request{DestDir: dest, Policy: DefaultPolicy()}); err == nil {
-		t.Error("se esperaba rechazo de la extensiÃƒÂ³n .txt")
+		t.Error("se esperaba rechazo de la extensión .txt")
 	}
-	// Por encima del lÃƒÂ­mite.
+	// Por encima del límite.
 	pol := DefaultPolicy()
 	pol.MaxBytes = 4
 	if _, err := StageFile(src, Request{DestDir: dest, Policy: pol}); err == nil {
-		t.Error("se esperaba error por tamaÃƒÂ±o")
+		t.Error("se esperaba error por tamaño")
 	} else if !errx.Is(err, errx.CodeCapacity) {
 		t.Errorf("se esperaba error_capacity_exceeded, hubo %v", err)
 	}
 }
 
-// TestPolicyValidate: lÃƒÂ­mites y polÃƒÂ­ticas incoherentes se detectan antes de
+// TestPolicyValidate: límites y políticas incoherentes se detectan antes de
 // tocar la red.
 func TestPolicyValidate(t *testing.T) {
 	pol := DefaultPolicy()
 	pol.MaxBytes = MaxAllowedBytes + 1
 	if err := pol.Validate(); err == nil {
-		t.Error("se esperaba rechazo de un lÃƒÂ­mite por encima del mÃƒÂ¡ximo")
+		t.Error("se esperaba rechazo de un límite por encima del máximo")
 	}
 	pol = DefaultPolicy()
 	pol.Conflict = "lo-que-sea"
 	if err := pol.Validate(); err == nil {
-		t.Error("se esperaba rechazo de una polÃƒÂ­tica de conflicto desconocida")
+		t.Error("se esperaba rechazo de una política de conflicto desconocida")
 	}
 	if err := DefaultPolicy().Validate(); err != nil {
-		t.Errorf("la polÃƒÂ­tica por defecto debe ser vÃƒÂ¡lida: %v", err)
+		t.Errorf("la política por defecto debe ser válida: %v", err)
 	}
 }
 

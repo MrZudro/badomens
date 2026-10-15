@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// jarDemo construye un JAR mÃ­nimo vÃ¡lido en memoria.
+// jarDemo construye un JAR mínimo válido en memoria.
 func jarDemo(t *testing.T) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -41,7 +41,7 @@ func jarDemo(t *testing.T) []byte {
 }
 
 // pluginTestEnv prepara un Env aislado (data dir temporal, salida a memoria) con
-// una instancia paper ya registrada, y devuelve tambiÃ©n el buffer de salida.
+// una instancia paper ya registrada, y devuelve también el buffer de salida.
 func pluginTestEnv(t *testing.T) (*Env, *bytes.Buffer, string) {
 	t.Helper()
 	dataDir := t.TempDir()
@@ -80,7 +80,7 @@ func parseDoc(t *testing.T, out *bytes.Buffer) map[string]any {
 	t.Helper()
 	var doc map[string]any
 	if err := json.Unmarshal(out.Bytes(), &doc); err != nil {
-		t.Fatalf("la salida no es un documento JSON vÃ¡lido: %v\n%s", err, out.String())
+		t.Fatalf("la salida no es un documento JSON válido: %v\n%s", err, out.String())
 	}
 	for _, key := range []string{"ok", "exit_code", "action", "message", "timestamp"} {
 		if _, ok := doc[key]; !ok {
@@ -93,7 +93,7 @@ func parseDoc(t *testing.T, out *bytes.Buffer) map[string]any {
 	return doc
 }
 
-// assertSinTemporales comprueba que no queda ningÃºn archivo parcial.
+// assertSinTemporales comprueba que no queda ningún archivo parcial.
 func assertSinTemporales(t *testing.T, dir string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -105,7 +105,7 @@ func assertSinTemporales(t *testing.T, dir string) {
 	}
 	for _, e := range entries {
 		if strings.Contains(e.Name(), ".badomens-") || strings.HasSuffix(e.Name(), ".tmp") {
-			t.Errorf("quedÃ³ un archivo temporal/parcial: %s", e.Name())
+			t.Errorf("quedó un archivo temporal/parcial: %s", e.Name())
 		}
 	}
 }
@@ -128,7 +128,7 @@ func TestPluginAddInstalaYActualizaRegistro(t *testing.T) {
 		t.Errorf("documento inesperado: %v", doc)
 	}
 	if _, hasErr := doc["error"]; hasErr {
-		t.Errorf("no deberÃ­a haber error: %v", doc["error"])
+		t.Errorf("no debería haber error: %v", doc["error"])
 	}
 	data, _ := doc["data"].(map[string]any)
 	if data == nil {
@@ -141,7 +141,7 @@ func TestPluginAddInstalaYActualizaRegistro(t *testing.T) {
 		t.Errorf("checksum_verified = %v", data["checksum_verified"])
 	}
 	if w, _ := data["security_warning"].(string); !strings.Contains(w, "terceros") {
-		t.Errorf("falta el aviso sobre cÃ³digo de terceros: %v", data["security_warning"])
+		t.Errorf("falta el aviso sobre código de terceros: %v", data["security_warning"])
 	}
 	if msg, _ := doc["message"].(string); !strings.Contains(msg, "demo-1.0.jar instalado en demo/") {
 		t.Errorf("message inesperado: %v", doc["message"])
@@ -149,7 +149,7 @@ func TestPluginAddInstalaYActualizaRegistro(t *testing.T) {
 
 	pluginsDir := filepath.Join(dataDir, "instances", "demo", "plugins")
 	if _, err := os.Stat(filepath.Join(pluginsDir, "demo-1.0.jar")); err != nil {
-		t.Errorf("el archivo no estÃ¡ en el destino: %v", err)
+		t.Errorf("el archivo no está en el destino: %v", err)
 	}
 	assertSinTemporales(t, pluginsDir)
 
@@ -162,7 +162,7 @@ func TestPluginAddInstalaYActualizaRegistro(t *testing.T) {
 		t.Fatalf("registro inesperado: %v", spec.Plugins)
 	}
 
-	// Segunda ejecuciÃ³n: el archivo ya existe, asÃ­ que falla SIN duplicar el
+	// Segunda ejecución: el archivo ya existe, así que falla SIN duplicar el
 	// registro ni sobrescribir nada.
 	out.Reset()
 	if err := runPluginAdd(t, env, srv.URL+"/demo-1.0.jar", "--allow-http", "--allow-loopback"); err == nil {
@@ -188,7 +188,7 @@ func TestPluginAddInstalaYActualizaRegistro(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if len(spec.Plugins) != 1 {
-		t.Errorf("el registro se duplicÃ³: %v", spec.Plugins)
+		t.Errorf("el registro se duplicó: %v", spec.Plugins)
 	}
 	assertSinTemporales(t, pluginsDir)
 }
@@ -235,7 +235,7 @@ func TestPluginAddFallaSinRegistroNiArchivo(t *testing.T) {
 
 			pluginsDir := filepath.Join(dataDir, "instances", "demo", "plugins")
 			if _, serr := os.Stat(filepath.Join(pluginsDir, "demo.jar")); serr == nil {
-				t.Error("no deberÃ­a existir el archivo destino")
+				t.Error("no debería existir el archivo destino")
 			}
 			assertSinTemporales(t, pluginsDir)
 			m := instance.New(dataDir, engineNames())
@@ -244,7 +244,7 @@ func TestPluginAddFallaSinRegistroNiArchivo(t *testing.T) {
 				t.Fatalf("Load: %v", lerr)
 			}
 			if len(spec.Plugins) != 0 {
-				t.Errorf("el registro no deberÃ­a cambiar: %v", spec.Plugins)
+				t.Errorf("el registro no debería cambiar: %v", spec.Plugins)
 			}
 		})
 	}
@@ -264,15 +264,15 @@ func TestPluginAddRechazaSSRSinArchivo(t *testing.T) {
 		t.Errorf("details.reason = %v", details["reason"])
 	}
 	if entries, serr := os.ReadDir(filepath.Join(dataDir, "instances", "demo", "plugins")); serr == nil && len(entries) != 0 {
-		t.Errorf("no deberÃ­a haberse creado nada: %v", entries)
+		t.Errorf("no debería haberse creado nada: %v", entries)
 	}
 }
 
-// TestPluginAddValidaFlags: checksum y tamaÃ±o se validan antes de la red.
+// TestPluginAddValidaFlags: checksum y tamaño se validan antes de la red.
 func TestPluginAddValidaFlags(t *testing.T) {
 	env, out, _ := pluginTestEnv(t)
 	if err := runPluginAdd(t, env, "https://ejemplo.invalid/demo.jar", "--sha256", "abc"); err == nil {
-		t.Error("se esperaba error por checksum invÃ¡lido")
+		t.Error("se esperaba error por checksum inválido")
 	}
 	doc := parseDoc(t, out)
 	errInfo, _ := doc["error"].(map[string]any)
@@ -283,7 +283,7 @@ func TestPluginAddValidaFlags(t *testing.T) {
 
 	out.Reset()
 	if err := runPluginAdd(t, env, "https://ejemplo.invalid/demo.jar", "--max-size", "muchisimo"); err == nil {
-		t.Error("se esperaba error por tamaÃ±o invÃ¡lido")
+		t.Error("se esperaba error por tamaño inválido")
 	}
 	doc = parseDoc(t, out)
 	errInfo, _ = doc["error"].(map[string]any)
@@ -314,7 +314,7 @@ func TestParseSizeYParseSHA256(t *testing.T) {
 		t.Error("se esperaba error con caracteres no hexadecimales")
 	}
 	if sum, err := parseSHA256(""); err != nil || sum != "" {
-		t.Errorf("parseSHA256 vacÃ­o = %q, %v", sum, err)
+		t.Errorf("parseSHA256 vacío = %q, %v", sum, err)
 	}
 }
 

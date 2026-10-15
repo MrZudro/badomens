@@ -21,9 +21,9 @@ import (
 	"github.com/MrZudro/badomens/internal/plugins/download"
 )
 
-// testPolicy es la polÃ­tica de las pruebas de camino feliz: los servidores de
-// httptest escuchan en 127.0.0.1 y sirven http://, asÃ­ que se habilitan loopback
-// y http EXPLÃCITAMENTE. La polÃ­tica por defecto (sin excepciones) se prueba
+// testPolicy es la política de las pruebas de camino feliz: los servidores de
+// httptest escuchan en 127.0.0.1 y sirven http://, así que se habilitan loopback
+// y http EXPLÍCITAMENTE. La política por defecto (sin excepciones) se prueba
 // aparte en los casos de SSRF y de TLS.
 func testPolicy() download.Policy {
 	pol := download.DefaultPolicy()
@@ -39,7 +39,7 @@ func testInstaller(t *testing.T) (*Installer, *instance.Spec) {
 	return inst, &instance.Spec{Slug: "demo", Engine: "paper"}
 }
 
-// jarMinimo construye un JAR vÃ¡lido mÃ­nimo en memoria.
+// jarMinimo construye un JAR válido mínimo en memoria.
 func jarMinimo(t *testing.T) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -75,7 +75,7 @@ func serveJar(t *testing.T, jar []byte) *httptest.Server {
 	return srv
 }
 
-// assertNoTemps verifica que no queda ningÃºn archivo temporal o parcial.
+// assertNoTemps verifica que no queda ningún archivo temporal o parcial.
 func assertNoTemps(t *testing.T, dir string) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -87,12 +87,12 @@ func assertNoTemps(t *testing.T, dir string) {
 	}
 	for _, e := range entries {
 		if strings.Contains(e.Name(), ".badomens-") || strings.HasSuffix(e.Name(), ".tmp") {
-			t.Errorf("quedÃ³ un archivo temporal/parcial: %s", e.Name())
+			t.Errorf("quedó un archivo temporal/parcial: %s", e.Name())
 		}
 	}
 }
 
-// install es un atajo para instalar con la polÃ­tica de pruebas.
+// install es un atajo para instalar con la política de pruebas.
 func install(t *testing.T, inst *Installer, spec *instance.Spec, source string, opts InstallOptions) (*Installed, error) {
 	t.Helper()
 	if opts.Download.MaxBytes == 0 && opts.Download.MaxRedirects == 0 {
@@ -101,7 +101,7 @@ func install(t *testing.T, inst *Installer, spec *instance.Spec, source string, 
 	return inst.Install(context.Background(), spec, source, opts)
 }
 
-// TestInstallCorrecto: instalaciÃ³n completa con archivo en destino, temporal
+// TestInstallCorrecto: instalación completa con archivo en destino, temporal
 // eliminado y metadatos coherentes.
 func TestInstallCorrecto(t *testing.T) {
 	inst, spec := testInstaller(t)
@@ -150,8 +150,8 @@ func TestInstallCorrecto(t *testing.T) {
 func TestInstallAddCompatibilidad(t *testing.T) {
 	inst, spec := testInstaller(t)
 	srv := serveJar(t, jarMinimo(t))
-	// Add usa la polÃ­tica por defecto: http:// y loopback estÃ¡n bloqueados, asÃ­
-	// que se instala desde un archivo local (vÃ­a avanzada) para no depender de red.
+	// Add usa la política por defecto: http:// y loopback están bloqueados, así
+	// que se instala desde un archivo local (vía avanzada) para no depender de red.
 	src := filepath.Join(t.TempDir(), "local.jar")
 	if err := os.WriteFile(src, jarMinimo(t), 0o644); err != nil {
 		t.Fatal(err)
@@ -161,11 +161,11 @@ func TestInstallAddCompatibilidad(t *testing.T) {
 		t.Fatalf("Add: %v", err)
 	}
 	if name != "local.jar" {
-		t.Errorf("Add devolviÃ³ %q", name)
+		t.Errorf("Add devolvió %q", name)
 	}
-	// La polÃ­tica por defecto rechaza http:// tambiÃ©n en Add.
+	// La política por defecto rechaza http:// también en Add.
 	if _, err := inst.Add(context.Background(), spec, srv.URL+"/demo.jar"); err == nil {
-		t.Error("Add deberÃ­a rechazar http:// con la polÃ­tica por defecto")
+		t.Error("Add debería rechazar http:// con la política por defecto")
 	}
 }
 
@@ -189,7 +189,7 @@ func TestInstallErroresHTTP(t *testing.T) {
 			t.Errorf("HTTP %d: http_status = %v", code, errx.Details(err)["http_status"])
 		}
 		if _, serr := os.Stat(filepath.Join(inst.Dir(spec), "demo.jar")); serr == nil {
-			t.Errorf("HTTP %d: no deberÃ­a haber archivo final", code)
+			t.Errorf("HTTP %d: no debería haber archivo final", code)
 		}
 		assertNoTemps(t, inst.Dir(spec))
 	}
@@ -207,13 +207,13 @@ func TestInstallLimiteExcedido(t *testing.T) {
 	opts.Download.MaxBytes = 2048
 	_, err := install(t, inst, spec, srv.URL+"/grande.jar", opts)
 	if err == nil {
-		t.Fatal("se esperaba error por tamaÃ±o")
+		t.Fatal("se esperaba error por tamaño")
 	}
 	if !errx.Is(err, errx.CodeCapacity) {
 		t.Errorf("se esperaba error_capacity_exceeded, hubo %v", err)
 	}
 	if _, serr := os.Stat(filepath.Join(inst.Dir(spec), "grande.jar")); serr == nil {
-		t.Error("el destino no deberÃ­a existir")
+		t.Error("el destino no debería existir")
 	}
 	assertNoTemps(t, inst.Dir(spec))
 }
@@ -237,7 +237,7 @@ func TestInstallNombresInvalidos(t *testing.T) {
 	assertNoTemps(t, inst.Dir(spec))
 }
 
-// TestInstallJarInvalido: artefacto que no es un JAR/ZIP vÃ¡lido.
+// TestInstallJarInvalido: artefacto que no es un JAR/ZIP válido.
 func TestInstallJarInvalido(t *testing.T) {
 	inst, spec := testInstaller(t)
 	basura := serveJar(t, bytes.Repeat([]byte("no soy un jar"), 32))
@@ -254,10 +254,10 @@ func TestInstallJarInvalido(t *testing.T) {
 		t.Error("se esperaba rechazo de un JAR truncado")
 	}
 	if _, serr := os.Stat(filepath.Join(inst.Dir(spec), "falso.jar")); serr == nil {
-		t.Error("no deberÃ­a haber destino final")
+		t.Error("no debería haber destino final")
 	}
 	if _, serr := os.Stat(filepath.Join(inst.Dir(spec), "roto.jar")); serr == nil {
-		t.Error("no deberÃ­a haber destino final para el JAR truncado")
+		t.Error("no debería haber destino final para el JAR truncado")
 	}
 	assertNoTemps(t, inst.Dir(spec))
 }
@@ -277,20 +277,20 @@ func TestInstallChecksum(t *testing.T) {
 		t.Errorf("reason = %v (%v)", errx.Details(err)["reason"], err)
 	}
 	if _, serr := os.Stat(filepath.Join(inst.Dir(spec), "demo.jar")); serr == nil {
-		t.Error("no deberÃ­a haber archivo final")
+		t.Error("no debería haber archivo final")
 	}
 	assertNoTemps(t, inst.Dir(spec))
 
 	res, err := install(t, inst, spec, srv.URL+"/demo.jar", InstallOptions{SHA256: hex.EncodeToString(sum[:])})
 	if err != nil {
-		t.Fatalf("con el checksum correcto se esperaba Ã©xito: %v", err)
+		t.Fatalf("con el checksum correcto se esperaba éxito: %v", err)
 	}
 	if !res.ChecksumVerified {
 		t.Error("ChecksumVerified = false con checksum correcto")
 	}
 }
 
-// TestInstallRechazaSSRF: la polÃ­tica por defecto bloquea destinos locales.
+// TestInstallRechazaSSRF: la política por defecto bloquea destinos locales.
 func TestInstallRechazaSSRF(t *testing.T) {
 	inst, spec := testInstaller(t)
 	urls := []string{
@@ -315,11 +315,11 @@ func TestInstallRechazaSSRF(t *testing.T) {
 		t.Fatalf("ReadDir: %v", err)
 	}
 	if len(entries) != 0 {
-		t.Errorf("no deberÃ­a haberse creado nada: %v", entries)
+		t.Errorf("no debería haberse creado nada: %v", entries)
 	}
 }
 
-// TestInstallRedireccionAPrivada: se valida cada salto de la redirecciÃ³n.
+// TestInstallRedireccionAPrivada: se valida cada salto de la redirección.
 func TestInstallRedireccionAPrivada(t *testing.T) {
 	inst, spec := testInstaller(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -329,7 +329,7 @@ func TestInstallRedireccionAPrivada(t *testing.T) {
 
 	_, err := install(t, inst, spec, srv.URL+"/plugin.jar", InstallOptions{})
 	if err == nil {
-		t.Fatal("se esperaba rechazo de la redirecciÃ³n a una IP privada")
+		t.Fatal("se esperaba rechazo de la redirección a una IP privada")
 	}
 	if errx.Details(err)["reason"] != "destino_no_permitido" {
 		t.Errorf("reason = %v (%v)", errx.Details(err)["reason"], err)
@@ -343,7 +343,7 @@ func TestInstallHTTPRequierePolitica(t *testing.T) {
 	srv := serveJar(t, jarMinimo(t))
 
 	pol := download.DefaultPolicy()
-	pol.AllowLoopback = true // loopback sÃ­; lo que se prueba es el esquema
+	pol.AllowLoopback = true // loopback sí; lo que se prueba es el esquema
 	_, err := inst.Install(context.Background(), spec, srv.URL+"/demo.jar", InstallOptions{Download: pol})
 	if err == nil {
 		t.Fatal("se esperaba rechazo de http://")
@@ -353,7 +353,7 @@ func TestInstallHTTPRequierePolitica(t *testing.T) {
 	}
 
 	if _, err := install(t, inst, spec, srv.URL+"/demo.jar", InstallOptions{}); err != nil {
-		t.Fatalf("con polÃ­tica explÃ­cita se esperaba Ã©xito: %v", err)
+		t.Fatalf("con política explícita se esperaba éxito: %v", err)
 	}
 }
 
@@ -382,13 +382,13 @@ func TestInstallConflictos(t *testing.T) {
 	opts.Download.Conflict = download.ConflictRename
 	res, err := install(t, inst, spec, srv.URL+"/demo.jar", opts)
 	if err != nil {
-		t.Fatalf("con rename se esperaba Ã©xito: %v", err)
+		t.Fatalf("con rename se esperaba éxito: %v", err)
 	}
 	if res.Name != "demo-2.jar" || res.RenamedFrom != "demo.jar" {
 		t.Errorf("resultado inesperado: %+v", res)
 	}
 	if raw, err := os.ReadFile(filepath.Join(dir, "demo.jar")); err != nil || string(raw) != "antiguo" {
-		t.Errorf("el archivo original se alterÃ³ (%v)", err)
+		t.Errorf("el archivo original se alteró (%v)", err)
 	}
 
 	opts2 := InstallOptions{}
@@ -396,7 +396,7 @@ func TestInstallConflictos(t *testing.T) {
 	opts2.Download.Conflict = download.ConflictReplace
 	res2, err := install(t, inst, spec, srv.URL+"/demo.jar", opts2)
 	if err != nil {
-		t.Fatalf("con replace se esperaba Ã©xito: %v", err)
+		t.Fatalf("con replace se esperaba éxito: %v", err)
 	}
 	if !res2.Replaced {
 		t.Errorf("se esperaba Replaced=true: %+v", res2)
@@ -404,8 +404,8 @@ func TestInstallConflictos(t *testing.T) {
 	assertNoTemps(t, dir)
 }
 
-// TestInstallArchivoLocal cubre la vÃ­a local (vÃ¡lida, inexistente y con
-// extensiÃ³n no permitida).
+// TestInstallArchivoLocal cubre la vía local (válida, inexistente y con
+// extensión no permitida).
 func TestInstallArchivoLocal(t *testing.T) {
 	inst, spec := testInstaller(t)
 	dir := t.TempDir()
@@ -455,7 +455,7 @@ func TestInstallRechazaVanillaYEsquemas(t *testing.T) {
 	}
 }
 
-// TestThirdPartyWarning: el aviso existe y no promete garantÃ­as.
+// TestThirdPartyWarning: el aviso existe y no promete garantías.
 func TestThirdPartyWarning(t *testing.T) {
 	w := ThirdPartyWarning()
 	if !strings.Contains(w, "terceros") || !strings.Contains(w, "NO implica que sea seguro") {
@@ -463,7 +463,7 @@ func TestThirdPartyWarning(t *testing.T) {
 	}
 }
 
-// TestListRemoveWarnFor cubre el resto del catÃ¡logo (sin tests antes).
+// TestListRemoveWarnFor cubre el resto del catálogo (sin tests antes).
 func TestListRemoveWarnFor(t *testing.T) {
 	inst, spec := testInstaller(t)
 	dir := inst.Dir(spec)
@@ -487,7 +487,7 @@ func TestListRemoveWarnFor(t *testing.T) {
 		t.Errorf("WarnFor = %q", w)
 	}
 	if err := inst.Remove(spec, "../evil.jar"); err == nil {
-		t.Error("Remove deberÃ­a rechazar nombres con ..")
+		t.Error("Remove debería rechazar nombres con ..")
 	}
 	if err := inst.Remove(spec, "a.jar"); err != nil {
 		t.Fatalf("Remove: %v", err)

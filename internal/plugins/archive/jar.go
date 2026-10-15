@@ -1,13 +1,13 @@
 // Package archive valida la ESTRUCTURA de los JAR/ZIP que se van a instalar
-// como plugins o mods, con lÃ­mites de recursos.
+// como plugins o mods, con límites de recursos.
 //
 // Nunca descomprime ni extrae nada: solo lee la firma y el directorio central
 // del archivo. Un "zip bomb" declarado se detecta por sus cabeceras y se
-// rechaza sin materializar un solo byte descomprimido, y jamÃ¡s se escribe en el
-// directorio de ejecuciÃ³n.
+// rechaza sin materializar un solo byte descomprimido, y jamás se escribe en el
+// directorio de ejecución.
 //
-// Lo que NO garantiza: que el contenido sea seguro, estÃ© libre de cÃ³digo
-// malicioso o sea compatible con el motor. Solo comprueba forma y tamaÃ±o.
+// Lo que NO garantiza: que el contenido sea seguro, esté libre de código
+// malicioso o sea compatible con el motor. Solo comprueba forma y tamaño.
 package archive
 
 import (
@@ -22,26 +22,26 @@ import (
 	"github.com/MrZudro/badomens/internal/errx"
 )
 
-// LÃ­mites por defecto al inspeccionar un JAR/ZIP.
+// Límites por defecto al inspeccionar un JAR/ZIP.
 const (
-	// DefaultMaxEntries es el nÃºmero mÃ¡ximo de entradas del archivo.
+	// DefaultMaxEntries es el número máximo de entradas del archivo.
 	DefaultMaxEntries = 4096
-	// DefaultMaxUncompressedBytes es la suma mÃ¡xima de tamaÃ±os declarados.
+	// DefaultMaxUncompressedBytes es la suma máxima de tamaños declarados.
 	DefaultMaxUncompressedBytes int64 = 512 << 20
-	// DefaultMaxEntryBytes es el tamaÃ±o declarado mÃ¡ximo de una entrada.
+	// DefaultMaxEntryBytes es el tamaño declarado máximo de una entrada.
 	DefaultMaxEntryBytes int64 = 128 << 20
-	// DefaultMaxRatio es la ratio descomprimido/comprimido mÃ¡xima tolerada en
-	// entradas de 1 MiB o mÃ¡s (compresiÃ³n "sospechosa").
+	// DefaultMaxRatio es la ratio descomprimido/comprimido máxima tolerada en
+	// entradas de 1 MiB o más (compresión "sospechosa").
 	DefaultMaxRatio = 200.0
-	// DefaultMaxNameLen es la longitud mÃ¡xima del nombre de una entrada.
+	// DefaultMaxNameLen es la longitud máxima del nombre de una entrada.
 	DefaultMaxNameLen = 512
-	// ratioFloorBytes es el tamaÃ±o a partir del cual se evalÃºa la ratio: en
-	// archivos diminutos la compresiÃ³n normal da ratios altos y serÃ­a un falso
+	// ratioFloorBytes es el tamaño a partir del cual se evalúa la ratio: en
+	// archivos diminutos la compresión normal da ratios altos y sería un falso
 	// positivo.
 	ratioFloorBytes int64 = 1 << 20
 )
 
-// Limits son los lÃ­mites de recursos aplicables a la inspecciÃ³n.
+// Limits son los límites de recursos aplicables a la inspección.
 type Limits struct {
 	// MaxEntries 0 â‡’ DefaultMaxEntries.
 	MaxEntries int
@@ -49,13 +49,13 @@ type Limits struct {
 	MaxUncompressedBytes int64
 	// MaxEntryBytes 0 â‡’ DefaultMaxEntryBytes.
 	MaxEntryBytes int64
-	// MaxRatio 0 â‡’ DefaultMaxRatio (en entradas de 1 MiB o mÃ¡s).
+	// MaxRatio 0 ⇒ DefaultMaxRatio (en entradas de 1 MiB o más).
 	MaxRatio float64
 	// MaxNameLen 0 â‡’ DefaultMaxNameLen.
 	MaxNameLen int
 }
 
-// DefaultLimits devuelve los lÃ­mites por defecto.
+// DefaultLimits devuelve los límites por defecto.
 func DefaultLimits() Limits {
 	return Limits{
 		MaxEntries:           DefaultMaxEntries,
@@ -66,7 +66,7 @@ func DefaultLimits() Limits {
 	}
 }
 
-// WithDefaults completa los lÃ­mites no indicados.
+// WithDefaults completa los límites no indicados.
 func (l Limits) WithDefaults() Limits {
 	d := DefaultLimits()
 	if l.MaxEntries <= 0 {
@@ -90,22 +90,22 @@ func (l Limits) WithDefaults() Limits {
 // Report resume lo observado en el artefacto. Es informativo y aditivo: se
 // incluye en el documento JSON de `plugin add`.
 type Report struct {
-	// Entries es el nÃºmero de entradas del archivo.
+	// Entries es el número de entradas del archivo.
 	Entries int `json:"entries"`
-	// UncompressedBytes es la suma de tamaÃ±os declarados (no verificados byte a
+	// UncompressedBytes es la suma de tamaños declarados (no verificados byte a
 	// byte: no se descomprime).
 	UncompressedBytes int64 `json:"uncompressed_bytes"`
-	// CompressedBytes es la suma de tamaÃ±os comprimidos declarados.
+	// CompressedBytes es la suma de tamaños comprimidos declarados.
 	CompressedBytes int64 `json:"compressed_bytes"`
 	// MaxRatio es la mayor ratio descomprimido/comprimido observada.
 	MaxRatio float64 `json:"max_ratio"`
 	// HasManifest indica si contiene META-INF/MANIFEST.MF.
 	HasManifest bool `json:"has_manifest"`
-	// Descriptor nombra el descriptor de plugin/mod encontrado (vacÃ­o si no hay).
+	// Descriptor nombra el descriptor de plugin/mod encontrado (vacío si no hay).
 	Descriptor string `json:"descriptor,omitempty"`
 }
 
-// descriptors son los ficheros que anuncian un plugin/mod segÃºn el cargador.
+// descriptors son los ficheros que anuncian un plugin/mod según el cargador.
 var descriptors = map[string]bool{
 	"plugin.yml":           true,
 	"paper-plugin.yml":     true,
@@ -118,13 +118,13 @@ var descriptors = map[string]bool{
 	"neoforge.mods.toml":   true,
 }
 
-// Validate comprueba que el archivo es un JAR/ZIP estructuralmente vÃ¡lido y
-// respeta los lÃ­mites. `size` es el tamaÃ±o del archivo en disco (ya acotado por
+// Validate comprueba que el archivo es un JAR/ZIP estructuralmente válido y
+// respeta los límites. `size` es el tamaño del archivo en disco (ya acotado por
 // el descargador). No extrae nada.
 func Validate(file string, size int64, lim Limits) (Report, error) {
 	l := lim.WithDefaults()
 	if size <= 0 {
-		return Report{}, invalid("el archivo estÃ¡ vacÃ­o", nil)
+		return Report{}, invalid("el archivo está vacío", nil)
 	}
 	f, err := os.Open(file) // #nosec G304 -- ruta del temporal que controla badomens
 	if err != nil {
@@ -146,22 +146,22 @@ func Validate(file string, size int64, lim Limits) (Report, error) {
 	zr, err := zip.NewReader(f, size)
 	if err != nil {
 		if errors.Is(err, zip.ErrFormat) || strings.Contains(err.Error(), "not a valid zip") {
-			return Report{}, invalid("el JAR/ZIP estÃ¡ corrupto o truncado", nil)
+			return Report{}, invalid("el JAR/ZIP está corrupto o truncado", nil)
 		}
-		return Report{}, invalid("el JAR/ZIP estÃ¡ corrupto o truncado: "+err.Error(), nil)
+		return Report{}, invalid("el JAR/ZIP está corrupto o truncado: "+err.Error(), nil)
 	}
 	if len(zr.File) == 0 {
 		return Report{}, invalid("el JAR/ZIP no contiene ninguna entrada", nil)
 	}
 	if len(zr.File) > l.MaxEntries {
-		return Report{}, excess(fmt.Sprintf("el JAR/ZIP tiene %d entradas y el lÃ­mite es %d", len(zr.File), l.MaxEntries),
+		return Report{}, excess(fmt.Sprintf("el JAR/ZIP tiene %d entradas y el límite es %d", len(zr.File), l.MaxEntries),
 			map[string]any{"entries": len(zr.File), "max_entries": l.MaxEntries})
 	}
 
 	rep := Report{Entries: len(zr.File)}
 	for _, e := range zr.File {
 		if e.Name == "" || len(e.Name) > l.MaxNameLen {
-			return Report{}, invalid("el JAR/ZIP contiene una entrada con nombre vacÃ­o o demasiado largo", nil)
+			return Report{}, invalid("el JAR/ZIP contiene una entrada con nombre vacío o demasiado largo", nil)
 		}
 		clean := path.Clean(strings.ReplaceAll(e.Name, `\`, "/"))
 		if strings.HasPrefix(clean, "/") || clean == ".." || strings.HasPrefix(clean, "../") {
@@ -179,7 +179,7 @@ func Validate(file string, size int64, lim Limits) (Report, error) {
 		}
 		// El límite por entrada se comprueba ANTES de convertir a int64.
 		if e.UncompressedSize64 > uint64(l.MaxEntryBytes) {
-			return Report{}, excess(fmt.Sprintf("la entrada %s declara %d bytes y el lÃ­mite por entrada es %d", e.Name, e.UncompressedSize64, l.MaxEntryBytes),
+			return Report{}, excess(fmt.Sprintf("la entrada %s declara %d bytes y el límite por entrada es %d", e.Name, e.UncompressedSize64, l.MaxEntryBytes),
 				map[string]any{"entry": e.Name, "entry_bytes": e.UncompressedSize64, "max_entry_bytes": l.MaxEntryBytes})
 		}
 		if e.CompressedSize64 > 0 && e.UncompressedSize64 >= uint64(ratioFloorBytes) {
@@ -188,21 +188,21 @@ func Validate(file string, size int64, lim Limits) (Report, error) {
 				rep.MaxRatio = ratio
 			}
 			if ratio > l.MaxRatio {
-				return Report{}, excess(fmt.Sprintf("la entrada %s declara una compresiÃ³n sospechosa (%.0f:1)", e.Name, ratio),
+				return Report{}, excess(fmt.Sprintf("la entrada %s declara una compresión sospechosa (%.0f:1)", e.Name, ratio),
 					map[string]any{"entry": e.Name, "ratio": ratio, "max_ratio": l.MaxRatio})
 			}
 		}
 		rep.UncompressedBytes += int64(e.UncompressedSize64)
 		rep.CompressedBytes += int64(e.CompressedSize64)
 		if rep.UncompressedBytes > l.MaxUncompressedBytes {
-			return Report{}, excess(fmt.Sprintf("el JAR/ZIP declara %d bytes descomprimidos y el lÃ­mite es %d", rep.UncompressedBytes, l.MaxUncompressedBytes),
+			return Report{}, excess(fmt.Sprintf("el JAR/ZIP declara %d bytes descomprimidos y el límite es %d", rep.UncompressedBytes, l.MaxUncompressedBytes),
 				map[string]any{"uncompressed_bytes": rep.UncompressedBytes, "max_uncompressed_bytes": l.MaxUncompressedBytes})
 		}
 	}
 	return rep, nil
 }
 
-// invalid construye el error de estructura invÃ¡lida.
+// invalid construye el error de estructura inválida.
 func invalid(message string, extra map[string]any) error {
 	e := errx.New(errx.CodeUsage, message, "instala solo JAR/ZIP de plugins o mods; revisa el origen").
 		WithDetail("reason", "artefacto_invalido")
@@ -212,9 +212,9 @@ func invalid(message string, extra map[string]any) error {
 	return e
 }
 
-// excess construye el error de lÃ­mite de recursos superado.
+// excess construye el error de límite de recursos superado.
 func excess(message string, extra map[string]any) error {
-	e := errx.New(errx.CodeCapacity, message, "no se instala un artefacto que excede los lÃ­mites de recursos").
+	e := errx.New(errx.CodeCapacity, message, "no se instala un artefacto que excede los límites de recursos").
 		WithDetail("reason", "limites_recursos")
 	for k, v := range extra {
 		e = e.WithDetail(k, v)

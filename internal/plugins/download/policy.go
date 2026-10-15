@@ -1,25 +1,25 @@
-// Package download implementa la obtenciÃ³n segura de un artefacto de plugin
-// (JAR/ZIP): descarga en streaming con el lÃ­mite aplicado DURANTE la
+// Package download implementa la obtención segura de un artefacto de plugin
+// (JAR/ZIP): descarga en streaming con el límite aplicado DURANTE la
 // transferencia, escritura en un archivo temporal dentro del propio directorio
-// destino, verificaciÃ³n (tamaÃ±o y checksum SHA-256) y movimiento ATÃ“MICO.
+// destino, verificación (tamaño y checksum SHA-256) y movimiento ATÓMICO.
 //
-// PolÃ­tica por defecto, la mÃ¡s restrictiva:
+// Política por defecto, la más restrictiva:
 //
-//   - Solo https:// (http:// requiere AllowHTTP explÃ­cito).
+//   - Solo https:// (http:// requiere AllowHTTP explícito).
 //   - Se rechazan loopback, redes privadas, link-local, CGNAT, multicast y
-//     rangos reservados/de documentaciÃ³n. AllowLoopback y AllowPrivate son las
-//     Ãºnicas excepciones y se documentan como riesgo asumido.
-//   - Se valida la IP RESUELTA de cada conexiÃ³n (no solo el hostname de la URL)
-//     y cada salto de redirecciÃ³n: cubre SSRF y DNS rebinding.
+//     rangos reservados/de documentación. AllowLoopback y AllowPrivate son las
+//     únicas excepciones y se documentan como riesgo asumido.
+//   - Se valida la IP RESUELTA de cada conexión (no solo el hostname de la URL)
+//     y cada salto de redirección: cubre SSRF y DNS rebinding.
 //   - El nombre final se valida (sin separadores, sin "..", sin caracteres de
-//     control) y su extensiÃ³n debe estar en la lista permitida.
-//   - Nunca se sobrescribe un archivo existente salvo polÃ­tica explÃ­cita
+//     control) y su extensión debe estar en la lista permitida.
+//   - Nunca se sobrescribe un archivo existente salvo política explícita
 //     (ConflictRename o ConflictReplace).
 //
-// Lo que este paquete NO puede garantizar: que el artefacto sea seguro, estÃ©
-// libre de cÃ³digo malicioso o sea compatible con el motor. Solo asegura
-// transporte controlado, tamaÃ±o acotado, integridad frente a un checksum
-// publicado e instalaciÃ³n atÃ³mica.
+// Lo que este paquete NO puede garantizar: que el artefacto sea seguro, esté
+// libre de código malicioso o sea compatible con el motor. Solo asegura
+// transporte controlado, tamaño acotado, integridad frente a un checksum
+// publicado e instalación atómica.
 package download
 
 import (
@@ -38,45 +38,45 @@ import (
 	"github.com/MrZudro/badomens/internal/version"
 )
 
-// LÃ­mites por defecto. Son deliberadamente conservadores: un plugin o mod
-// individual no deberÃ­a acercarse a ellos.
+// Límites por defecto. Son deliberadamente conservadores: un plugin o mod
+// individual no debería acercarse a ellos.
 const (
-	// DefaultMaxBytes es el lÃ­mite por defecto de un artefacto: 64 MiB.
+	// DefaultMaxBytes es el límite por defecto de un artefacto: 64 MiB.
 	DefaultMaxBytes int64 = 64 << 20
-	// MaxAllowedBytes es el techo absoluto del lÃ­mite configurable: 1 GiB.
+	// MaxAllowedBytes es el techo absoluto del límite configurable: 1 GiB.
 	MaxAllowedBytes int64 = 1 << 30
-	// DefaultMaxRedirects es el nÃºmero mÃ¡ximo de redirecciones seguidas.
+	// DefaultMaxRedirects es el número máximo de redirecciones seguidas.
 	DefaultMaxRedirects = 5
-	// DefaultTimeout es el tiempo mÃ¡ximo de la descarga completa.
+	// DefaultTimeout es el tiempo máximo de la descarga completa.
 	DefaultTimeout = 2 * time.Minute
 	// maxNameLen limita la longitud del nombre final.
 	maxNameLen = 120
 )
 
-// tempPattern es el patrÃ³n del archivo temporal; su extensiÃ³n .tmp lo mantiene
+// tempPattern es el patrón del archivo temporal; su extensión .tmp lo mantiene
 // invisible para el cargador de plugins del servidor.
 const tempPattern = tempPrefix + "*" + tempSuffix
 
 // DefaultExtensions son las extensiones aceptadas para el archivo final.
 var DefaultExtensions = []string{".jar", ".zip"}
 
-// Conflict describe quÃ© hacer cuando ya existe un archivo con el nombre final.
+// Conflict describe qué hacer cuando ya existe un archivo con el nombre final.
 type Conflict string
 
 const (
-	// ConflictFail aborta con un error explÃ­cito (comportamiento por defecto).
+	// ConflictFail aborta con un error explícito (comportamiento por defecto).
 	ConflictFail Conflict = "fail"
-	// ConflictRename instala con un sufijo -2, -3â€¦ y lo informa en el resultado.
+	// ConflictRename instala con un sufijo -2, -3… y lo informa en el resultado.
 	ConflictRename Conflict = "rename"
 	// ConflictReplace sustituye el archivo existente (solo si se pide).
 	ConflictReplace Conflict = "replace"
 )
 
-// Policy reÃºne los lÃ­mites y las excepciones de una descarga. Su valor cero es
-// vÃ¡lido y equivale a DefaultPolicy.
+// Policy reúne los límites y las excepciones de una descarga. Su valor cero es
+// válido y equivale a DefaultPolicy.
 type Policy struct {
-	// MaxBytes es el lÃ­mite de bytes aplicado durante la transferencia.
-	// 0 â‡’ DefaultMaxBytes. No puede superar MaxAllowedBytes.
+	// MaxBytes es el límite de bytes aplicado durante la transferencia.
+	// 0 ⇒ DefaultMaxBytes. No puede superar MaxAllowedBytes.
 	MaxBytes int64
 	// AllowedExtensions son las extensiones aceptadas (por defecto .jar/.zip).
 	AllowedExtensions []string
@@ -87,17 +87,17 @@ type Policy struct {
 	// AllowLoopback permite loopback (127.0.0.0/8 y ::1). Pensado para
 	// pruebas y proxies locales.
 	AllowLoopback bool
-	// Conflict define quÃ© hacer si el archivo destino ya existe.
+	// Conflict define qué hacer si el archivo destino ya existe.
 	Conflict Conflict
-	// MaxRedirects limita los saltos de redirecciÃ³n (0 â‡’ 5).
+	// MaxRedirects limita los saltos de redirección (0 ⇒ 5).
 	MaxRedirects int
-	// Timeout es el tiempo mÃ¡ximo de la operaciÃ³n completa (0 â‡’ 2 min).
+	// Timeout es el tiempo máximo de la operación completa (0 ⇒ 2 min).
 	Timeout time.Duration
-	// UserAgent identifica las peticiones (0 â‡’ "badomens/<versiÃ³n>").
+	// UserAgent identifica las peticiones (0 ⇒ "badomens/<versión>").
 	UserAgent string
 }
 
-// DefaultPolicy devuelve la polÃ­tica por defecto.
+// DefaultPolicy devuelve la política por defecto.
 func DefaultPolicy() Policy {
 	return Policy{
 		MaxBytes:          DefaultMaxBytes,
@@ -109,7 +109,7 @@ func DefaultPolicy() Policy {
 	}
 }
 
-// withDefaults completa una polÃ­tica con los valores por defecto.
+// withDefaults completa una política con los valores por defecto.
 func (p Policy) withDefaults() Policy {
 	d := DefaultPolicy()
 	if p.MaxBytes <= 0 {
@@ -133,18 +133,18 @@ func (p Policy) withDefaults() Policy {
 	return p
 }
 
-// Validate comprueba que la polÃ­tica sea coherente antes de usarla.
+// Validate comprueba que la política sea coherente antes de usarla.
 func (p Policy) Validate() error {
 	if p.MaxBytes > MaxAllowedBytes {
 		return errx.New(errx.CodeUsage,
-			fmt.Sprintf("el lÃ­mite de descarga (%s) supera el mÃ¡ximo permitido (%s)", HumanBytes(p.MaxBytes), HumanBytes(MaxAllowedBytes)),
-			"indica un lÃ­mite menor").WithDetail("reason", "limite_invalido")
+			fmt.Sprintf("el límite de descarga (%s) supera el máximo permitido (%s)", HumanBytes(p.MaxBytes), HumanBytes(MaxAllowedBytes)),
+			"indica un límite menor").WithDetail("reason", "limite_invalido")
 	}
 	switch p.Conflict {
 	case ConflictFail, ConflictRename, ConflictReplace:
 	default:
 		return errx.New(errx.CodeUsage,
-			"polÃ­tica de conflicto desconocida: "+string(p.Conflict),
+			"política de conflicto desconocida: "+string(p.Conflict),
 			"usa fail, rename o replace").WithDetail("reason", "conflicto_invalido")
 	}
 	if len(p.AllowedExtensions) == 0 {
@@ -154,7 +154,7 @@ func (p Policy) Validate() error {
 }
 
 // reservedNets son los rangos no enrutables a Internet que se rechazan por
-// defecto aunque no sean "privados" en sentido estricto (RFC 5735, 6598, 3849â€¦).
+// defecto aunque no sean "privados" en sentido estricto (RFC 5735, 6598, 3849…).
 var reservedNets = []netip.Prefix{
 	netip.MustParsePrefix("0.0.0.0/8"),
 	netip.MustParsePrefix("100.64.0.0/10"),
@@ -173,19 +173,19 @@ var reservedNets = []netip.Prefix{
 	netip.MustParsePrefix("2002::/16"),
 }
 
-// localSuffixes son dominios que resuelven a la propia mÃ¡quina o a la red local
-// y que nunca deben usarse para descargar cÃ³digo.
+// localSuffixes son dominios que resuelven a la propia máquina o a la red local
+// y que nunca deben usarse para descargar código.
 var localSuffixes = []string{".localhost", ".local", ".internal", ".home.arpa", ".lan"}
 
-// restriction clasifica una IP: devuelve "" si es pÃºblica, o el motivo por el
+// restriction clasifica una IP: devuelve "" si es pública, o el motivo por el
 // que se bloquea. Las IP IPv4 embebidas en IPv6 se normalizan primero.
 func restriction(ip netip.Addr) string {
 	ip = ip.Unmap()
 	switch {
 	case !ip.IsValid():
-		return "direcciÃ³n invÃ¡lida"
+		return "dirección inválida"
 	case ip.IsUnspecified():
-		return "direcciÃ³n no especificada"
+		return "dirección no especificada"
 	case ip.IsLoopback():
 		return "loopback"
 	case ip.IsLinkLocalUnicast(), ip.IsLinkLocalMulticast():
@@ -203,12 +203,12 @@ func restriction(ip netip.Addr) string {
 	return ""
 }
 
-// allowIP aplica la polÃ­tica a una IP concreta. Se usa dos veces: al validar el
+// allowIP aplica la política a una IP concreta. Se usa dos veces: al validar el
 // hostname de la URL (mensaje temprano) y al validar la IP realmente resuelta
 // por el dialer (barrera definitiva frente a DNS rebinding).
 func (p Policy) allowIP(ip netip.Addr) error {
 	if !ip.IsValid() {
-		return rejected("", "direcciÃ³n invÃ¡lida")
+		return rejected("", "dirección inválida")
 	}
 	ip = ip.Unmap()
 	reason := restriction(ip)
@@ -233,7 +233,7 @@ func rejected(host, reason string) error {
 	}
 	return errx.New(errx.CodeUsage,
 		fmt.Sprintf("destino no permitido: %s (%s)", shown, reason),
-		"solo se descargan artefactos desde orÃ­genes pÃºblicos por https://; las excepciones --allow-private/--allow-loopback asumen el riesgo de SSRF").
+		"solo se descargan artefactos desde orígenes públicos por https://; las excepciones --allow-private/--allow-loopback asumen el riesgo de SSRF").
 		WithDetail("reason", "destino_no_permitido").
 		WithDetail("category", reason).
 		WithDetail("destination", shown)
@@ -248,7 +248,7 @@ func (p Policy) checkURL(u *url.URL) error {
 		if !p.AllowHTTP {
 			return errx.New(errx.CodeUsage,
 				"la URL usa http:// (sin cifrado)",
-				"usa una URL https://; si asumes el riesgo de una descarga sin cifrado, activa la polÃ­tica explÃ­cita --allow-http").
+				"usa una URL https://; si asumes el riesgo de una descarga sin cifrado, activa la política explícita --allow-http").
 				WithDetail("reason", "tls_requerido")
 		}
 	default:
@@ -278,39 +278,39 @@ func (p Policy) checkURL(u *url.URL) error {
 }
 
 // checkRedirect se ejecuta en cada salto: se vuelve a validar esquema y destino,
-// y se limita el nÃºmero total de saltos.
+// y se limita el número total de saltos.
 func (p Policy) checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= p.MaxRedirects {
 		return errx.New(errx.CodeUsage,
-			fmt.Sprintf("la descarga encadena mÃ¡s de %d redirecciones", p.MaxRedirects),
+			fmt.Sprintf("la descarga encadena más de %d redirecciones", p.MaxRedirects),
 			"usa la URL final del artefacto en lugar de un acortador").
 			WithDetail("reason", "redirecciones_excesivas")
 	}
 	return p.checkURL(req.URL)
 }
 
-// control valida la IP resuelta justo antes de abrir la conexiÃ³n TCP: es la
+// control valida la IP resuelta justo antes de abrir la conexión TCP: es la
 // pieza que cierra el DNS rebinding (el hostname puede resolver a una IP
-// privada despuÃ©s de haber validado la URL).
+// privada después de haber validado la URL).
 func (p Policy) control(_ context.Context, network, address string, _ syscall.RawConn) error {
 	if !strings.HasPrefix(network, "tcp") {
 		return nil
 	}
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
-		return errx.New(errx.CodeUsage, "direcciÃ³n de destino ilegible: "+address, "").
+		return errx.New(errx.CodeUsage, "dirección de destino ilegible: "+address, "").
 			WithDetail("reason", "destino_invalido")
 	}
 	ip, err := netip.ParseAddr(host)
 	if err != nil {
-		return errx.New(errx.CodeUsage, "el destino no resolviÃ³ a una IP vÃ¡lida: "+host, "").
+		return errx.New(errx.CodeUsage, "el destino no resolvió a una IP válida: "+host, "").
 			WithDetail("reason", "destino_invalido")
 	}
 	return p.allowIP(ip)
 }
 
-// HTTPClient construye el cliente HTTP con la polÃ­tica aplicada: dialer que
-// valida la IP resuelta, validaciÃ³n de cada redirecciÃ³n y tiempo mÃ¡ximo total.
+// HTTPClient construye el cliente HTTP con la política aplicada: dialer que
+// valida la IP resuelta, validación de cada redirección y tiempo máximo total.
 func (p Policy) HTTPClient() *http.Client {
 	pol := p.withDefaults()
 	dialer := &net.Dialer{
@@ -339,7 +339,7 @@ func (p Policy) HTTPClient() *http.Client {
 // NormalizeName valida y normaliza el nombre final del artefacto. Rechaza (no
 // "sanea"): ante un nombre ambiguo es preferible fallar que adivinar. Sin
 // separadores, sin "..", sin caracteres de control, sin nombres reservados de
-// Windows y con una extensiÃ³n permitida.
+// Windows y con una extensión permitida.
 func NormalizeName(raw string, allowedExts []string) (string, error) {
 	if len(allowedExts) == 0 {
 		allowedExts = DefaultExtensions
@@ -347,7 +347,7 @@ func NormalizeName(raw string, allowedExts []string) (string, error) {
 	name := raw
 	switch {
 	case strings.TrimSpace(name) == "":
-		return "", invalidName(raw, "el nombre del archivo estÃ¡ vacÃ­o", nil)
+		return "", invalidName(raw, "el nombre del archivo está vacío", nil)
 	case name != strings.TrimSpace(name):
 		return "", invalidName(raw, "el nombre del archivo tiene espacios al principio o al final", nil)
 	case name == "." || name == "..":
@@ -376,11 +376,11 @@ func NormalizeName(raw string, allowedExts []string) (string, error) {
 	}
 	if !ok {
 		return "", invalidName(raw,
-			"la extensiÃ³n "+ext+" no estÃ¡ permitida",
+			"la extensión "+ext+" no está permitida",
 			map[string]any{"allowed_extensions": allowedExts})
 	}
 	if windowsReserved(strings.TrimSuffix(name, ext)) {
-		return "", invalidName(raw, "el nombre del archivo estÃ¡ reservado por el sistema", nil)
+		return "", invalidName(raw, "el nombre del archivo está reservado por el sistema", nil)
 	}
 	return name, nil
 }
@@ -414,7 +414,7 @@ func invalidName(raw, message string, extra map[string]any) error {
 	return e
 }
 
-// HumanBytes formatea un tamaÃ±o en bytes de forma legible.
+// HumanBytes formatea un tamaño en bytes de forma legible.
 func HumanBytes(n int64) string {
 	const unit = 1024
 	if n < unit {
