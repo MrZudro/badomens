@@ -67,3 +67,35 @@ func TestSaveWorldNoEscapaDeLaBiblioteca(t *testing.T) {
 		}
 	}
 }
+
+// TestImportFromZipCreaLaBibliotecaConPermisosDeDueño cubre la OTRA vía de
+// escritura en la biblioteca (importar un zip) en un data dir limpio: la raíz de
+// <data>/worlds debe quedar en 0700 (plan 12.4 · mínimos privilegios), sin
+// depender de que SaveWorld la haya creado antes.
+func TestImportFromZipCreaLaBibliotecaConPermisosDeDueño(t *testing.T) {
+	dataDir := t.TempDir()
+	m := &Manager{DataDir: dataDir}
+	src := filepath.Join(dataDir, "origen", "world")
+	if err := os.MkdirAll(filepath.Join(src, "region"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "level.dat"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	zip := filepath.Join(dataDir, "origen.zip")
+	if err := ZipDir(filepath.Join(dataDir, "origen"), zip, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.ImportFromZip(zip, "importado"); err != nil {
+		t.Fatalf("ImportFromZip: %v", err)
+	}
+	if runtime.GOOS != "windows" {
+		fi, err := os.Stat(m.LibraryDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fi.Mode().Perm()&0o077 != 0 {
+			t.Fatalf("la biblioteca es accesible por otros: %o", fi.Mode().Perm())
+		}
+	}
+}

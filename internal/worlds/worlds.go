@@ -25,6 +25,16 @@ type Manager struct{ DataDir string }
 // LibraryDir devuelve la carpeta de la biblioteca.
 func (m *Manager) LibraryDir() string { return filepath.Join(m.DataDir, "worlds") }
 
+// ensureLibrary crea la carpeta de la biblioteca con permisos de SOLO DUEÑO
+// (plan 12.4 · mínimos privilegios). El contenedor no monta la biblioteca
+// —solo el mundo activo de cada instancia—, así que su raíz no necesita acceso
+// de grupo ni de otros; en cambio, los directorios internos que crea copyDir
+// usan 0755 a propósito, porque root dentro del contenedor debe poder leerlos
+// cuando el mundo se despliega como mundo activo.
+func (m *Manager) ensureLibrary() error {
+	return os.MkdirAll(m.LibraryDir(), 0o700)
+}
+
 // List devuelve los mundos guardados, ordenados.
 func (m *Manager) List() ([]string, error) {
 	entries, err := os.ReadDir(m.LibraryDir())
@@ -58,6 +68,9 @@ func (m *Manager) SaveWorld(instDir, name string) error {
 	dst := filepath.Join(m.LibraryDir(), name)
 	if isDir(dst) {
 		return fmt.Errorf("el mundo %q ya existe en la biblioteca", name)
+	}
+	if err := m.ensureLibrary(); err != nil {
+		return err
 	}
 	return copyDir(src, dst)
 }
@@ -124,6 +137,9 @@ func (m *Manager) ImportFromZip(archive, name string) error {
 	dst := filepath.Join(m.LibraryDir(), name)
 	if isDir(dst) {
 		return fmt.Errorf("el mundo %q ya existe en la biblioteca", name)
+	}
+	if err := m.ensureLibrary(); err != nil {
+		return err
 	}
 	return copyDir(src, dst)
 }

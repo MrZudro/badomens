@@ -6,6 +6,19 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-14
+
+### 🐛 Corregido
+
+- **La biblioteca de mundos quedaba accesible por grupo y otros**: `copyDir`
+  creaba la raíz de `<data>/worlds` con `0755` (permiso pensado para que *root*
+  lea los mundos dentro del contenedor), así que la biblioteca no cumplía el
+  criterio de mínimos privilegios. Ahora `SaveWorld` e `ImportFromZip` crean la
+  raíz con **`0700`** antes de copiar; los directorios internos siguen en `0755`
+  porque el contenedor sí necesita leerlos al desplegar el mundo activo.
+  Lo detectó la CI de Linux; la misma corrida confirmó que **no hay condiciones
+  de carrera** en ninguna prueba (`go test -race ./...`).
+
 ## [1.3.0] - 2026-10-14
 
 > 🧭 **Cierre del plan de implementación unificado (fases 0–12)**. Fusiona las dos
@@ -832,6 +845,7 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ---
 
+[1.3.1]: https://github.com/MrZudro/badomens/releases/tag/v1.3.1
 [1.3.0]: https://github.com/MrZudro/badomens/releases/tag/v1.3.0
 [1.2]: https://github.com/MrZudro/badomens/releases/tag/v1.2
 [1.0.1]: https://github.com/MrZudro/badomens/releases/tag/v1.0.1
