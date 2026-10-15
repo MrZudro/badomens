@@ -32,6 +32,54 @@ Los scripts (`scripts/install.sh`, `scripts/install.ps1`):
 
 Variables opcionales: `BADOMENS_REPO`, `BADOMENS_DEST`, `BADOMENS_VERSION`.
 
+`install.ps1` acepta además `-FromSource`, que **compila** el binario con Go desde
+el código de la versión (en vez de descargar un `.exe`).
+
+## Windows: Smart App Control y binarios sin firma
+
+Windows 11 trae **Smart App Control** (SAC), que activado **solo permite
+ejecutables firmados digitalmente o con reputación conocida** y **no** ofrece un
+botón de «ejecutar de todas formas». Los binarios de badomens **aún no están
+firmados**, así que con SAC activo Windows los bloquea con:
+
+```
+Una directiva de Control de aplicaciones bloqueó este archivo
+```
+
+Ese bloqueo afecta **por igual** al `.exe` descargado y a uno que compiles tú en
+ese equipo (SAC decide por firma y reputación, no por procedencia). Para saber si
+está activo:
+
+```powershell
+Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' VerifiedAndReputablePolicyState
+# 0 = desactivado · 1 = activado (aplica) · 2 = evaluación (aprendiendo)
+```
+
+Salidas, de la menos a la más invasiva:
+
+1. **WSL2 o Docker** (recomendado en Windows). SAC solo controla ejecutables de
+   Windows, así que el binario de Linux corre sin problema:
+
+   ```bash
+   wsl --install -d Ubuntu
+   # dentro de WSL, con Docker Desktop y su integración con WSL activada:
+   curl -fsSL https://raw.githubusercontent.com/MrZudro/badomens/main/scripts/install.sh | sh
+   ```
+
+   Es además el entorno natural de badomens, que orquesta servidores en Docker
+   Compose.
+
+2. **Desactivar Smart App Control** en *Seguridad de Windows → Control de
+   aplicaciones y navegador → Smart App Control*. Es **irreversible**: volver a
+   activarlo exige restablecer o reinstalar Windows.
+
+3. **Firmar los binarios** (tarea pendiente del proyecto): es la única forma de
+   que el `.exe` publicado funcione con SAC activo. Requiere un certificado de
+   firma de código.
+
+`install.ps1` detecta SAC antes de descargar y, si el binario no arranca, explica
+estas opciones en lugar de dejar el error críptico de PowerShell.
+
 ## go install
 
 ```bash

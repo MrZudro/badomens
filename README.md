@@ -132,6 +132,15 @@ irm https://raw.githubusercontent.com/MrZudro/badomens/main/scripts/install.ps1 
 > **pre-releases** y la URL corta `…/releases/latest/download/install.ps1` solo
 > estará disponible cuando exista una release **estable**.
 
+> [!WARNING]
+> **Windows 11 con Smart App Control activo bloquea el binario** («Una directiva de
+> Control de aplicaciones bloqueó este archivo»): los ejecutables de badomens aún
+> **no están firmados** y SAC no tiene botón de «ejecutar de todas formas». Afecta
+> al `.exe` descargado **y** al que compiles tú. Salidas: usarlo en **WSL2/Docker**
+> (lo recomendado en Windows), desactivar SAC (irreversible) o esperar a la firma
+> de los binarios. Detalle en
+> [`docs/setup-install.md`](docs/setup-install.md#windows-smart-app-control-y-binarios-sin-firma).
+
 Los instaladores descargan el binario correcto para tu sistema, **verifican el
 checksum** contra `checksums.txt` y lo dejan listo en
 `/usr/local/bin/badomens` (macOS/Linux) o `%LOCALAPPDATA%\Programs\badomens`

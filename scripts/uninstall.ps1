@@ -1,4 +1,4 @@
-# Desinstalador de badomens (Windows / PowerShell).
+﻿# Desinstalador de badomens (Windows / PowerShell).
 # Uso:  .\scripts\uninstall.ps1            # conserva los datos
 #       .\scripts\uninstall.ps1 -Purge     # borra también TODOS los datos
 param(

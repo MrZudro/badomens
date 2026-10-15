@@ -6,6 +6,25 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-10-14
+
+### 🐛 Corregido
+
+- **Windows: el instalador ya explica el bloqueo de Smart App Control.** Los
+  binarios de badomens **no están firmados** y, con SAC activo, Windows los
+  bloquea («Una directiva de Control de aplicaciones bloqueó este archivo») sin
+  ofrecer un «ejecutar de todas formas»; el `.exe` descargado y uno compilado en
+  el propio equipo se bloquean por igual. `install.ps1` ahora consulta el estado
+  de SAC (`VerifiedAndReputablePolicyState`), avisa **antes** de descargar y, si
+  el binario no arranca, cambia el error críptico de PowerShell por las opciones
+  reales: WSL2/Docker, desactivar SAC (con aviso de que es irreversible) o firmar
+  los binarios. Además quita la marca de descargado (`Unblock-File`) una vez
+  verificado el checksum y acepta `-FromSource` para compilar con Go.
+- **Scripts `.ps1` guardados como UTF-8 con BOM.** Windows PowerShell 5.1 lee los
+  `.ps1` sin BOM como ANSI, así que los acentos de los mensajes salían corruptos
+  (`estÃ¡` en lugar de `está`). Se corrige en `install.ps1`, `uninstall.ps1` y
+  `ensure-docker.ps1` (el de `scripts/` y el embebido en `internal/dockerx`).
+
 ## [1.3.1] - 2026-10-14
 
 ### 🐛 Corregido
@@ -845,6 +864,7 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ---
 
+[1.3.2]: https://github.com/MrZudro/badomens/releases/tag/v1.3.2
 [1.3.1]: https://github.com/MrZudro/badomens/releases/tag/v1.3.1
 [1.3.0]: https://github.com/MrZudro/badomens/releases/tag/v1.3.0
 [1.2]: https://github.com/MrZudro/badomens/releases/tag/v1.2

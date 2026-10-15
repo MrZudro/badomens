@@ -1,4 +1,4 @@
-# ensure-docker.ps1 — Respaldo independiente para dejar Docker listo (Windows).
+﻿# ensure-docker.ps1 — Respaldo independiente para dejar Docker listo (Windows).
 # Sin dependencias: mismo plan que 'badomens docker ensure' pero en PowerShell.
 # El código Go es la fuente de verdad; este script es para quien no puede
 # ejecutar la TUI.
