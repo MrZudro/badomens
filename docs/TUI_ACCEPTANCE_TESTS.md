@@ -106,3 +106,66 @@ Snapshot/imagen de referencia:
 - `go test ./...`, `go test -race ./...`, `go vet ./...` y `go build ./...` pasan o se registran los bloqueos exactos.
 - No existe ninguna afirmación de éxito no confirmada para acciones de acceso.
 - El informe final incluye resultados reales; el test visual no reemplaza la suite de teclado/estado.
+
+## Componentes base (Fase 6) y cableado UI (Fase 8) — ampliación
+
+Casos nuevos añadidos a esta matriz (no se duplica ninguna suite). Complementan
+los `UI-*`/`KEY-*` ya existentes y se ejecutan contra `App` + `Router` + `svc`.
+
+### Selector unificado (P-01, P-02, P-03, T-04)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| SEL-01 | Selector en modo lista: `↑`/`↓` (y `j`/`k`) | Mueven la selección sin salir de la lista; los extremos no se pasan. |
+| SEL-02 | Selector en modo grid: `←/→` y `↑/↓` | Las 4 flechas navegan en la rejilla; columnas adaptables al ancho; ninguna fila supera el ancho de la primera. |
+| SEL-03 | `Enter` sobre la opción señalada | Confirma y aplica la opción elegida **por valor**; no por índice. |
+| SEL-04 | `Esc` con el selector abierto | Cierra el selector sin aplicar ni preparar ningún cambio. |
+| SEL-05 | Opción guardada distinta del cursor | Se marca «(actual)»; la enfocada lleva puntero y banda (visible sin depender del color). |
+| SEL-06 | Opción deshabilitada | Explica el motivo; no se elige por accidente. |
+| SEL-07 | Cambiar de motor en el asistente | Se resetea la versión y la lista se recarga para el nuevo motor (selección por valor). |
+| SEL-08 | Selector de versiones del asistente en ancho | Se pinta como rejilla alineada; `Enter` selecciona y cierra; `Esc` cierra sin cambiar. |
+
+### Barra inferior (SPEC 2 §1, UX-01, UX-15)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| BAR-01 | Cualquier pantalla | Formato único `[Tecla] Etiqueta` en **todas** las teclas; un solo componente renderiza la barra. |
+| BAR-02 | Inicio y detalle | Solo atajos contextuales de la pantalla + esenciales; `[B] Backup`, `[F1] Ayuda`, `[TAB] Desplazarse`, `[D] Borrar` con sus etiquetas. |
+| BAR-03 | Cualquier pantalla / Ayuda (F1) | `Ctrl+P`, `F2` y `Ctrl+Q` NO aparecen en la barra pero siguen funcionando y se documentan en Ayuda. |
+| ESC-01 | Input de comandos con foco / sin foco | Con el foco, `[Esc] Atrás` va resaltado; `Esc` devuelve el foco sin ejecutar nada; sin foco no se resalta. |
+
+### Notificaciones con TTL (SPEC 2 §12, P-05, UX-11)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| NOT-01 | Aviso info/éxito | TTL 6 s (info) / 8 s (éxito). |
+| NOT-02 | Aviso/error que requiere atención | TTL 20 s (aviso) / 30 s (error); **ninguno supera 30 s**. |
+| NOT-03 | Reloj avanza / `Esc` con avisos | Al vencer el TTL el aviso se descarta; `Esc` los descarta a mano. Ninguna notificación es permanente. |
+| NOT-04 | MagicDNS desactivado | No es una notificación flotante: vive en Salud como aviso fijo con opción de descartar. |
+
+### Estado único del servidor + semáforo (§8, UX-09)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| SEM-01 | Transiciones apagado → cargando → en línea → cargando → apagado | El estado tipado se refleja en el semáforo con luz + **texto** («En línea»/«Cargando»/«Apagado»), nunca solo color. |
+| SEM-02 | Cualquier sub-pantalla de la instancia | El semáforo está en la franja fija (Chrome) y se actualiza con el sondeo, sin recarga manual. |
+| SEM-03 | Respuesta tardía de otra instancia (detalle o sondeo) | No pisa el estado de la instancia actual. |
+| SEM-04 | Operación de ciclo de vida en vuelo | Muestra «Cargando» y vuelve al estado sondeado al terminar. |
+
+### Cableado UI de la Fase 8 (daemon, Docker, Tailscale, MagicDNS)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| INFRA-01 | Iniciar la TUI con el daemon apagado | Se comprueba y se fuerza el arranque (`internal/infra`), mostrando estado «Cargando» 🟡 sin bloquear el bucle. |
+| INFRA-02 | Primer arranque sin servicio persistente | Se ofrece instalarlo con confirmación; al confirmar queda instalado; si se rechaza la elevación, se degrada a daemon de sesión con aviso. |
+| INFRA-03 | Docker apagado | Se detecta y se intenta levantar **una sola vez** con el mismo mecanismo; fallo con causa y pasos manuales por SO. |
+| INFRA-04 | Salud: `[D]` reparar Docker / `[T]` reparar Tailscale | Usan el mecanismo común (sin mecanismos paralelos) y avisan de la causa si fallan. |
+| MAGIC-01 | MagicDNS activo en vivo | El aviso de la tarjeta de conexión desaparece automáticamente (se reevalúa con `tailscale.Probe`). |
+| MAGIC-02 | MagicDNS desactivado (aviso legítimo) | Va a Salud con motivo tipado y opción de descartar, nunca como banner flotante permanente. |
+
+### Prioridad de teclado determinista (P-06)
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| FOCUS-01 | Input de comandos enfocado: escribir `n`, `a`, `q`, `?` | Se escriben literalmente; no se abre ninguna pantalla ni se ejecutan atajos globales. |
+| FOCUS-02 | Cerrar un modal | Se restaura el foco anterior. |

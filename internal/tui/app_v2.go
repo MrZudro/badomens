@@ -74,6 +74,14 @@ type App struct {
 	runningCount int
 	countsSeen   bool
 
+	// Estado EN VIVO de MagicDNS (Fase 8 §5): lo comparte con pantallas y Salud.
+	magic magicState
+
+	// Arranque garantizado de infraestructura (Fase 8 §8.2/§8.3): se intenta una
+	// sola vez por componente para no duplicar tareas.
+	infraTried     map[string]bool
+	daemonPrompted bool
+
 	// Vigilante de auto-apagado en el proceso de la TUI (RF-8 §6).
 	idleEvents   chan events.Event
 	watchCtx     context.Context
@@ -104,6 +112,7 @@ func NewApp(sv *svc.Services, opts AppOptions) *App {
 		reduced:    opts.ReducedMotion,
 		anim:       anim.New(opts.ReducedMotion),
 		idleEvents: make(chan events.Event, 64),
+		infraTried: map[string]bool{},
 	}
 	a.router = NewRouter(home)
 	a.poller = &Poller{Svc: sv}
@@ -114,7 +123,10 @@ func NewApp(sv *svc.Services, opts AppOptions) *App {
 
 // Init arranca la pantalla inicial y el latido del poller.
 func (a *App) Init() tea.Cmd {
-	return tea.Batch(a.router.Top().Init(), a.poller.Schedule(), a.poller.Cmds(nowUTC(), true, true), a.tickCmd())
+	// Arranque garantizado del daemon (Fase 8 §8.2): se comprueba y, si hace
+	// falta, se levanta. Se avisa del estado «Cargando» (🟡) sin bloquear el bucle.
+	starting := a.pushToast("🟡 Comprobando el daemon de badomens…")
+	return tea.Batch(a.router.Top().Init(), a.poller.Schedule(), a.poller.Cmds(nowUTC(), true, true), a.tickCmd(), magicProbeCmd(), a.ensureDaemonCmd(), starting)
 }
 
 // tickCmd arranca el gestor de animaciones (pulso) si está activo.
@@ -160,6 +172,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Tailscale para la cabecera; la pantalla sigue procesando el mensaje.
 		a.tsIP, a.tsOK, a.tsSeen = msg.tsIP, msg.tsOK, true
 		return a, a.router.Update(msg)
+	case magicProbeMsg:
+		// Estado en vivo de MagicDNS: se conserva para la cabecera y para Salud, y
+		// las pantallas lo reciben para reevaluar el aviso (§5).
+		a.magic = magicStateFrom(msg.rep)
+		return a, a.router.Update(msg)
 	case idleEventMsg:
 		// El aviso global (toast) va al App y el evento se reenvía a la pantalla
 		// activa para que la pestaña Auto-apagado refleje la cuenta atrás (§5.10).
@@ -176,6 +193,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.watchStarted = false
 		return a, nil
+	case infraReadyMsg:
+		// Resultado del mecanismo común de infraestructura: avisos accionables y,
+		// si toca, oferta de instalar el daemon como servicio persistente.
+		cmd := a.noteInfra(msg.what, msg.rep)
+		return a, tea.Batch(cmd, a.router.Update(msg))
 	case pollDockerMsg:
 		wasReady := a.docker.State.Ready()
 		wasSeen := a.dockerSeen
@@ -193,7 +215,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			a.poller.NoteDockerResult(false)
 		}
-		return a, a.router.Update(msg)
+		// Docker apagado: se intenta levantar UNA vez con el mecanismo común (§8.3),
+		// con estado «Cargando» (🟡); no se duplican intentos.
+		cmds := []tea.Cmd{a.router.Update(msg)}
+		if !a.infraTried["docker"] && !msg.diag.State.Ready() {
+			a.infraTried["docker"] = true
+			cmds = append(cmds, a.pushToast("🟡 Levantando Docker…"), a.ensureDockerCmd())
+		}
+		return a, tea.Batch(cmds...)
 	case toastMsg:
 		a.busy = false
 		return a, a.pushToast(msg.Text, msg.Kind)
@@ -473,6 +502,8 @@ func (a *App) invoke(id string) tea.Cmd {
 		return nil
 	case "health.repair", "docker.repair":
 		return a.repairDocker()
+	case "daemon.install":
+		return a.installDaemonCmd()
 	}
 	if inv, ok := a.router.Active().(Actioner); ok {
 		return inv.Invoke(id)
@@ -525,10 +556,9 @@ func (a *App) pushToast(text string, kinds ...components.Kind) tea.Cmd {
 	if len(a.toasts) > 3 {
 		a.toasts = a.toasts[len(a.toasts)-3:]
 	}
-	dur := 4 * time.Second
-	if kind == components.Destructive {
-		dur = 8 * time.Second
-	}
+	// TTL por tipo (SPEC 2 §12): info/éxito 6–8 s, avisos 20 s, errores 30 s, con
+	// tope absoluto de 30 s. Ninguna notificación es permanente.
+	dur := components.NotificationTTL(kind, text)
 	return tea.Tick(dur, func(time.Time) tea.Msg { return toastExpireMsg{seq: seq} })
 }
 
@@ -1103,44 +1133,101 @@ func (a *App) statusText() string {
 	return ""
 }
 
-// actionsText compone la barra de acciones: atajos contextuales de la pantalla y
-// los globales no imprimibles al final (siempre visibles, §2).
+// actionsText compone la barra inferior con un ÚNICO componente (SPEC 2 §1):
+// formato «[Tecla] Etiqueta», solo atajos contextuales de la pantalla activa
+// más los esenciales. Ctrl+P, F2 y Ctrl+Q quedan FUERA de la barra (siguen
+// funcionando y se documentan en Ayuda).
 func (a *App) actionsText(w int) string {
-	help := a.keys.GlobalHelp()
-	if a.ascii {
-		help = a.keys.GlobalHelpASCII()
+	// Los esenciales se reservan SIEMPRE: primero se recorta lo contextual y
+	// luego se añade la cola fija, de modo que «Ayuda» nunca desaparece.
+	ess := components.RenderFooter(a.footerEssentials(), w, a.pal)
+	essW := layout.Width(ess)
+	if essW == 0 {
+		return components.RenderFooter(a.footerContextKeys(), w, a.pal)
 	}
-	// En anchos estrechos, encoge los atajos globales antes de truncar para no
-	// perder «Salir».
-	if layout.Width(help) >= w {
-		help = a.keys.GlobalHelpTiny()
-		if a.ascii {
-			help = a.keys.GlobalHelpTinyASCII()
-		}
+	if essW+3 >= w {
+		return ess
 	}
-	ctx := a.contextKeys()
-	helpW := layout.Width(help)
-	// Si no queda espacio razonable para un atajo contextual, se muestra solo la
-	// barra global (evita un «[S…» truncado e ilegible).
-	if ctx == "" || helpW+3 >= w || w-helpW-3 < 8 {
-		return help
+	head := components.RenderFooter(a.footerContextKeys(), w-essW-3, a.pal)
+	if head == "" {
+		return ess
 	}
-	return layout.Truncate(ctx, w-helpW-3) + "   " + help
+	return head + "   " + ess
 }
 
-// contextKeys lista las teclas de las acciones de la pantalla activa.
-func (a *App) contextKeys() string {
+// footerEssentials son las teclas imprescindibles de la barra inferior: [F1]
+// Ayuda, [Esc] Atrás (solo cuando aplica, resaltado con el input de comandos
+// enfocado) y [TAB] Desplazarse. Ctrl+P, F2 y Ctrl+Q NO van aquí: siguen
+// funcionando y se documentan en Ayuda (SPEC 2 §1.2).
+func (a *App) footerEssentials() []components.FooterKey {
+	items := []components.FooterKey{components.FooterKeyFor("f1", "Ayuda")}
+	if a.escApplies() {
+		esc := components.FooterKeyFor("esc", "Atrás")
+		esc.Highlight = a.inputFocused()
+		items = append(items, esc)
+	}
+	items = append(items, components.FooterKeyFor("tab", "Desplazarse"))
+	return items
+}
+
+// footerContextKeys lista los atajos contextuales de la pantalla activa sin
+// strings hardcodeados por pantalla (Fase 6.2).
+func (a *App) footerContextKeys() []components.FooterKey {
 	acts := a.router.Active().Actions()
-	parts := make([]string, 0, len(acts))
+	items := make([]components.FooterKey, 0, len(acts))
 	seen := make(map[string]bool, len(acts))
 	for _, act := range acts {
-		if act.Key == "" || seen[act.Key] {
+		key := strings.ToLower(strings.TrimSpace(act.Key))
+		switch {
+		case key == "", seen[key], key == "f1", key == "tab", key == "esc":
 			continue
 		}
-		seen[act.Key] = true
-		parts = append(parts, "["+strings.ToUpper(act.Key)+"] "+act.Verb)
+		seen[key] = true
+		items = append(items, footerKeyForAction(act))
 	}
-	return strings.Join(parts, "  ")
+	return items
+}
+
+// footerKeyForAction traduce una acción a un atajo de la barra. Las etiquetas
+// definitivas de la SPEC (§1.2) se aplican SOLO a las acciones que corresponden
+// («[B] Backup», «[D] Borrar»): la tecla por sí sola no basta porque «D» también
+// es «Reparar Docker» en Salud.
+func footerKeyForAction(act components.Action) components.FooterKey {
+	switch act.ID {
+	case "instance.backup":
+		return components.FooterKey{Key: components.DisplayKey(act.Key), Label: "Backup"}
+	case "instance.delete":
+		return components.FooterKey{Key: components.DisplayKey(act.Key), Label: "Borrar"}
+	}
+	return components.FooterKey{Key: components.DisplayKey(act.Key), Label: strings.TrimSpace(act.Verb)}
+}
+
+// escApplies indica si puede pintarse «[Esc] Atrás»: cuando la pantalla puede
+// retroceder (detalle, asistente, Salud) o cuando el input de comandos tiene foco.
+func (a *App) escApplies() bool {
+	if a.inputFocused() {
+		return true
+	}
+	active := a.router.Active()
+	if active == nil {
+		return false
+	}
+	switch active.ID() {
+	case "home", "help", "health":
+		// En Inicio, Ayuda y Salud, Esc no retrocede (son pantallas de primer
+		// nivel o no implementan el pop): no se promete una tecla que no actúa.
+		return false
+	}
+	return true
+}
+
+// inputFocused informa de si el campo de comandos de la pantalla activa tiene el
+// foco (§6): la barra inferior resalta entonces «[Esc] Atrás».
+func (a *App) inputFocused() bool {
+	if f, ok := a.router.Active().(InputFocuser); ok {
+		return f.InputFocused()
+	}
+	return false
 }
 
 // spacesBuf es una reserva de espacios reutilizable para rellenar líneas sin

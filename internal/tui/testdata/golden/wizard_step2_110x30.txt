@@ -27,4 +27,4 @@
 │ │                                                                    ││                                  │ │
 │ ╰────────────────────────────────────────────────────────────────────╯╰──────────────────────────────────╯ │
 │ Nueva instancia                                                                                            │
-└─ [TAB] Siguiente  [W] Activar  [ESC] Volver   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ─────────────────┘
+└─ [W] Activar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────────────────────────────────────────────┘

@@ -249,6 +249,10 @@ type FakeOptions struct {
 	WorldLibrary []string
 	// WorldErr hace que toda operación de mundos falle con este error.
 	WorldErr error
+	// InfraDaemonDown simula el daemon apagado (arranque garantizado, Fase 8).
+	InfraDaemonDown bool
+	// InfraDaemonInstalled simula el servicio persistente ya instalado.
+	InfraDaemonInstalled bool
 }
 
 // NewFakeWith construye una fachada falsa con opciones.
@@ -279,5 +283,6 @@ func NewFakeWith(specs []*instance.Spec, opts FakeOptions) *Services {
 		Creator: &fakeCreator{},
 		Access:  newFakeAccess(specs, opts),
 		Worlds:  newFakeWorlds(specs, opts),
+		Infra:   &fakeInfra{DaemonDown: opts.InfraDaemonDown, Installed: opts.InfraDaemonInstalled},
 	}
 }

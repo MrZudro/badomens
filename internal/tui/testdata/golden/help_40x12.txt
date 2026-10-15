@@ -9,4 +9,4 @@
 │ │   [P]  Detener «survival»      │   │
 │ │ (guarda el mundo)              │   │
 │ Ayuda                                │
-└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘
+└─ [F1] Ayuda   [TAB] Desplazarse ─────┘

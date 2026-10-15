@@ -9,4 +9,4 @@
 │ │    Texto que ven los jugadores e…│ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘
+└─ [W] Act…   [F1] Ayuda   [Esc] Atrás ┘

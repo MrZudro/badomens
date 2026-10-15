@@ -145,6 +145,7 @@ type Services struct {
 	Creator      Creator
 	Access       Access
 	Worlds       Worlds
+	Infra        Infra
 }
 
 // New construye los adaptadores reales sobre los paquetes de dominio.
@@ -198,6 +199,7 @@ func New(cfg *config.Config) (*Services, error) {
 		Creator:      &realCreator{cfg: cfg, m: m, rt: rt, resolver: resolver, alloc: alloc},
 		Access:       &realAccess{m: m, rt: rt},
 		Worlds:       &realWorlds{cfg: cfg, m: m, rt: rt, wm: &worlds.Manager{DataDir: cfg.DataDir}},
+		Infra:        newRealInfra(cfg),
 	}, nil
 }
 

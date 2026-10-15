@@ -1,7 +1,7 @@
 ┌─ badomens 0.0.0-dev ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda                                                                                                                                                                   │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival   Resumen   Consola   Jugadores   Backups   Mundos   [Plugins/Mods]   Red   Auto-apagado   Ajustes                                                                                          │
+│ Survival  🟢 En línea   Resumen   Consola   Jugadores   Backups   Mundos   [Plugins/Mods]   Red   Auto-apagado   Ajustes                                                                             │
 │ ╭─ PLUGINS/MODS ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 1 instalado ─╮ │
 │ │  ▶ LuckPerms                                                                                                                                                                                     │ │
 │ │                                                                                                                                                                                                  │ │
@@ -47,4 +47,4 @@
 │ │                                                                                                                                                                                                  │ │
 │ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                                                                                                                                                   │
-└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [/] Escribir  [C] Copiar  [V] Cambiar  [G] Regenerar  [L] Cargar  [D] Eliminar  [ESC] Volver   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ────────────────┘
+└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [C] Copiar   [V] Cambiar   [G] Regenerar   [L] Cargar   [D] Borrar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────────────────────┘

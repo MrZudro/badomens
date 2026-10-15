@@ -1,12 +1,12 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
-│ Survival  [Plugins/Mods]  6/9  ←/→   │
+│ Survival  🟢 En línea                │
+│  [Plugins/Mods]  6/9                 │
 │ ╭─ PLUGINS/MODS ───── 1 instalado ─╮ │
 │ │  ▶ LuckPerms                     │ │
 │ │                                  │ │
 │ │Gestionar (CLI)                   │ │
-│ │badomens -i survival plugin list  │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
-└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘
+└─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘

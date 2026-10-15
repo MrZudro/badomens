@@ -88,6 +88,10 @@ type wizardScreen struct {
 	showSNAPS    bool
 	pickingVer   bool
 	versionsSeen bool
+	// pickerW/pickerCols recuerdan el ancho y las columnas del último render del
+	// panel de versiones: la navegación en rejilla (4 flechas) los necesita.
+	pickerW    int
+	pickerCols int
 	// verCache guarda las listas ya pedidas, por motor + snapshots: volver a un
 	// motor ya visto no repite la petición.
 	verCache map[string][]engines.Version
@@ -354,35 +358,81 @@ func (w *wizardScreen) handleVersionPicker(km tea.KeyMsg) (Screen, tea.Cmd) {
 		w.verErr = ""
 		w.syncInput()
 	case "j", "down":
-		if w.verCursor < len(w.versions)-1 {
-			w.verCursor++
-		}
-		w.verErr = ""
+		w.moveVerCursor(0, 1)
 	case "k", "up":
-		if w.verCursor > 0 {
-			w.verCursor--
-		}
-		w.verErr = ""
+		w.moveVerCursor(0, -1)
+	case "h", "left":
+		w.moveVerCursor(-1, 0)
+	case "l", "right":
+		w.moveVerCursor(1, 0)
 	case "s":
 		// Cada variante (releases/snapshots) tiene su propia caché.
 		w.showSNAPS = !w.showSNAPS
 		w.verErr = ""
 		return w, w.loadVersions()
 	case "enter":
-		if w.verCursor >= 0 && w.verCursor < len(w.versions) {
-			v := w.versions[w.verCursor]
-			if !v.Compatible {
-				w.verErr = "esa versión no se puede usar: " + v.IncompatibleWhy
-				return w, nil
-			}
-			f, _ := w.currentField()
-			f.value = v.ID()
-			w.setField(f)
-			w.pickingVer, w.verErr, w.err = false, "", ""
+		sel := w.verSelect(w.pickerInner())
+		it, ok := sel.Selected()
+		if !ok {
 			return w, nil
 		}
+		if it.Disabled {
+			w.verErr = "esa versión no se puede usar: " + it.DisabledWhy
+			return w, nil
+		}
+		f, _ := w.currentField()
+		f.value = it.Value
+		w.setField(f)
+		w.pickingVer, w.verErr, w.err = false, "", ""
+		return w, nil
 	}
 	return w, nil
+}
+
+// moveVerCursor mueve el cursor del selector de versiones con el componente
+// único: dy en lista/grid y dx solo en modo rejilla (4 flechas).
+func (w *wizardScreen) moveVerCursor(dx, dy int) {
+	sel := w.verSelect(w.pickerInner())
+	sel.SetCursor(w.verCursor)
+	cols := max(1, w.pickerCols)
+	if sel.Mode == components.SelectGrid && dx != 0 {
+		sel.MoveGrid(dx, 0, cols)
+	} else {
+		sel.MoveGrid(0, dy, cols)
+	}
+	w.verCursor = sel.Cursor()
+	w.verErr = ""
+}
+
+// verSelect construye el selector ÚNICO (components.Selector) desde las versiones
+// cargadas: en rejilla alineada cuando hay ancho, en lista vertical si no.
+func (w *wizardScreen) verSelect(inner int) *components.Selector {
+	items := make([]components.SelectItem, 0, len(w.versions))
+	for _, v := range w.versions {
+		it := components.SelectItem{
+			Value: v.ID(), Label: v.ID(), Detail: versionDetail(v), Recommended: v.Recommended,
+		}
+		if !v.Compatible {
+			it.Disabled = true
+			it.DisabledWhy = v.IncompatibleWhy
+		}
+		items = append(items, it)
+	}
+	mode := components.SelectList
+	if inner >= 60 {
+		mode = components.SelectGrid
+	}
+	sel := components.NewSelectorMode("VERSIONES", items, mode)
+	sel.SetCursor(w.verCursor)
+	return sel
+}
+
+// pickerInner es el ancho interior del panel de versiones en el último render.
+func (w *wizardScreen) pickerInner() int {
+	if w.pickerW > 0 {
+		return w.pickerW
+	}
+	return 40
 }
 
 func (w *wizardScreen) handleStepKey(km tea.KeyMsg) (Screen, tea.Cmd) {
@@ -1162,10 +1212,12 @@ func (w *wizardScreen) pickerBody(inner, budget int) []string {
 	case len(w.versions) == 0:
 		return []string{muted.Render("(sin versiones; se usará el catálogo embebido)"), hint}
 	}
-	lines := make([]string, 0, len(w.versions))
-	for i, v := range w.versions {
-		lines = append(lines, w.versionLine(v, i == w.verCursor, inner))
-	}
+	// El selector único decide modo (lista/rejilla), ancho de columna fijo y
+	// columnas adaptables al ancho de terminal (QC-05).
+	w.pickerW = inner
+	sel := w.verSelect(inner)
+	w.pickerCols = sel.GridColumns(inner, w.versionValue())
+	lines := sel.Render(inner, w.versionValue(), w.pal, w.ascii)
 	reserved := 1 // el pie de teclas
 	if w.verErr != "" {
 		reserved++
@@ -1173,7 +1225,8 @@ func (w *wizardScreen) pickerBody(inner, budget int) []string {
 	if reserved > budget {
 		reserved = budget
 	}
-	out := windowLines(lines, w.verCursor, budget-reserved)
+	focus := sel.Cursor() / max(1, w.pickerCols)
+	out := windowLines(lines, focus, budget-reserved)
 	if w.verErr != "" {
 		out = append(out, truncCells(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Bad)).Render(components.Cross(w.ascii)+" "+w.verErr), inner))
 	}
@@ -1182,31 +1235,6 @@ func (w *wizardScreen) pickerBody(inner, budget int) []string {
 		out = out[:budget]
 	}
 	return out
-}
-
-// versionLine pinta una versión: ★ la recomendada, puntero si está enfocada y ✖
-// con el motivo si no se puede usar.
-func (w *wizardScreen) versionLine(v engines.Version, focused bool, inner int) string {
-	star := "  "
-	if v.Recommended {
-		star = "★ "
-	}
-	line := star + v.ID()
-	if detail := versionDetail(v); detail != "" {
-		line += "  " + detail
-	}
-	switch {
-	case focused:
-		style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(w.pal.AccentText)).Background(lipgloss.Color(w.pal.Accent))
-		return truncCells(style.Render(components.Pointer(w.ascii)+" "+line), inner)
-	case !v.Compatible:
-		why := ""
-		if v.IncompatibleWhy != "" {
-			why = "  " + components.Cross(w.ascii) + " " + v.IncompatibleWhy
-		}
-		return truncCells(lipgloss.NewStyle().Foreground(lipgloss.Color(w.pal.Muted)).Render("  "+line+why), inner)
-	}
-	return truncCells("  "+line, inner)
 }
 
 // reviewBody resume la instancia a crear dentro del panel REVISAR, dejando

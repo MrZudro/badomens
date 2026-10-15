@@ -17,4 +17,4 @@
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                    │
-└─ [R] Configuración …   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [R] Configuración   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ─┘

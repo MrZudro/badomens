@@ -9,4 +9,4 @@
 │ │                                  │ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘
+└─ [R] Con…   [F1] Ayuda   [Esc] Atrás ┘

@@ -1,7 +1,8 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
-│ Survival  [Auto-apagado]  8/9  ←/→                                 │
+│ Survival  🟢 En línea                                              │
+│  [Auto-apagado]  8/9                                               │
 │ ╭─ AUTO-APAGADO ────────────────────────────────────── activado ─╮ │
 │ │Estado: activado · se apaga tras 15 min sin jugadores           │ │
 │ │Backup antes de apagar: sí                                      │ │
@@ -14,7 +15,6 @@
 │ │  1 h                                                           │ │
 │ │  2 h                                                           │ │
 │ │  Nunca                                                         │ │
-│ │  Desactivar                                                    │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                 │
-└─ [S] Iniciar  [P] D…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [S] Iniciar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘

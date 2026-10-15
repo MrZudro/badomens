@@ -1,7 +1,8 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
-│ Survival  [Mundos]  5/9  ←/→                                       │
+│ Survival  🟢 En línea                                              │
+│  [Mundos]  5/9                                                     │
 │ ╭─ MUNDO ────────────────────────────────────────────────────────╮ │
 │ │Semilla: 42                                                     │ │
 │ │                                                                │ │
@@ -12,9 +13,8 @@
 │ │cargando…                                                       │ │
 │ │                                                                │ │
 │ │                                                                │ │
-│ │                                                                │ │
 │ │[G] Regenerar el mundo (borra el actual)                        │ │
 │ │[L] Cargar desde un archivo (.zip)                              │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                 │
-└─ [S] Iniciar  [P] D…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [S] Iniciar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘

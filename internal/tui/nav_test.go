@@ -347,7 +347,8 @@ func TestNavBarraContextualVisibleEn70(t *testing.T) {
 	if !strings.Contains(out, "[S] Iniciar") {
 		t.Fatalf("en 70 columnas deben verse los atajos contextuales:\n%s", out)
 	}
-	if !strings.Contains(out, "Tab") {
-		t.Fatalf("la barra global debe seguir mostrando Tab:\n%s", out)
+	// SPEC 2 §1: la tecla se muestra como «[TAB] Desplazarse» (formato único).
+	if !strings.Contains(out, "[TAB] Desplazarse") {
+		t.Fatalf("la barra global debe seguir mostrando [TAB] Desplazarse:\n%s", out)
 	}
 }

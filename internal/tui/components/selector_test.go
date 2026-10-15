@@ -1,0 +1,139 @@
+package components
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/MrZudro/badomens/internal/tui/layout"
+)
+
+func sampleItems() []SelectItem {
+	return []SelectItem{
+		{Value: "1.21.4", Label: "1.21.4", Detail: "release", Recommended: true},
+		{Value: "1.21.1", Label: "1.21.1"},
+		{Value: "1.20.6", Label: "1.20.6"},
+		{Value: "1.20.1", Label: "1.20.1"},
+		{Value: "26.1-snap", Label: "26.1-snap", Disabled: true, DisabledWhy: "sin artefacto"},
+	}
+}
+
+// P-01/P-03: la lista vertical se navega con ↑/↓ y expone la selección por VALOR.
+func TestSelectorListaVerticalPorValor(t *testing.T) {
+	s := NewSelector("Versiones", sampleItems())
+	if s.Value() != "1.21.4" {
+		t.Fatalf("el cursor arranca en el primer valor, tengo %q", s.Value())
+	}
+	s.Move(1)
+	s.Move(1)
+	if s.Value() != "1.20.6" {
+		t.Fatalf("tras ↓↓ el valor debe ser 1.20.6, tengo %q", s.Value())
+	}
+	s.Move(-1)
+	if s.Value() != "1.21.1" {
+		t.Fatalf("tras ↑ el valor debe ser 1.21.1, tengo %q", s.Value())
+	}
+	// Los extremos no se salen de la lista.
+	s.Move(-10)
+	if s.Cursor() != 0 {
+		t.Fatalf("↑ no debe salir de la lista, cursor = %d", s.Cursor())
+	}
+	s.Move(10)
+	if s.Cursor() != s.Len()-1 {
+		t.Fatalf("↓ no debe salir de la lista, cursor = %d", s.Cursor())
+	}
+	// Restaurar por valor solo mueve el cursor.
+	if !s.SetValue("1.20.6") || s.Value() != "1.20.6" {
+		t.Fatalf("SetValue debe seleccionar por valor, tengo %q", s.Value())
+	}
+	if s.SetValue("no-existe") {
+		t.Fatal("SetValue debe devolver false si el valor no está")
+	}
+}
+
+// P-01: en rejilla funcionan las cuatro flechas y las columnas se adaptan al ancho.
+func TestSelectorGridCuatroFlechas(t *testing.T) {
+	s := NewSelectorMode("Versiones", sampleItems(), SelectGrid)
+	s.Cols = 3 // rejilla determinista para probar la navegación
+	cols := s.GridColumns(60, "")
+	if cols != 3 {
+		t.Fatalf("quiero 3 columnas forzadas, tengo %d", cols)
+	}
+	if natural := NewSelectorMode("Versiones", sampleItems(), SelectGrid).GridColumns(60, ""); natural < 2 {
+		t.Fatalf("con 60 celdas deben caber varias columnas por defecto, tengo %d", natural)
+	}
+	s.SetCursor(0)
+	s.MoveGrid(1, 0, cols) // →
+	if s.Cursor() != 1 {
+		t.Fatalf("→ debe avanzar una columna, cursor = %d", s.Cursor())
+	}
+	s.MoveGrid(0, 1, cols) // ↓
+	if s.Cursor() != 1+cols {
+		t.Fatalf("↓ debe bajar una fila (cursor=%d, quiero %d)", s.Cursor(), 1+cols)
+	}
+	s.MoveGrid(-1, 0, cols) // ←
+	if s.Cursor() != cols {
+		t.Fatalf("← debe retroceder una columna, cursor = %d", s.Cursor())
+	}
+	// ←/→ no escapan de la fila.
+	s.SetCursor(0)
+	s.MoveGrid(-1, 0, cols)
+	if s.Cursor() != 0 {
+		t.Fatalf("← en la primera columna no debe moverse, cursor = %d", s.Cursor())
+	}
+	// Columnas adaptables: menos ancho, menos columnas (sin forzar Cols).
+	auto := NewSelectorMode("Versiones", sampleItems(), SelectGrid)
+	wide, narrow := auto.GridColumns(80, ""), auto.GridColumns(12, "")
+	if narrow > wide {
+		t.Fatalf("con menos ancho no pueden caber más columnas (%d vs %d)", narrow, wide)
+	}
+	if narrow != 1 {
+		t.Fatalf("en 12 celdas debe quedar una sola columna, tengo %d", narrow)
+	}
+}
+
+// La rejilla queda alineada: ancho de columna fijo y todas las filas del mismo ancho.
+func TestSelectorGridAlineado(t *testing.T) {
+	s := NewSelectorMode("Versiones", sampleItems(), SelectGrid)
+	lines := s.RenderGrid(70, "1.21.1", pal(), false)
+	if len(lines) == 0 {
+		t.Fatal("la rejilla debe pintar al menos una fila")
+	}
+	first := layout.Width(lines[0])
+	for i, ln := range lines {
+		if w := layout.Width(ln); w > first {
+			t.Fatalf("la fila %d mide %d celdas, más que la primera (%d): %q", i, w, first, ln)
+		}
+	}
+}
+
+// La lista marca la opción guardada como «(actual)» y la enfocada con puntero.
+func TestSelectorListaMarcaActualYPuntero(t *testing.T) {
+	s := NewSelector("Dificultad", []SelectItem{
+		{Value: "peaceful", Label: "Pacífico"},
+		{Value: "normal", Label: "Normal"},
+	})
+	s.SetValue("normal")
+	out := strings.Join(s.RenderList(40, "normal", pal(), false), "\n")
+	if !strings.Contains(out, "(actual)") {
+		t.Fatalf("la opción guardada debe marcarse «(actual)»:\n%s", out)
+	}
+	if !strings.Contains(out, Pointer(false)) {
+		t.Fatalf("la opción enfocada debe llevar puntero:\n%s", out)
+	}
+	if !strings.Contains(out, "Normal") {
+		t.Fatalf("las etiquetas deben verse:\n%s", out)
+	}
+}
+
+// Una opción deshabilitada explica el motivo y no se elige por accidente.
+func TestSelectorDeshabilitadoExplicaMotivo(t *testing.T) {
+	s := NewSelector("Versiones", []SelectItem{{Value: "x", Label: "x", Disabled: true, DisabledWhy: "sin artefacto"}})
+	out := strings.Join(s.RenderList(40, "", pal(), false), "\n")
+	if !strings.Contains(out, "sin artefacto") {
+		t.Fatalf("la opción deshabilitada debe explicar el motivo:\n%s", out)
+	}
+	it, ok := s.Selected()
+	if !ok || !it.Disabled {
+		t.Fatal("Selected debe devolver el elemento con su estado Disabled")
+	}
+}

@@ -43,6 +43,13 @@ type InputCaptor interface {
 	CapturesInput() bool
 }
 
+// InputFocuser lo implementan las pantallas cuyo campo de comandos tiene el foco
+// activo. La barra inferior resalta entonces «[Esc] Atrás» (SPEC §6) y el App
+// sabe que Esc debe devolver el foco sin ejecutar nada.
+type InputFocuser interface {
+	InputFocused() bool
+}
+
 // Chromed lo implementan las pantallas que dibujan una franja fija (título y
 // pestañas) que el App reserva por encima del cuerpo desplazable (§4: la altura
 // del cuerpo es alto − cabecera − pestañas − estado − barra de atajos).

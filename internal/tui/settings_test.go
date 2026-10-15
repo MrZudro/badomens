@@ -71,14 +71,14 @@ func TestSettingsSelectorDificultad(t *testing.T) {
 	antes := inst.detail.Spec.Difficulty
 
 	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !inst.selecting || inst.selectKey != "difficulty" {
-		t.Fatalf("Enter debe abrir el selector de dificultad; selecting=%v key=%q", inst.selecting, inst.selectKey)
+	if !inst.selOpen() || inst.selKey() != "difficulty" {
+		t.Fatalf("Enter debe abrir el selector de dificultad; selecting=%v key=%q", inst.selOpen(), inst.selKey())
 	}
 	if inst.editing {
 		t.Fatal("un campo select no debe abrir la edición de texto")
 	}
-	if inst.selectCursor != 2 { // «normal» es la tercera opción
-		t.Fatalf("el selector debe arrancar en el valor actual, tengo %d", inst.selectCursor)
+	if inst.selCursor() != 2 { // «normal» es la tercera opción
+		t.Fatalf("el selector debe arrancar en el valor actual, tengo %d", inst.selCursor())
 	}
 	vista := stripANSI(inst.settingsView(106, 24))
 	for _, want := range []string{"Pacífico", "Fácil", "Normal", "Difícil", "elegir", "Enter: guardar", "(actual)"} {
@@ -94,11 +94,11 @@ func TestSettingsSelectorDificultad(t *testing.T) {
 	}
 
 	a.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if inst.selectCursor != 1 { // «easy»
-		t.Fatalf("↑ debe mover la selección, tengo %d", inst.selectCursor)
+	if inst.selCursor() != 1 { // «easy»
+		t.Fatalf("↑ debe mover la selección, tengo %d", inst.selCursor())
 	}
 	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if inst.selecting {
+	if inst.selOpen() {
 		t.Fatal("Enter debe cerrar el selector")
 	}
 	if inst.detail.Spec.Difficulty != antes {
@@ -138,8 +138,8 @@ func TestSettingsMemoriaEsSelector(t *testing.T) {
 
 	inst.setCursor = i
 	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !inst.selecting || inst.selectKey != "memory" {
-		t.Fatalf("Enter debe abrir el selector de memoria; selecting=%v key=%q", inst.selecting, inst.selectKey)
+	if !inst.selOpen() || inst.selKey() != "memory" {
+		t.Fatalf("Enter debe abrir el selector de memoria; selecting=%v key=%q", inst.selOpen(), inst.selKey())
 	}
 	if inst.editing {
 		t.Fatal("la memoria no debe abrir una edición de texto")
@@ -156,10 +156,10 @@ func TestSettingsMemoriaEsSelector(t *testing.T) {
 	}
 
 	want := optionIndex(fields[i].options, "8G")
-	for inst.selectCursor < want {
+	for inst.selCursor() < want {
 		a.Update(tea.KeyMsg{Type: tea.KeyDown})
 	}
-	for inst.selectCursor > want {
+	for inst.selCursor() > want {
 		a.Update(tea.KeyMsg{Type: tea.KeyUp})
 	}
 	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -186,8 +186,8 @@ func TestSettingsCuentasCrackeadoPremium(t *testing.T) {
 
 	// premium → crackeado
 	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if inst.selectCursor != 1 { // «premium» es la segunda opción
-		t.Fatalf("el selector debe arrancar en premium, tengo %d", inst.selectCursor)
+	if inst.selCursor() != 1 { // «premium» es la segunda opción
+		t.Fatalf("el selector debe arrancar en premium, tengo %d", inst.selCursor())
 	}
 	a.Update(tea.KeyMsg{Type: tea.KeyUp})
 	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -274,13 +274,13 @@ func TestSettingsCambioDePestanaDescartaElFormulario(t *testing.T) {
 	inst.tab = 8
 	inst.setCursor = settingIndex(inst.settingFields(), "memory")
 	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !inst.selecting {
+	if !inst.selOpen() {
 		t.Fatal("Enter debe abrir el selector de memoria")
 	}
 	inst.switchTab(1)
-	if inst.selecting || inst.selectKey != "" || inst.selectCursor != 0 {
+	if inst.selOpen() || inst.selKey() != "" || inst.selCursor() != 0 {
 		t.Fatalf("cambiar de pestaña debe cerrar el selector; selecting=%v key=%q cursor=%d",
-			inst.selecting, inst.selectKey, inst.selectCursor)
+			inst.selOpen(), inst.selKey(), inst.selCursor())
 	}
 }
 
@@ -289,7 +289,7 @@ func TestSettingsSelectorSinDesborde(t *testing.T) {
 	a, inst := settingsApp(t)
 	inst.setCursor = settingIndex(inst.settingFields(), "gamemode")
 	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !inst.selecting {
+	if !inst.selOpen() {
 		t.Fatal("Enter debe abrir el selector de modo de juego")
 	}
 	for _, sz := range [][2]int{{40, 12}, {70, 20}, {110, 30}, {200, 50}} {
@@ -321,7 +321,7 @@ func TestSettingsSelectorASCII(t *testing.T) {
 	inst.tab = 8
 	inst.setCursor = settingIndex(inst.settingFields(), "memory")
 	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !inst.selecting {
+	if !inst.selOpen() {
 		t.Fatal("Enter debe abrir el selector de memoria en modo ASCII")
 	}
 	vista := stripANSI(inst.settingsView(96, 24))

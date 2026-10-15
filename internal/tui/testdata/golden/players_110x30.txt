@@ -1,7 +1,7 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival   Resumen   Consola   [Jugadores]   Backups   Mundos   Plugins/Mods   Red   Auto-apagado  …       │
+│ Survival  🟢 En línea   Resumen   Consola   [Jugadores]   Backups   Mundos   Plugins/Mods   Red  …         │
 │ ╭─ ACCESO ────────────────────────────────────────── en vivo ─╮╭─ OPERADORES ──────────────────────── 1 ─╮ │
 │ │Whitelist: ✓ ACTIVADA                                        ││  ▶ ana                                  │ │
 │ │En línea: no se pudo medir (¿servidor apagado?)              ││                                         │ │
@@ -27,4 +27,4 @@
 │ │[R] Verificar de nuevo                                       ││                                         │ │
 │ ╰─────────────────────────────────────────────────────────────╯╰─────────────────────────────────────────╯ │
 │ Whitelist: ✓ ACTIVADA                                                                                      │
-└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [/] Escribir  [C]…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ──┘

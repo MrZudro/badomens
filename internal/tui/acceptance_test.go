@@ -1200,11 +1200,11 @@ func TestAjustesCicloYGuardado(t *testing.T) {
 	if _, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter}); cmd != nil {
 		t.Fatal("abrir el selector no debe pedir ningún guardado")
 	}
-	if !inst.selecting || inst.selectKey != "difficulty" {
-		t.Fatalf("Enter debe abrir el selector de dificultad; selecting=%v key=%q", inst.selecting, inst.selectKey)
+	if !inst.selOpen() || inst.selKey() != "difficulty" {
+		t.Fatalf("Enter debe abrir el selector de dificultad; selecting=%v key=%q", inst.selOpen(), inst.selKey())
 	}
-	if inst.selectCursor != 2 { // «normal» es la tercera opción
-		t.Fatalf("el selector debe arrancar en el valor actual (normal), tengo %d", inst.selectCursor)
+	if inst.selCursor() != 2 { // «normal» es la tercera opción
+		t.Fatalf("el selector debe arrancar en el valor actual (normal), tengo %d", inst.selCursor())
 	}
 	vistaSelector := stripANSI(inst.settingsView(106, 24))
 	for _, want := range []string{"Pacífico", "Fácil", "Normal", "Difícil", "elegir", "Enter: guardar", "(actual)"} {
@@ -1218,14 +1218,14 @@ func TestAjustesCicloYGuardado(t *testing.T) {
 
 	// ↓ mueve la selección y Enter aplica la opción y pide el guardado.
 	a.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if inst.selectCursor != 3 {
-		t.Fatalf("↓ debe mover la selección a la opción siguiente, tengo %d", inst.selectCursor)
+	if inst.selCursor() != 3 {
+		t.Fatalf("↓ debe mover la selección a la opción siguiente, tengo %d", inst.selCursor())
 	}
 	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("confirmar el selector debe pedir el guardado")
 	}
-	if inst.selecting {
+	if inst.selOpen() {
 		t.Fatal("confirmar debe cerrar el selector")
 	}
 	// El Spec persistido no se muta antes de que el guardado se confirme (§5.11).
@@ -1290,7 +1290,7 @@ func TestAjustesCicloYGuardado(t *testing.T) {
 	if _, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEsc}); cmd != nil {
 		t.Fatal("Esc no debe guardar nada")
 	}
-	if inst.selecting || inst.pendingSave != nil {
+	if inst.selOpen() || inst.pendingSave != nil {
 		t.Fatal("Esc debe cerrar el selector sin dejar cambios preparados")
 	}
 	if inst.detail.Spec.Difficulty != nuevo {
@@ -1334,7 +1334,7 @@ func TestAjustesFlechasNoMutanNiGuardan(t *testing.T) {
 	if inst.status == "guardando…" {
 		t.Fatal("←/→ no deben anunciar un guardado")
 	}
-	if inst.editing || inst.selecting {
+	if inst.editing || inst.selOpen() {
 		t.Fatal("←/→ no deben abrir la edición ni el selector")
 	}
 	if inst.detail.Spec.Difficulty != antes {
@@ -1350,16 +1350,16 @@ func TestAjustesFlechasNoMutanNiGuardan(t *testing.T) {
 
 	// Con el selector abierto tampoco mueven la selección ni lo cierran.
 	a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !inst.selecting {
+	if !inst.selOpen() {
 		t.Fatal("Enter debe abrir el selector")
 	}
-	sel := inst.selectCursor
+	sel := inst.selCursor()
 	a.Update(tea.KeyMsg{Type: tea.KeyRight})
 	a.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if inst.selectCursor != sel {
-		t.Fatalf("←/→ no deben mover la selección (%d → %d)", sel, inst.selectCursor)
+	if inst.selCursor() != sel {
+		t.Fatalf("←/→ no deben mover la selección (%d → %d)", sel, inst.selCursor())
 	}
-	if !inst.selecting {
+	if !inst.selOpen() {
 		t.Fatal("←/→ no deben cerrar el selector")
 	}
 }

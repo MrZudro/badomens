@@ -125,6 +125,13 @@ type accessMsg struct {
 // instanceDeletedMsg indica que la instancia se eliminó por completo (P-03).
 type instanceDeletedMsg struct{ slug string }
 
+// lifecycleDoneMsg indica que una operación de ciclo de vida terminó: el
+// semáforo deja de estar en «Cargando» y vuelve al estado sondeado (§8).
+type lifecycleDoneMsg struct {
+	slug string
+	op   string
+}
+
 // worldsLibMsg trae la biblioteca de mundos compartida (svc.Worlds.Library). La
 // lectura vive en un tea.Cmd: View nunca toca el disco (§7).
 type worldsLibMsg struct {
@@ -223,11 +230,12 @@ type instanceScreen struct {
 	setCursor int
 	editing   bool
 	editKey   string
-	// selecting es el selector de un campo de Ajustes abierto: mientras lo esté,
-	// ↑/↓ mueven selectCursor y Enter aplica la opción elegida.
-	selecting    bool
-	selectKey    string
-	selectCursor int
+	// settingsSel es el selector ÚNICO de Ajustes (P-03): el mismo componente
+	// (components.Selector) que usan los flujos de creación y la regeneración.
+	// Se guarda la selección por VALOR (T-04), no por índice.
+	settingsSel *components.Selector
+	// selectKey es la clave del campo cuyo selector está abierto.
+	selectKey string
 
 	playersOnline int
 	playersKnown  bool
@@ -263,6 +271,14 @@ type instanceScreen struct {
 	browseCursor    int
 	browseErr       string
 	browseLoading   bool
+
+	// magic es el estado EN VIVO de MagicDNS (Fase 8 §5), que manda sobre el valor
+	// persistido en spec.Connection.MagicDNS al pintar la conexión.
+	magic magicState
+
+	// opPending nombra la operación de ciclo de vida en vuelo ("start", "stop",
+	// "restart"): mientras exista, el semáforo único muestra 🟡 Cargando (§8).
+	opPending string
 
 	// P-08: recuperación ante caídas.
 	lastState    string
@@ -314,7 +330,9 @@ func (s *instanceScreen) resetConsoleInput() {
 func (s *instanceScreen) Init() tea.Cmd {
 	// Nueva generación del buffer: lo que llegue de una vista anterior se descarta.
 	s.logsGen++
-	return tea.Batch(s.load(), s.loadIdle())
+	// El estado en vivo de MagicDNS se consulta al abrir el detalle: así el aviso
+	// de la tarjeta de conexión se reevalúa en vez de arrastrar el dato persistido.
+	return tea.Batch(s.load(), s.loadIdle(), magicProbeCmd())
 }
 
 func (s *instanceScreen) load() tea.Cmd {
@@ -560,6 +578,15 @@ func (s *instanceScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 			s.browseCursor = 0
 		}
 		return s, nil
+	case magicProbeMsg:
+		s.magic = magicStateFrom(msg.rep)
+		return s, nil
+	case lifecycleDoneMsg:
+		if msg.slug != s.slug {
+			return s, nil
+		}
+		s.opPending = ""
+		return s, s.applyState(s.detailState())
 	case worldsOpMsg:
 		return s, s.handleWorldsOp(msg)
 	case tea.KeyMsg:
@@ -604,7 +631,7 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	}
 	// Editar un ajuste o elegir en un selector captura las teclas: Esc cierra el
 	// formulario (no abandona el detalle) y las letras se escriben, no son atajos.
-	if s.editing || s.selecting {
+	if s.editing || s.selOpen() {
 		return s.settingsKey(msg)
 	}
 	switch msg.String() {
@@ -1009,6 +1036,23 @@ func (s *instanceScreen) detailState() string {
 	return s.detail.State
 }
 
+// serverState es la ÚNICA fuente de verdad del estado del servidor (§8): la usan
+// el semáforo, la pestaña Jugadores, la regeneración, el borrado y el backup.
+// Mientras hay una operación de ciclo de vida en vuelo devuelve «Cargando».
+func (s *instanceScreen) serverState() components.ServerState {
+	if s.opPending != "" {
+		return components.ServerStarting
+	}
+	if s.detail == nil {
+		return components.ServerUnknown
+	}
+	return components.ServerStateOf(s.detail.State)
+}
+
+// InputFocused indica que el campo de comandos de la consola tiene el foco (§6):
+// la barra inferior resalta entonces «[Esc] Atrás».
+func (s *instanceScreen) InputFocused() bool { return s.focus }
+
 // applyState detecta un apagado inesperado (running → exited sin acción del
 // usuario), lleva el historial de caídas y pide cargar los logs para la causa.
 func (s *instanceScreen) applyState(state string) tea.Cmd {
@@ -1071,6 +1115,9 @@ func (s *instanceScreen) lifecycle(op string) tea.Cmd {
 	case "stop", "close":
 		s.userStopped = true
 	}
+	// El semáforo único pasa a 🟡 Cargando mientras la operación está en vuelo
+	// (§8.2): arrancar, detener y reiniciar comparten el estado «Cargando».
+	s.opPending = op
 	return tea.Batch(busyCmd(true), func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
@@ -1087,7 +1134,7 @@ func (s *instanceScreen) lifecycle(op string) tea.Cmd {
 			return toastMsg{Text: "✖ " + op + " «" + slug + "»: " + err.Error(), Kind: components.Destructive}
 		}
 		return toastMsg{Text: "✓ «" + slug + "» " + op}
-	})
+	}, func() tea.Msg { return lifecycleDoneMsg{slug: slug, op: op} })
 }
 
 // --- Jugadores ---
@@ -1499,7 +1546,7 @@ func (s *instanceScreen) settingFields() []settingField {
 // ↑/↓ mueven el cursor y Enter edita el campo de texto o abre el selector. ←/→ no
 // hacen nada aquí: no cambian el valor ni guardan.
 func (s *instanceScreen) settingsKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
-	if s.selecting {
+	if s.selOpen() {
 		return s.settingsSelectKey(msg)
 	}
 	if s.editing {
@@ -1537,8 +1584,8 @@ func (s *instanceScreen) settingsKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 // propio de Ajustes y un select abre su lista de opciones.
 func (s *instanceScreen) openSetting(f settingField) tea.Cmd {
 	if f.kind == "select" {
-		s.selecting, s.selectKey = true, f.key
-		s.selectCursor = optionIndex(f.options, f.value)
+		s.selectKey = f.key
+		s.settingsSel = settingSelector(f)
 		return nil
 	}
 	s.editing, s.editKey = true, f.key
@@ -1547,23 +1594,46 @@ func (s *instanceScreen) openSetting(f settingField) tea.Cmd {
 	return s.settingsInput.Focus()
 }
 
-// settingsSelectKey atiende el selector abierto.
+// settingSelector construye el selector único (components.Selector) a partir de
+// un campo de Ajustes, con la selección guardada por valor.
+func settingSelector(f settingField) *components.Selector {
+	items := make([]components.SelectItem, 0, len(f.options))
+	for i := range f.options {
+		items = append(items, components.SelectItem{Value: f.options[i], Label: f.optionLabel(i)})
+	}
+	sel := components.NewSelector(f.label, items)
+	sel.Pad = "  "        // alinea las opciones con la etiqueta del campo
+	sel.SetValue(f.value) // selección por VALOR (0 si el valor no está)
+	return sel
+}
+
+// selOpen indica si hay un selector de Ajustes abierto.
+func (s *instanceScreen) selOpen() bool { return s.settingsSel != nil }
+
+// selKey devuelve la clave del campo cuyo selector está abierto.
+func (s *instanceScreen) selKey() string { return s.selectKey }
+
+// selCursor devuelve la posición del cursor del selector abierto.
+func (s *instanceScreen) selCursor() int {
+	if s.settingsSel == nil {
+		return 0
+	}
+	return s.settingsSel.Cursor()
+}
+
+// settingsSelectKey atiende el selector abierto: ↑/↓ mueven, Enter aplica y
+// guarda, y Esc cierra sin guardar. La navegación la resuelve el componente único.
 func (s *instanceScreen) settingsSelectKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
-	opts := s.selectOptions()
+	if s.settingsSel == nil {
+		return s, nil
+	}
 	switch msg.String() {
 	case "j", "down":
-		if s.selectCursor < len(opts)-1 {
-			s.selectCursor++
-		}
+		s.settingsSel.Move(1)
 	case "k", "up":
-		if s.selectCursor > 0 {
-			s.selectCursor--
-		}
+		s.settingsSel.Move(-1)
 	case "enter":
-		key, val := s.selectKey, ""
-		if s.selectCursor >= 0 && s.selectCursor < len(opts) {
-			val = opts[s.selectCursor]
-		}
+		key, val := s.selectKey, s.settingsSel.Value()
 		s.closeSelector()
 		if val == "" {
 			return s, nil
@@ -1576,20 +1646,9 @@ func (s *instanceScreen) settingsSelectKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	return s, nil
 }
 
-// selectOptions son las opciones del selector abierto (vacío si el campo ya no
-// existe, p. ej. porque el detalle dejó de estar disponible).
-func (s *instanceScreen) selectOptions() []string {
-	for _, f := range s.settingFields() {
-		if f.key == s.selectKey {
-			return f.options
-		}
-	}
-	return nil
-}
-
 // closeSelector cierra el selector abierto sin aplicar nada.
 func (s *instanceScreen) closeSelector() {
-	s.selecting, s.selectKey, s.selectCursor = false, "", 0
+	s.settingsSel, s.selectKey = nil, ""
 }
 
 // cancelEditing descarta la edición de texto en curso y limpia su campo.
@@ -1711,17 +1770,27 @@ func (s *instanceScreen) Chrome(w int) string {
 		name = s.detail.Spec.Name
 	}
 	title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.Accent)).Render(name)
+	// Semáforo en ubicación FIJA de la franja: visible en TODAS las sub-pantallas
+	// de la instancia, con luz + texto (nunca solo color) y actualizado por el
+	// sondeo sin recarga manual (§8/UX-09).
+	state := s.serverState()
+	pill := state.Pill(s.ascii)
+	pillStyled := lipgloss.NewStyle().Foreground(lipgloss.Color(state.Color(s.pal))).Render(pill)
+	head := title + "  " + pillStyled
 	if layout.ClassifyWidth(w) == layout.Compact {
-		ind := " " + itoa(s.tab+1) + "/" + itoa(len(instanceTabs))
+		// En compacto no caben nombre + semáforo + pestaña + contador en una sola
+		// línea: el semáforo va con el nombre y la fila de pestañas debajo, así
+		// nada esencial se pierde (UX-09 / UI-02).
+		ind := itoa(s.tab+1) + "/" + itoa(len(instanceTabs))
 		label := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent)).Render(" [" + instanceTabs[s.tab] + "] ")
-		muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(ind + "  ←/→")
-		return layout.Truncate(title+" "+label+muted, w)
+		muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(" " + ind)
+		return layout.Truncate(head, w) + "\n" + layout.Truncate(label+muted, w)
 	}
-	avail := w - layout.Width(title) - 2
+	avail := w - layout.Width(title) - layout.Width(pill) - 4
 	if avail < 8 {
 		avail = 8
 	}
-	return title + "  " + s.tabsLine(avail)
+	return head + "  " + s.tabsLine(avail)
 }
 
 // tabsLine pinta la fila de pestañas en `w` celdas garantizando que la activa se
@@ -1846,7 +1915,7 @@ func (s *instanceScreen) summaryView(w, h int) string {
 		h = 2
 	}
 	spec := s.detail.Spec
-	conn := connectionFromSpecWithHost(spec, s.detail.Host)
+	conn := connectionInfo(spec, s.detail.Host, s.magic)
 	if layout.ClassifyWidth(w) == layout.Compact {
 		return s.compactSummary(w, h, spec, conn)
 	}
@@ -1905,7 +1974,7 @@ func (s *instanceScreen) compactSummary(w, h int, spec *instance.Spec, conn conn
 		body = append(body, "")
 	}
 	rows := [][2]string{
-		{"Estado", theme.Icon(stateKey(s.detail.State), s.ascii)},
+		{"Estado", s.serverState().Pill(s.ascii)},
 		{"Motor", spec.Engine + " " + spec.Version},
 		{"Puerto", itoa(spec.Port)},
 		{"Jugadores", s.playersText(spec)},
@@ -1957,7 +2026,7 @@ func (s *instanceScreen) summaryLeftRows(spec *instance.Spec) [][2]string {
 func (s *instanceScreen) summaryRightRows(spec *instance.Spec) [][2]string {
 	rows := [][2]string{
 		{"Dificultad", s.difficultyText(spec)},
-		{"Estado", theme.Icon(stateKey(s.detail.State), s.ascii)},
+		{"Estado", s.serverState().Pill(s.ascii)},
 		{"Auto-apagado", s.idleSummaryText()},
 	}
 	if cpu := s.cpuRAMText(); cpu != "" {
@@ -3541,7 +3610,7 @@ func (s *instanceScreen) settingsView(w, h int) string {
 	switch {
 	case s.editing:
 		hint = append(hint, muted.Render("Enter: guardar · Esc: cancelar"))
-	case s.selecting:
+	case s.selOpen():
 		hint = append(hint, muted.Render("↑/↓: elegir · Enter: guardar"), muted.Render("Esc: cancelar"))
 	}
 	// La ayuda de cada campo solo se dibuja cuando hay alto para todos: en
@@ -3567,7 +3636,7 @@ func (s *instanceScreen) settingsView(w, h int) string {
 		line := prefix + val
 		// Un select enfocado y cerrado dice con qué tecla se cambia (Enter): el
 		// panel no invita a usar ←/→, que aquí no hacen nada.
-		if f.kind == "select" && i == s.setCursor && !s.selecting && !s.editing {
+		if f.kind == "select" && i == s.setCursor && !s.selOpen() && !s.editing {
 			mark := muted.Render("  (Enter para cambiar)")
 			if layout.Width(line)+layout.Width(mark) <= inner {
 				line += mark
@@ -3589,10 +3658,12 @@ func (s *instanceScreen) settingsView(w, h int) string {
 			focus = len(rows)
 		}
 		rows = append(rows, padLine(line, inner))
-		if s.selecting && s.selectKey == f.key {
-			// El foco sigue a la opción elegida dentro del selector abierto.
-			focus = len(rows) + s.selectCursor
-			rows = append(rows, s.optionLines(f, inner)...)
+		if s.selOpen() && s.selectKey == f.key {
+			// El foco sigue a la opción elegida dentro del selector abierto; la
+			// pintura la resuelve el componente único (puntero + banda + «(actual)»).
+			opts := s.settingsSel.Render(inner, f.value, s.pal, s.ascii)
+			focus = len(rows) + s.settingsSel.Cursor()
+			rows = append(rows, opts...)
 		}
 		if showHelp {
 			if hlp, ok := help.Get(f.key); ok {
@@ -3619,33 +3690,6 @@ func (s *instanceScreen) settingsView(w, h int) string {
 	return components.Panel("AJUSTES", s.settingsTag(), strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
 }
 
-// optionLines pinta las opciones del selector abierto debajo de su campo: la
-// elegida lleva puntero y banda (la selección se ve sin depender del color) y la
-// que está guardada se marca como «(actual)».
-func (s *instanceScreen) optionLines(f settingField, inner int) []string {
-	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
-	band := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.AccentText)).Background(lipgloss.Color(s.pal.Accent))
-	out := make([]string, 0, len(f.options))
-	for i := range f.options {
-		label := f.optionLabel(i)
-		actual := strings.EqualFold(f.options[i], f.value)
-		if i == s.selectCursor {
-			row := "    " + components.Pointer(s.ascii) + " " + label
-			if actual {
-				row += "  (actual)"
-			}
-			out = append(out, band.Render(padLine(row, inner)))
-			continue
-		}
-		row := "    " + label
-		if actual {
-			row += "  (actual)"
-		}
-		out = append(out, padLine(muted.Render(row), inner))
-	}
-	return out
-}
-
 // settingsStateLine describe el estado del formulario (guardando, guardado o
 // error) con icono y texto: el estado nunca se comunica solo con color (§8).
 func (s *instanceScreen) settingsStateLine(inner int) string {
@@ -3670,7 +3714,7 @@ func (s *instanceScreen) settingsStateLine(inner int) string {
 // del color).
 func (s *instanceScreen) settingsTag() string {
 	switch {
-	case s.selecting:
+	case s.selOpen():
 		return "eligiendo"
 	case s.editing:
 		return "editando"
@@ -3776,7 +3820,7 @@ func (s *instanceScreen) Status() string {
 // prompt, una confirmación con foco, un selector abierto o el explorador de
 // archivos de Mundos, para no disparar atajos globales (§5).
 func (s *instanceScreen) CapturesInput() bool {
-	return s.prompt || s.modal != nil || s.browsing || s.focus || s.editing || s.selecting
+	return s.prompt || s.modal != nil || s.browsing || s.focus || s.editing || s.selOpen()
 }
 
 func logColor(line string, pal theme.Palette) string {

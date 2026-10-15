@@ -17,4 +17,4 @@
 │ │[Enter] Crear y arrancar · [Esc] Volver a editar                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                    │
-└─ [ENTER] Crear  [W]…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [Enter] Crear   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ─────┘

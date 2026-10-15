@@ -1,12 +1,12 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
-│ Survival  [Ajustes]  9/9  ←/→        │
+│ Survival  🟢 En línea                │
+│  [Ajustes]  9/9                      │
 │ ╭─ AJUSTES ────────────────────────╮ │
 │ │▶ Jugadores máximos: 20           │ │
 │ │  Dificultad: Normal  ⚠ reiniciar │ │
 │ │  Modo de juego: Supervivencia  ⚠ │ │
-│ │  Memoria: 4G  ⚠ reiniciar        │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
-└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘
+└─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘

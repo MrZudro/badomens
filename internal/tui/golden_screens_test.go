@@ -16,6 +16,7 @@ import (
 	"github.com/MrZudro/badomens/internal/idle"
 	"github.com/MrZudro/badomens/internal/instance"
 	"github.com/MrZudro/badomens/internal/ports"
+	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tui/svc"
 	"github.com/MrZudro/badomens/internal/tui/theme"
 )
@@ -130,7 +131,7 @@ func gHealth() *App {
 	if h, ok := a.router.Top().(*healthScreen); ok {
 		h.docker = dockerx.Diagnosis{State: dockerx.StateOK, Message: "Docker está listo.", ComposeVersion: "v2.30.1"}
 		h.capacity = host.Capacity{NCPU: 8, MemTotalBytes: 16 << 30, Source: "runtime"}
-		h.ip, h.magic = "100.64.0.1", "maquina.tail1234.ts.net"
+		h.ts = tailscale.Report{State: tailscale.StateReady, IP: "100.64.0.1", MagicDNS: "maquina.tail1234.ts.net", MagicDNSEnabled: true}
 		h.freeGB, h.totalGB, h.diskOK = 120, 500, true
 		h.portsOK = true
 		h.checkedUp, h.latest, h.hasUpdate = true, "1.0.1", false
@@ -239,7 +240,7 @@ func asciiCases() []gcase {
 			if h, ok := a.router.Top().(*healthScreen); ok {
 				h.docker = dockerx.Diagnosis{State: dockerx.StateOK, Message: "Docker está listo.", ComposeVersion: "v2.30.1"}
 				h.capacity = host.Capacity{NCPU: 8, MemTotalBytes: 16 << 30, Source: "runtime"}
-				h.ip, h.magic = "100.64.0.1", "maquina.tail1234.ts.net"
+				h.ts = tailscale.Report{State: tailscale.StateReady, IP: "100.64.0.1", MagicDNS: "maquina.tail1234.ts.net", MagicDNSEnabled: true}
 				h.freeGB, h.totalGB, h.diskOK = 120, 500, true
 				h.portsOK = true
 				h.checkedUp, h.latest, h.hasUpdate = true, "1.0.1", false

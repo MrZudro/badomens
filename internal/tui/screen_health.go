@@ -11,7 +11,6 @@ import (
 	gdisk "github.com/shirou/gopsutil/v4/disk"
 
 	"github.com/MrZudro/badomens/internal/dockerx"
-	"github.com/MrZudro/badomens/internal/execx"
 	"github.com/MrZudro/badomens/internal/host"
 	"github.com/MrZudro/badomens/internal/tailscale"
 	"github.com/MrZudro/badomens/internal/tui/components"
@@ -24,9 +23,7 @@ import (
 type (
 	capacityMsg  struct{ cap host.Capacity }
 	tailscaleMsg struct {
-		ip    string
-		magic string
-		err   error
+		rep tailscale.Report
 	}
 )
 
@@ -82,9 +79,12 @@ type healthScreen struct {
 	ascii    bool
 	docker   dockerx.Diagnosis
 	capacity host.Capacity
-	ip       string
-	magic    string
-	loaded   bool
+	// ts es el estado EN VIVO de Tailscale (incluye MagicDNS tipado). Una única
+	// fuente de verdad: la pantalla no vuelve a consultar tailscale.
+	ts     tailscale.Report
+	loaded bool
+	// magicDismissed oculta la advertencia legítima de MagicDNS (opción de descartar).
+	magicDismissed bool
 
 	freeGB    float64
 	totalGB   float64
@@ -122,9 +122,9 @@ func (h *healthScreen) refreshCmd() tea.Cmd {
 		func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			ip, err := tailscale.ResolveIPv4(ctx)
-			magic, _ := tailscale.MagicDNS(ctx)
-			return tailscaleMsg{ip: ip, magic: magic, err: err}
+			// Estado tipado con motivo: permite distinguir «no instalado», «parado»
+			// y «MagicDNS desactivado» en vez de un aviso genérico (§5).
+			return tailscaleMsg{rep: tailscale.Probe(ctx)}
 		},
 		func() tea.Msg {
 			u, err := gdisk.Usage(ref.DataDir)
@@ -192,7 +192,7 @@ func (h *healthScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 		h.capacity = msg.cap
 		h.loaded = true
 	case tailscaleMsg:
-		h.ip, h.magic = msg.ip, msg.magic
+		h.ts = msg.rep
 	case healthDiskMsg:
 		h.freeGB, h.totalGB, h.diskOK = msg.freeGB, msg.totalGB, msg.err == nil
 	case healthPortsMsg:
@@ -204,6 +204,10 @@ func (h *healthScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	case healthRAMMsg:
 		h.assignedGB, h.assignedKnown = msg.assignedGB, msg.err == nil
 	case healthReexpMsg:
+		h.busy = ""
+		return h, h.refreshCmd()
+	case infraReadyMsg:
+		// Terminó una reparación lanzada desde Salud (mecanismo común).
 		h.busy = ""
 		return h, h.refreshCmd()
 	case pollDockerMsg:
@@ -225,8 +229,33 @@ func (h *healthScreen) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return h.Invoke("health.repair")
 	case "T":
 		return h.Invoke("health.tailscale")
+	case "M":
+		return h.Invoke("health.dismissmagic")
 	}
 	return nil
+}
+
+// magicWarning describe la advertencia legítima de MagicDNS y si procede mostrarla.
+func (h *healthScreen) magicWarning() (string, bool) {
+	if h.magicDismissed {
+		return "", false
+	}
+	return magicStateFrom(h.ts).warning()
+}
+
+// tsHint redacta la causa tipada de Tailscale cuando no hay IPv4 del tailnet.
+func tsHint(rep tailscale.Report) string {
+	switch rep.State {
+	case tailscale.StateNotInstalled:
+		return "Tailscale no está instalado; pulsa [T] o instálalo desde tailscale.com"
+	case tailscale.StateNeedsLogin, tailscale.StateNeedsMachineAuth:
+		return rep.Message + " — pulsa [T]"
+	case tailscale.StateNotRunning, tailscale.StateStopped:
+		return "Tailscale está apagado; pulsa [T] para levantarlo"
+	case tailscale.StateStarting:
+		return "Tailscale está arrancando; espera unos segundos"
+	}
+	return "pulsa [T] para recuperar la red"
 }
 
 // View compone la pantalla en dos paneles con borde (§5.13): ENTORNO (Docker,
@@ -264,7 +293,11 @@ func (h *healthScreen) View(w, hgt int) string {
 			components.Panel("RECURSOS", h.tag(res), h.rows(res), rightW, panelH, false, h.pal, h.ascii))
 	}
 
-	hint := ansi.Truncate("[D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nuevo", w, "…")
+	hintText := "[D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nuevo"
+	if _, ok := h.magicWarning(); ok {
+		hintText += " · [M] Descartar MagicDNS"
+	}
+	hint := ansi.Truncate(hintText, w, "…")
 
 	out := ansi.Truncate(head.String(), w, "…") + "\n" + panels + "\n" +
 		lipgloss.NewStyle().Foreground(lipgloss.Color(h.pal.Muted)).Render(hint)
@@ -328,12 +361,17 @@ func (h *healthScreen) envItems() []healthItem {
 		items = append(items, healthItem{name: "Docker Compose", status: "ok", detail: h.docker.ComposeVersion, level: healthOK})
 	}
 
-	tsDetail := h.ip
-	if h.magic != "" {
-		tsDetail += sep + h.magic
+	if txt, ok := h.magicWarning(); ok {
+		// La advertencia legítima de MagicDNS vive AQUÍ (lugar fijo, con opción de
+		// descartar), nunca como notificación flotante permanente (SPEC §5/§12).
+		items = append(items, healthItem{name: "MagicDNS", status: "aviso", detail: txt, level: healthWarn})
 	}
-	if h.ip == "" {
-		items = append(items, healthItem{name: "Tailscale", status: "sin IPv4 del tailnet", detail: "pulsa [T] para recuperar la red", level: healthWarn})
+	tsDetail := h.ts.IP
+	if h.ts.MagicDNS != "" {
+		tsDetail += sep + h.ts.MagicDNS
+	}
+	if h.ts.IP == "" {
+		items = append(items, healthItem{name: "Tailscale", status: "sin IPv4 del tailnet", detail: tsHint(h.ts), level: healthWarn})
 	} else {
 		items = append(items, healthItem{name: "Tailscale", status: "IP/MagicDNS", detail: tsDetail, level: healthOK})
 	}
@@ -493,11 +531,15 @@ func clampHeight(s string, hgt int) string {
 }
 
 func (h *healthScreen) Actions() []components.Action {
-	return []components.Action{
+	acts := []components.Action{
 		{ID: "health.retry", Verb: "Comprobar", Object: "de nuevo", Key: "R", Hint: "Repite el diagnóstico de Docker, Tailscale, disco y puertos.", Kind: components.Secondary},
 		{ID: "health.repair", Verb: "Reparar", Object: "Docker", Key: "D", Hint: "Intenta arrancar Docker y espera a que responda.", Kind: components.Primary, Disabled: h.docker.State.Ready(), DisabledReason: "Docker ya está activo"},
-		{ID: "health.tailscale", Verb: "Reparar", Object: "Tailscale", Key: "T", Hint: "Ejecuta 'tailscale up' para recuperar la red privada.", Kind: components.Secondary},
+		{ID: "health.tailscale", Verb: "Reparar", Object: "Tailscale", Key: "T", Hint: "Levanta Tailscale con el mecanismo común (explica el motivo si pide permisos).", Kind: components.Secondary},
 	}
+	if _, ok := h.magicWarning(); ok {
+		acts = append(acts, components.Action{ID: "health.dismissmagic", Verb: "Descartar", Object: "aviso de MagicDNS", Key: "M", Hint: "Oculta el aviso de MagicDNS de Salud.", Kind: components.Secondary})
+	}
+	return acts
 }
 
 func (h *healthScreen) Invoke(id string) tea.Cmd {
@@ -506,21 +548,24 @@ func (h *healthScreen) Invoke(id string) tea.Cmd {
 		h.busy = "comprobando…"
 		return func() tea.Msg { return healthReexpMsg{} }
 	case "health.repair":
+		// Mismo mecanismo común que el resto de la Fase 8: detectar → levantar →
+		// elevar explicando el motivo → informar.
+		h.busy = "reparando…"
 		return func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 			defer cancel()
-			diag, err := h.svc.DockerState.Ensure(ctx)
-			return dockerRepairMsg{diag: diag, err: err}
+			return infraReadyMsg{what: "docker", rep: h.svc.Infra.Docker(ctx, false, nil)}
 		}
 	case "health.tailscale":
+		h.busy = "reparando…"
 		return func() tea.Msg {
 			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 			defer cancel()
-			if _, err := execx.Run(ctx, "tailscale", "up"); err != nil {
-				return toastMsg{Text: "✖ Tailscale: " + err.Error(), Kind: components.Destructive}
-			}
-			return toastMsg{Text: "✓ Tailscale activado"}
+			return infraReadyMsg{what: "tailscale", rep: h.svc.Infra.Tailscale(ctx, false, nil)}
 		}
+	case "health.dismissmagic":
+		h.magicDismissed = true
+		return nil
 	}
 	return nil
 }

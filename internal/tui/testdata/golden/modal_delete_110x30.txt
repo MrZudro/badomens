@@ -1,7 +1,7 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival   [Resumen]   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado  …       │
+│ Survival  🟢 En línea   [Resumen]   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red  …         │
 │ ╭────────────────────────────────────────────────────────────╮                                             │
 │ │ Confirmar eliminar                                         │                                             │
 │ │ Se borrarán el contenedor y todos los datos de «survival». │                                             │
@@ -27,4 +27,4 @@
 │                                                                                                            │
 │                                                                                                            │
 │ Instancia survival                                                                                         │
-└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [/] Escribir  [C]…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ──┘

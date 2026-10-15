@@ -81,6 +81,9 @@ type homeScreen struct {
 	// último error de listado: distinguen vacío real de carga y de error (§5.2).
 	loaded  bool
 	loadErr error
+	// magic es el estado EN VIVO de MagicDNS (Fase 8 §5): alimenta la tarjeta de
+	// conexión en lugar del valor persistido y obsoleto del Spec.
+	magic magicState
 	// cache guarda el detalle por slug con TTL corto (§5.2).
 	cache map[string]detailCacheEntry
 }
@@ -107,6 +110,10 @@ func (s *homeScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 	switch msg := msg.(type) {
 	case homeReqMsg:
 		s.dockerOK, s.tsIP, s.tsOK, s.reqs = msg.dockerOK, msg.tsIP, msg.tsOK, true
+		return s, nil
+	case magicProbeMsg:
+		// El estado en vivo reevalúa MagicDNS: si se resuelve, el aviso desaparece.
+		s.magic = magicStateFrom(msg.rep)
 		return s, nil
 	case pollRowsMsg:
 		if msg.err != nil {
@@ -399,7 +406,7 @@ func (s *homeScreen) copyAddress() tea.Cmd {
 	if s.detail == nil || s.detail.Spec == nil {
 		return nil
 	}
-	addr := connectionFromSpec(s.detail.Spec).Preferred()
+	addr := connectionInfo(s.detail.Spec, s.detail.Host, s.magic).Preferred()
 	if addr == "" {
 		return func() tea.Msg {
 			return toastMsg{Text: "⚠ No hay dirección de conexión todavía", Kind: components.Destructive}
@@ -719,10 +726,7 @@ func (s *homeScreen) detailPanel(w, h int) string {
 			lines = append(lines, "Auto-apagado  "+s.idleLabel(row))
 		}
 	}
-	conn := connectionFromSpec(spec)
-	if s.detail.Host != "" {
-		conn = connectionFromSpecWithHost(spec, s.detail.Host)
-	}
+	conn := connectionInfo(spec, s.detail.Host, s.magic)
 	lines = append(lines, "")
 	lines = append(lines, components.ConnectLines(conn, s.pal, s.ascii)...)
 	return components.Panel("DETALLE", "", strings.Join(lines, "\n"), w, h, false, s.pal, s.ascii)
@@ -795,19 +799,10 @@ func stateKey(state string) string {
 	return state
 }
 
-func connectionFromSpec(spec *instance.Spec) connection.Info {
-	return connectionFromSpecWithHost(spec, "")
-}
-
+// connectionFromSpecWithHost deriva la conexión con el estado de MagicDNS que
+// tenga la pantalla; sin estado en vivo, cae al valor persistido del Spec.
 func connectionFromSpecWithHost(spec *instance.Spec, host string) connection.Info {
-	magic := ""
-	if spec.Connection != nil {
-		magic = spec.Connection.MagicDNS
-		if host == "" {
-			host = spec.Connection.Host
-		}
-	}
-	return connection.FromData(spec.Slug, spec.Name, spec.Engine, spec.Version, spec.Port, spec.Pins, spec.OnlineMode, spec.WhitelistEnabled, host, magic, time.Now())
+	return connectionInfo(spec, host, magicState{})
 }
 
 // shortDur redacta una duración corta para la columna de auto-apagado.

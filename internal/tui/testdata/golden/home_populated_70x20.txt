@@ -17,4 +17,4 @@
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancias                                                         │
-└─ [S] Iniciar  [P] D…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [S] Iniciar   [P] Detener   [F1] Ayuda   [TAB] Desplazarse ───────┘

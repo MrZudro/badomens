@@ -37,4 +37,4 @@
 │ │                                                                                                                              │ │
 │ ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │ no hay instancias todavía                                                                                                        │
-└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [B] Crear  [C] Copiar  [ENTER] Ver   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ──────┘
+└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [B] Backup   [C] Copiar   [Enter] Ver   [F1] Ayuda   [TAB] Desplazarse ─────────────┘

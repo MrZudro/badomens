@@ -1,12 +1,12 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
-│ Survival  [Mundos]  5/9  ←/→         │
+│ Survival  🟢 En línea                │
+│  [Mundos]  5/9                       │
 │ ╭─ MUNDO ──────────────────────────╮ │
 │ │Semilla: 42                       │ │
 │ │                                  │ │
 │ │⚠ [G] Regenerar borra el mundo    │ │
-│ │actual: se pierden Overworld,     │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
-└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘
+└─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘

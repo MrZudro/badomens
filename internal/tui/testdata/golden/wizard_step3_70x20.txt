@@ -17,4 +17,4 @@
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Nueva instancia                                                    │
-└─ [TAB] Siguiente  […   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [W] Activar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘

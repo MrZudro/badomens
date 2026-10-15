@@ -9,4 +9,4 @@
 │ │  lista blanca.                   │ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
-└─ F1 Ayuda · Tab · ^P · ^Q Salir ─────┘
+└─ [Enter]…   [F1] Ayuda   [Esc] Atrás ┘

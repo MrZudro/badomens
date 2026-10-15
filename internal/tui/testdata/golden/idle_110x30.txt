@@ -1,7 +1,7 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
 │ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival  …  Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red   [Auto-apagado]   Ajustes        │
+│ Survival  🟢 En línea  …  Jugadores   Backups   Mundos   Plugins/Mods   Red   [Auto-apagado]   Ajustes     │
 │ ╭─ AUTO-APAGADO ────────────────────────────────────────────────────────────────────────────── activado ─╮ │
 │ │Estado: activado · se apaga tras 15 min sin jugadores                                                   │ │
 │ │Backup antes de apagar: sí                                                                              │ │
@@ -27,4 +27,4 @@
 │ │                                                                                                        │ │
 │ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                                                         │
-└─ [S] Iniciar  [P] Detener  [R] Reiniciar  [/] Escribir  [C]…   F1 Ayuda · Tab · Ctrl+P · F2 · Ctrl+Q Salir ┘
+└─ [S] Iniciar   [P] Detener   [R] Reiniciar   [/] Escribir   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ──┘
