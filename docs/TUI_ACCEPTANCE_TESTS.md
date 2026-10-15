@@ -63,7 +63,7 @@ Probar por lo menos `80×24`, `100×30`, `132×40` y `60×18` si el terminal mí
 
 | ID | Escenario / pasos | Resultado esperado |
 |---|---|---|
-| NAV-01 | `Tab` / `Shift+Tab` en pantallas de primer nivel | Cambia de pantalla: Inicio → Instancias (detalle seleccionado) → Salud → Ayuda → Inicio (y al revés). |
+| NAV-01 | `F2` desde Inicio; `Esc` en Salud; `F1` y `Esc` en la Ayuda (fila revisada en la Fase 10 por la §15: `Tab` ya no cambia de pantalla) | `F2` abre Salud (apilada) y `Esc` vuelve a Inicio; `F1` abre la Ayuda como overlay y `Esc` (o `F1`) la cierra dejando Inicio debajo. |
 | NAV-02 | `←`/`→` dentro del detalle de una instancia | Cambia de pestaña en cualquier pestaña, **incluida Ajustes**; nunca cambia de pantalla de primer nivel. |
 | NAV-03 | `Tab` con el asistente (modo elegido) o la consola con foco | No navega: el formulario/input captura la tecla (la precedencia de foco manda). |
 | NAV-04 | `←`/`→` en Ajustes | No actúan "como Enter": no cambian el valor del campo, no abren el selector ni guardan. |
@@ -169,3 +169,50 @@ los `UI-*`/`KEY-*` ya existentes y se ejecutan contra `App` + `Router` + `svc`.
 |---|---|---|
 | FOCUS-01 | Input de comandos enfocado: escribir `n`, `a`, `q`, `?` | Se escriben literalmente; no se abre ninguna pantalla ni se ejecutan atajos globales. |
 | FOCUS-02 | Cerrar un modal | Se restaura el foco anterior. |
+
+### Pulido de UI de la Fase 10 (SPEC 2 §6, §13, §14, §15; UX-14 … UX-17)
+
+Casos nuevos: complementan los `UI-*`, `KEY-*`, `ESC-01` y `CON-*` existentes (no
+duplican ninguna suite) y se ejecutan contra `App` + `Router` + `svc`.
+
+**Interpretación de §15 (documentada).** La «pestaña superior» que se retira es la
+**fila de navegación de primer nivel** que el marco pintaba bajo la cabecera
+(`Inicio · Instancias · Salud · Ayuda`, recorrible con `Tab`/`Shift+Tab`): su pestaña
+«Instancias» era la ruta redundante al detalle, porque desde Inicio ya se entra con
+`Enter`. **No** se retira la fila de secciones del detalle (Resumen · Consola · … ·
+Ajustes), que exige la especificación de rediseño (§3) y se navega con `←/→`. Tras
+el cambio: Inicio es la raíz, `Enter` abre el detalle, `Esc` vuelve, `F1` abre la
+Ayuda, `F2` abre Salud (y `Esc` vuelve de ella), `Ctrl+P` abre la paleta y
+`Tab`/`Shift+Tab` quedan como **«Desplazarse»** entre las zonas/paneles de la
+pantalla actual.
+
+| ID | Escenario / pasos | Resultado esperado |
+|---|---|---|
+| UI-TABS-01 (§15/UX-17) | Inicio en 40×12, 80×24, 110×30 y 132×40; abrir el detalle con `Enter`; volver con `Esc` | No queda ninguna fila de pestañas de primer nivel (ni marcas `[Inicio]`/`[Instancias]`); el detalle se sigue abriendo desde Inicio y se vuelve con `Esc`; la navegación no depende de una fila de tabs, tampoco en compacto. |
+| NAV-01 (revisado) | `F2` desde Inicio; `Esc` en Salud; `F1`/`Esc` en la Ayuda | Salud se apila sobre Inicio y `Esc` vuelve; la Ayuda es un overlay que se cierra con `Esc` o `F1` dejando Inicio debajo. |
+| NAV-03 | `Tab` con el input de comandos enfocado | Sigue siendo del campo (autocompleta): no cambia de pestaña, de zona ni de pantalla. |
+| NAV-04 | `Tab`/`Shift+Tab` con el asistente abierto (con y sin captura de entrada) | No sale del asistente: avanza de campo o de paso. |
+| ZONE-01 | Inicio en ancho: `Tab` y `Shift+Tab` | El foco se desplaza lista → detalle → actividad sin cambiar de pantalla; la zona con foco se marca con `▸` en el título del panel, no solo con color. |
+| ZONE-02 | Detalle, pestaña Resumen: `Tab` y `Shift+Tab` | El foco pasa de RESUMEN a CÓMO CONECTARSE y vuelve; no cambia de pestaña (eso es `←/→`) ni de pantalla. |
+| ZONE-03 | Detalle, pestaña Backups (un solo panel): `Tab` | No hay zonas que desplazar: `Tab` no cambia de pestaña ni de pantalla. |
+| HELP-01 (§13/UX-14) | Ayuda en 60×18, 80×24, 100×30 y 132×40 | Grid de columnas alineadas que se adapta al ancho: la vista ocupa exactamente el alto, ninguna línea desborda y están todos los atajos globales (`[F1]`, `[F2]`, `[TAB]`, `[Shift+Tab]`, `[Ctrl+P]`, `[Ctrl+Q]`, `[Esc]`, `[Enter]`, `[Ctrl+N]`), con las etiquetas de los retirados de la barra (`Ctrl+P` paleta, `F2` salud, `Ctrl+Q` salir). |
+| HELP-02 | Grid de globales en anchos de 24, 50, 82 y 200 celdas | Todas las celdas arrancan en la misma columna en todas las filas (alineación estable) y el número de columnas se ajusta al ancho sin desbordar. |
+| HELP-03 | Orden de los comandos globales | Cascada piramidal por longitud de tecla: `F1`, `F2`, `Tab` → `Shift+Tab` → `Ctrl+P`, `Ctrl+Q` → resto (`Esc`, `Enter`, `Ctrl+N`) de menor a mayor longitud. |
+| HELP-04 | Texto de la hoja | Instrucciones coherentes: `Enter` abre o confirma, `Esc` vuelve o cancela sin guardar y la hoja se cierra con `F1` o `Esc`. |
+| SOON-01 (§14/UX-16) | Pestaña Plugins/Mods en 120×40 y en 40×12 | `Plugins/Mods (SOON)` en la fila de pestañas y `PLUGINS/MODS (SOON)` con el aviso «Próximamente» en el panel: nunca sugiere que la función esté operativa. |
+| ESC-02 (§6/UX-15) | Consola: `stop` + `Enter` (comando peligroso pendiente) y después `Esc` | `Esc` devuelve el foco **sin ejecutar nada**: no envía el comando pendiente, no toca el histórico y no abandona el detalle. |
+| CON-04 (consola) | Consola con 2.000 líneas y una línea de 500 caracteres en 60×18, 80×24, 100×30 y 132×40 | El buffer queda acotado y el viewport ocupa exactamente su región: no desplaza el pie ni desborda el ancho, y la barra de atajos sigue en la última línea. |
+
+**Notas de implementación (Fase 10).**
+
+- El ancho de celda del grid de Ayuda se acota a la mitad del ancho útil en anchos
+  medios, de modo que el grid use al menos dos columnas; las etiquetas que no caben
+  se abrevian con `…` (el detalle completo vive en la paleta, `Ctrl+P`). Si el alto
+  no da para todo, primero se recorta el bloque «Pantalla» (sus atajos ya están en
+  la barra) y sus teclas vuelven al bloque global; ninguna tecla queda sin
+  documentar.
+- `Tab`/`Shift+Tab` los atiende cada pantalla (`zoneFocus`), no el `App`: la
+  precedencia de foco (modal → campo de texto → pantalla) sigue intacta, por eso el
+  asistente y la consola conservan su uso de la tecla.
+- Las teclas de la hoja de Ayuda se pintan con `components.DisplayKey`, la misma
+  traducción que usa la barra inferior: un solo formato `[Tecla] Etiqueta` (P-04).

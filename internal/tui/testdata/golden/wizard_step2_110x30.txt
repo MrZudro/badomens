@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                       │
 │ ╭─ Jugadores ────────────────────────────────────────────────── 3/7 ─╮╭─ AYUDA ──────────────────────────╮ │
@@ -17,6 +16,7 @@
 │ │    Jugadores con poder de administrador dentro del juego (comandos…││                                  │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││                                  │ │
 │ │  cualquiera entra. Pulsa [W] para activar la lista blanca.         ││                                  │ │
+│ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │

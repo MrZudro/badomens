@@ -125,34 +125,3 @@ func (r *Router) Update(msg tea.Msg) tea.Cmd {
 	}
 	return cmd
 }
-
-// Root devuelve la primera pantalla de la pila (la raíz del panel), o nil si la
-// pila está vacía.
-func (r *Router) Root() Screen {
-	if len(r.stack) == 0 {
-		return nil
-	}
-	return r.stack[0]
-}
-
-// Contains indica si hay alguna pantalla apilada con ese ID estable.
-func (r *Router) Contains(id string) bool {
-	for _, s := range r.stack {
-		if s != nil && s.ID() == id {
-			return true
-		}
-	}
-	return false
-}
-
-// PopTo desapila hasta que la cima tenga ese ID y devuelve true. Si ninguna
-// pantalla apilada lo tiene, no toca la pila y devuelve false.
-func (r *Router) PopTo(id string) bool {
-	for i := len(r.stack) - 1; i >= 0; i-- {
-		if r.stack[i] != nil && r.stack[i].ID() == id {
-			r.stack = r.stack[:i+1]
-			return true
-		}
-	}
-	return false
-}

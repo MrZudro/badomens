@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ [Inicio]  Instancias  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ ╭────────────────────────────────────────────────────────────╮     │
 │ │ Paleta de comandos                                         │     │
@@ -15,6 +14,7 @@
 │ │   Ver la ayuda de esta pantalla  F1                        │     │
 │ │                                                            │     │
 │ │ Escribe para filtrar…  Enter ejecutar · Esc cerrar         │     │
+│ │                                                            │     │
 │ │                                                            │     │
 │ Comandos                                                           │
 └─ [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ─────────────────────┘

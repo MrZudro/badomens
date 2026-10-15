@@ -113,12 +113,6 @@ var es = map[string]string{
 	"app.header.ascii_ts_ok":      "[OK] Tailscale",
 	"app.header.ascii_ts_bad":     "[XX] Tailscale",
 
-	// Navegación de primer nivel (§2): Inicio · Instancias · Salud · Ayuda.
-	"nav.home":      "Inicio",
-	"nav.instances": "Instancias",
-	"nav.health":    "Salud",
-	"nav.help":      "Ayuda",
-
 	// Barra de estado (§3): mensaje de dominio más reciente + indicador busy.
 	"app.status.busy":              "⟳ trabajando…",
 	"app.status.busy_ascii":        "[..] trabajando...",

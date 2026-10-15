@@ -280,6 +280,10 @@ type instanceScreen struct {
 	// "restart"): mientras exista, el semáforo único muestra 🟡 Cargando (§8).
 	opPending string
 
+	// zone es el foco entre las zonas/paneles de la pestaña activa: Tab avanza y
+	// Shift+Tab retrocede (§1.2 «Desplazarse»).
+	zone zoneFocus
+
 	// P-08: recuperación ante caídas.
 	lastState    string
 	userStopped  bool
@@ -290,7 +294,11 @@ type instanceScreen struct {
 	crashLoop    bool
 }
 
-var instanceTabs = []string{"Resumen", "Consola", "Jugadores", "Backups", "Mundos", "Plugins/Mods", "Red", "Auto-apagado", "Ajustes"}
+// instanceTabs son las secciones del detalle. Plugins/Mods se anuncia con
+// «(SOON)» porque la TUI todavía no consume los marketplaces (SPEC 2 §14): la
+// etiqueta viaja con el nombre, de modo que se ve en la fila de pestañas, en el
+// indicador «n/9» del terminal compacto y en la barra de acciones.
+var instanceTabs = []string{"Resumen", "Consola", "Jugadores", "Backups", "Mundos", "Plugins/Mods (SOON)", "Red", "Auto-apagado", "Ajustes"}
 
 var idlePresets = idle.Presets()
 
@@ -642,9 +650,13 @@ func (s *instanceScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 	case "v":
 		return s, s.startVersionPrompt()
 	case "tab":
-		return s.switchTab(1)
+		// «Desplazarse» (SPEC 2 §1.2): mueve el foco entre las zonas/paneles de
+		// la pestaña activa. Cambiar de pestaña es cosa de ←/→.
+		s.zone.move(1)
+		return s, nil
 	case "shift+tab":
-		return s.switchTab(-1)
+		s.zone.move(-1)
+		return s, nil
 	case "right", "l":
 		// Dentro de una instancia, ←/→ cambian de pestaña en cualquier pestaña
 		// (incluida Ajustes). En Ajustes nunca actúan "como Enter": no cambian el
@@ -1724,6 +1736,8 @@ func (s *instanceScreen) View(w, h int) string {
 	if w > 4 {
 		s.input.Width = w - 2
 	}
+	// Zonas/paneles de la pestaña activa para este ancho (§1.2 «Desplazarse»).
+	s.zone.set(s.zoneCountFor(w))
 	// Una confirmación modal (§5.15) ocupa la vista: se pinta sola para que no
 	// la recorte el alto reservado ni quede tapada por el cuerpo de la pestaña.
 	if s.modal != nil {
@@ -1921,8 +1935,10 @@ func (s *instanceScreen) summaryView(w, h int) string {
 	}
 	rightW := connectionPanelWidth(w)
 	leftW := w - rightW
-	left := components.Panel("RESUMEN", "", s.summaryBody(leftW-2, spec), leftW, h, false, s.pal, s.ascii)
-	right := components.Panel("CÓMO CONECTARSE", "", s.connectionBody(rightW-2, conn), rightW, h, false, s.pal, s.ascii)
+	left := components.Panel(components.ZoneTitle("RESUMEN", s.zone.active(0), s.ascii), "",
+		s.summaryBody(leftW-2, spec), leftW, h, s.zone.active(0), s.pal, s.ascii)
+	right := components.Panel(components.ZoneTitle("CÓMO CONECTARSE", s.zone.active(1), s.ascii), "",
+		s.connectionBody(rightW-2, conn), rightW, h, s.zone.active(1), s.pal, s.ascii)
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
@@ -1993,7 +2009,8 @@ func (s *instanceScreen) compactSummary(w, h int, spec *instance.Spec, conn conn
 		panelH = len(body) + 2
 		connBudget = h - len(body) - 3
 	}
-	out := components.Panel("RESUMEN", "", strings.Join(body, "\n"), w, panelH, false, s.pal, s.ascii)
+	out := components.Panel(components.ZoneTitle("RESUMEN", s.zone.active(0), s.ascii), "",
+		strings.Join(body, "\n"), w, panelH, s.zone.active(0), s.pal, s.ascii)
 	// Las líneas de conexión se añaden por bloques completos: con poco alto se
 	// omite un aviso entero antes que mostrar media frase.
 	if connBudget > 0 {
@@ -2005,6 +2022,11 @@ func (s *instanceScreen) compactSummary(w, h int, spec *instance.Spec, conn conn
 			cl = append(cl, b...)
 		}
 		if len(cl) > 0 {
+			if s.zone.active(1) {
+				// La conexión no forma panel en compacto: la zona con foco se
+				// marca con el puntero en su primera línea.
+				cl[0] = components.ZoneMarker(s.ascii) + " " + cl[0]
+			}
 			out += "\n" + strings.Join(cl, "\n")
 		}
 	}
@@ -2424,7 +2446,8 @@ func (s *instanceScreen) accessPanel(w, h int) string {
 	} else {
 		body = append(append(append([]string{}, head...), foot...), list...)
 	}
-	return components.Panel("ACCESO", s.accessSourceTag(), strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
+	return components.Panel(components.ZoneTitle("ACCESO", s.zone.active(0), s.ascii), s.accessSourceTag(),
+		strings.Join(body, "\n"), w, h, s.zone.active(0), s.pal, s.ascii)
 }
 
 // compactAccessPanel usa una sola columna con las secciones de permitidos y
@@ -2456,7 +2479,8 @@ func (s *instanceScreen) operatorsPanel(w, h int) string {
 	if len(ops) > 0 {
 		count = itoa(len(ops))
 	}
-	return components.Panel("OPERADORES", count, strings.Join(s.playerLines(ops, "[O] Operador"), "\n"), w, h, false, s.pal, s.ascii)
+	return components.Panel(components.ZoneTitle("OPERADORES", s.zone.active(1), s.ascii), count,
+		strings.Join(s.playerLines(ops, "[O] Operador"), "\n"), w, h, s.zone.active(1), s.pal, s.ascii)
 }
 
 // bodyLines es el alto útil del cuerpo de un panel (sin bordes).
@@ -3314,12 +3338,17 @@ func (s *instanceScreen) browseTag() string {
 	return itoa(len(s.browseEntries)) + " entradas"
 }
 
-// --- Plugins/Mods (§5.8) ---
+// --- Plugins/Mods (§5.8/§14) ---
 
-// pluginsView dibuja la pestaña Plugins/Mods dentro de un panel (§5.8): la lista
-// de spec.Plugins con el contador a la derecha del título y, si está vacía, qué
-// falta y con qué comando se resuelve. Los plugins ya vienen del detalle: aquí no
-// se hace ninguna E/S nueva ni se listan por pulsación.
+// pluginsTitle es el título del panel de Plugins: lleva el aviso (SOON) para que
+// la sección nunca sugiera que está operativa (SPEC 2 §14).
+const pluginsTitle = "PLUGINS/MODS (SOON)"
+
+// pluginsView dibuja la pestaña Plugins/Mods dentro de un panel (§5.8): el aviso
+// (SOON) siempre visible (§14), la lista de spec.Plugins con el contador a la
+// derecha del título y, si está vacía, qué falta y con qué comando se resuelve.
+// Los plugins ya vienen del detalle: aquí no se hace ninguna E/S nueva ni se
+// listan por pulsación.
 func (s *instanceScreen) pluginsView(w, h int) string {
 	if w < 2 {
 		w = 2
@@ -3329,11 +3358,12 @@ func (s *instanceScreen) pluginsView(w, h int) string {
 	}
 	inner := w - 2
 	muted := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted))
+	warn := lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Warn))
 	if s.detail == nil {
-		return components.Panel("PLUGINS/MODS", "", muted.Render("cargando…"), w, h, false, s.pal, s.ascii)
+		return components.Panel(pluginsTitle, "", muted.Render("cargando…"), w, h, false, s.pal, s.ascii)
 	}
 	if s.detail.Spec == nil {
-		return components.Panel("PLUGINS/MODS", "", lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).
+		return components.Panel(pluginsTitle, "", lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Bad)).
 			Render(components.Cross(s.ascii)+" no se pudo leer la definición de la instancia"), w, h, false, s.pal, s.ascii)
 	}
 	spec := s.detail.Spec
@@ -3343,12 +3373,21 @@ func (s *instanceScreen) pluginsView(w, h int) string {
 	} else if n > 1 {
 		tag = itoa(n) + " instalados"
 	}
+	// El aviso va en el título del panel y, además, en la primera línea del cuerpo:
+	// así se lee aunque el borde tenga que abreviar el título.
 	var body []string
+	for _, l := range wrapWords(components.Warn(s.ascii)+" (SOON) Próximamente: la TUI todavía no busca ni descarga plugins.", inner) {
+		body = append(body, warn.Render(l))
+	}
+	for _, l := range wrapWords("Lo de abajo es informativo; hoy se gestiona con la CLI.", inner) {
+		body = append(body, warn.Render(l))
+	}
+	body = append(body, "")
 	if len(spec.Plugins) == 0 {
 		body = append(body, muted.Render("○ (ninguno instalado)"))
 	} else {
-		for _, p := range spec.Plugins {
-			body = append(body, "  "+components.Pointer(s.ascii)+" "+p)
+		for _, pl := range spec.Plugins {
+			body = append(body, "  "+components.Pointer(s.ascii)+" "+pl)
 		}
 	}
 	body = append(body, "")
@@ -3360,7 +3399,7 @@ func (s *instanceScreen) pluginsView(w, h int) string {
 	} {
 		body = append(body, wrapWords("  "+cmd, inner)...)
 	}
-	return components.Panel("PLUGINS/MODS", tag, strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
+	return components.Panel(pluginsTitle, tag, strings.Join(body, "\n"), w, h, false, s.pal, s.ascii)
 }
 
 // --- Red (§5.9) ---
@@ -3420,12 +3459,14 @@ func (s *instanceScreen) netView(w, h int) string {
 // connectionPanel dibuja el panel CONEXIÓN con las líneas de ConnectLines (sin
 // repetir el encabezado, que ya es el título del panel) ajustadas al ancho.
 func (s *instanceScreen) connectionPanel(w, h int, conn connection.Info) string {
-	return components.Panel("CONEXIÓN", "", s.connectionBody(w-2, conn), w, h, false, s.pal, s.ascii)
+	return components.Panel(components.ZoneTitle("CONEXIÓN", s.zone.active(0), s.ascii), "",
+		s.connectionBody(w-2, conn), w, h, s.zone.active(0), s.pal, s.ascii)
 }
 
 // portPanel dibuja el panel PUERTO con el estado de la comprobación y sus atajos.
 func (s *instanceScreen) portPanel(w, h int) string {
-	return components.Panel("PUERTO", s.portTag(), strings.Join(s.portBody(w-2), "\n"), w, h, false, s.pal, s.ascii)
+	return components.Panel(components.ZoneTitle("PUERTO", s.zone.active(1), s.ascii), s.portTag(),
+		strings.Join(s.portBody(w-2), "\n"), w, h, s.zone.active(1), s.pal, s.ascii)
 }
 
 // portTag es el contador derecho del panel PUERTO: el desenlace en una palabra.
@@ -3793,11 +3834,27 @@ func (s *instanceScreen) Invoke(id string) tea.Cmd {
 	return nil
 }
 
+// zoneCountFor declara cuántas zonas/paneles tiene la pestaña activa en un
+// ancho dado: Tab/Shift+Tab se desplazan entre ellas (§1.2). Las pestañas con un
+// solo panel no tienen a dónde desplazarse y Tab no hace nada en ellas.
+func (s *instanceScreen) zoneCountFor(w int) int {
+	compact := layout.ClassifyWidth(w) == layout.Compact
+	switch s.tab {
+	case 0: // Resumen: RESUMEN + CÓMO CONECTARSE
+		return 2
+	case 2: // Jugadores y acceso: ACCESO + OPERADORES (en compacto solo hay una columna)
+		if compact {
+			return 1
+		}
+		return 2
+	case 6: // Red: CONEXIÓN + PUERTO
+		return 2
+	}
+	return 1
+}
+
 func (s *instanceScreen) Title() string { return "Instancia " + s.slug }
 func (s *instanceScreen) ID() string    { return "instance" }
-
-// NavSection indica la sección de primer nivel activa.
-func (s *instanceScreen) NavSection() string { return "instances" }
 
 // Status aporta el mensaje de la barra de estado: en la pestaña de jugadores, el
 // resultado de la última operación de acceso o, si no hay ninguna, el resumen de

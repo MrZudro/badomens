@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                       │
 │ ╭─ REVISAR ──────────────────────────────────────────────────── 7/7 ─╮╭─ AYUDA ──────────────────────────╮ │
@@ -22,6 +21,7 @@
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,          ││                                  │ │
 │ │  cualquiera entra. [W] activa la lista blanca.                     ││                                  │ │
 │ │[Enter] Crear y arrancar · [Esc] Volver a editar                    ││                                  │ │
+│ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │
 │ │                                                                    ││                                  │ │

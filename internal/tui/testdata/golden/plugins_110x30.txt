@@ -1,16 +1,16 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival  🟢 En línea  …  Jugadores   Backups   Mundos   [Plugins/Mods]   Red   Auto-apagado   Ajustes     │
-│ ╭─ PLUGINS/MODS ─────────────────────────────────────────────────────────────────────────── 1 instalado ─╮ │
+│ Survival  🟢 En línea  …  Backups   Mundos   [Plugins/Mods (SOON)]   Red   Auto-apagado   Ajustes          │
+│ ╭─ PLUGINS/MODS (SOON) ──────────────────────────────────────────────────────────────────── 1 instalado ─╮ │
+│ │⚠ (SOON) Próximamente: la TUI todavía no busca ni descarga plugins.                                     │ │
+│ │Lo de abajo es informativo; hoy se gestiona con la CLI.                                                 │ │
+│ │                                                                                                        │ │
 │ │  ▶ LuckPerms                                                                                           │ │
 │ │                                                                                                        │ │
 │ │Gestionar (CLI)                                                                                         │ │
 │ │badomens -i survival plugin list                                                                        │ │
 │ │badomens -i survival plugin add <archivo-o-url>                                                         │ │
 │ │badomens -i survival plugin remove <nombre>                                                             │ │
-│ │                                                                                                        │ │
-│ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │

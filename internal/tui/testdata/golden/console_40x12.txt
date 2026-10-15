@@ -1,9 +1,9 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ Survival  🟢 En línea                │
 │  [Consola]  2/9                      │
 │ ╭─ CONSOLA ──────── seg=sí pau=no ─╮ │
+│ │ZZ                                │ │
 │ │[22:10:19 INFO]: Done (1.234s)! Fo│ │
 │ │r help, type "help"               │ │
 │ ╰──────────────────────────────────╯ │

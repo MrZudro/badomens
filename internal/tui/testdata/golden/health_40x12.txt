@@ -1,12 +1,12 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  Instancias  [Salud]  Ayuda   │
 ├──────────────────────────────────────┤
 │ Salud del sistema                    │
-│ ╭─ ENTORNO ─────────────────── ok ─╮ │
+│ ╭─ ▸ ENTORNO ───────────────── ok ─╮ │
 │ │ ✓ Docker  Docker está listo.  OK │ │
 │ │ ✓ Docker Compose  v2.30.1  ok    │ │
 │ │ ✓ Tailscale  100.64.0.1 · maquin…│ │
+│ │ ✓ Puertos  sin conflictos  rango…│ │
 │ ╰──────────────────────────────────╯ │
 │ [D] Reparar Docker · [T] Reparar Ta… │
 │ Salud del sistema                    │
-└─ […   [F1] Ayuda   [TAB] Desplazarse ┘
+└─ [R] Com…   [F1] Ayuda   [Esc] Atrás ┘

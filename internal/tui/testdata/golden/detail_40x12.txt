@@ -1,12 +1,12 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ Survival  🟢 En línea                │
 │  [Resumen]  1/9                      │
-│ ╭─ RESUMEN ────────────────────────╮ │
+│ ╭─ ▸ RESUMEN ──────────────────────╮ │
 │ │Estado:       🟢 En línea         │ │
 │ │Motor:        paper 1.21.4        │ │
 │ │Puerto:       25565               │ │
+│ │Jugadores:    —                   │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
 └─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘

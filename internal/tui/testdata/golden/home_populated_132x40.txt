@@ -1,7 +1,6 @@
 ┌─ badomens 0.0.0-dev ───────────────────────────────────────────────────────────────────── ● Docker OK  2/5 inst · 1/3 en marcha ─┐
-│ [Inicio]  Instancias  Salud  Ayuda                                                                                               │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ ╭─ INSTANCIAS ─────── 2/5 · 1/3 en marcha ─╮ ╭─ DETALLE ────────────────────────────────────────────╮ ╭─ ACTIVIDAD ────────────╮ │
+│ ╭─ ▸ INSTANCIAS ───── 2/5 · 1/3 en marcha ─╮ ╭─ DETALLE ────────────────────────────────────────────╮ ╭─ ACTIVIDAD ────────────╮ │
 │ │▶ Survival  0/20  4G  pto 25565           │ │Survival · paper 1.21.4                               │ │● Survival  0/20 jug.   │ │
 │ │  Creativo  0/0  2G  pto 25566            │ │● En línea                                            │ │                        │ │
 │ │                                          │ │                                                      │ │                        │ │
@@ -13,6 +12,7 @@
 │ │                                          │ │Versión: Minecraft 1.21.4 · Modo offline (cualquier n…│ │                        │ │
 │ │                                          │ │⚠ IP de Tailscale no disponible: ejecuta 'tailscale u…│ │                        │ │
 │ │                                          │ │⚠ MagicDNS desactivado: falta el nombre de conexión; …│ │                        │ │
+│ │                                          │ │                                                      │ │                        │ │
 │ │                                          │ │                                                      │ │                        │ │
 │ │                                          │ │                                                      │ │                        │ │
 │ │                                          │ │                                                      │ │                        │ │

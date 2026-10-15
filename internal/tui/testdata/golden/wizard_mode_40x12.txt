@@ -1,5 +1,4 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ ╭─ NUEVA INSTANCIA ────────────────╮ │
 │ │ Elige cómo configurarla:         │ │
@@ -7,6 +6,7 @@
 │ │  [R] Configuración rápida (3 pre…│ │
 │ │ [A] Configuración avanzada (toda…│ │
 │ │                                  │ │
+│ │ Los valores recomendados aparece…│ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ [R] Con…   [F1] Ayuda   [Esc] Atrás ┘

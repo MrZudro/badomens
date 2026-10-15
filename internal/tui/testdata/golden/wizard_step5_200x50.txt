@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                                                                                                                                                   │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automatización › 7 Revisar                                                                                                                 │
 │ ╭─ Automatización ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 6/7 ─╮╭─ AYUDA ──────────────────────────────────────────────╮ │
@@ -10,6 +9,7 @@
 │ │  Arrancar al crear: sí                                                                                                                   ││Por defecto: desactivado                              │ │
 │ │    Inicia el servidor en cuanto termina la creación.                                                                                     ││                                                      │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca, cualquiera entra. Pulsa [W] para activar la lista blanca.                      ││                                                      │ │
+│ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │
 │ │                                                                                                                                          ││                                                      │ │

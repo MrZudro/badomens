@@ -1,7 +1,6 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival  🟢 En línea   Resumen   [Consola]   Jugadores   Backups   Mundos   Plugins/Mods   Red  …         │
+│ Survival  🟢 En línea   Resumen   [Consola]   Jugadores   Backups   Mundos   Plugins/Mods (SOON)   Red  …  │
 │ ╭─ CONSOLA ──────────────────────────────────────────────────────────────── seguir=sí pausa=no filtro=— ─╮ │
 │ │[22:10:03 INFO]: Alex joined the game                                                                   │ │
 │ │[22:10:10 INFO]: There are 3 of a max of 20 players online                                              │ │
@@ -9,6 +8,7 @@
 │ │ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ│ │
 │ │ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                                                                        │ │
 │ │[22:10:19 INFO]: Done (1.234s)! For help, type "help"                                                   │ │
+│ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │

@@ -1,8 +1,7 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  Instancias  [Salud]  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ Salud del sistema                                                                                          │
-│ ╭─ ENTORNO ─────────────────────────────────── ok ─╮ ╭─ RECURSOS ─────────────────────────────────── ok ─╮ │
+│ ╭─ ▸ ENTORNO ───────────────────────────────── ok ─╮ ╭─ RECURSOS ─────────────────────────────────── ok ─╮ │
 │ │ ✓ Docker  Docker está listo.  OK                 │ │ ✓ Disco  120 GB libres de 500 GB  ok              │ │
 │ │ ✓ Docker Compose  v2.30.1  ok                    │ │ ✓ RAM  8 CPU · 16 GiB RAM · 4 GiB asignados  runt…│ │
 │ │ ✓ Tailscale  100.64.0.1 · maquina.tail1234.ts.ne…│ │ ✓ Actualización  repositorio MrZudro/badomens  al…│ │
@@ -24,7 +23,8 @@
 │ │                                                  │ │                                                   │ │
 │ │                                                  │ │                                                   │ │
 │ │                                                  │ │                                                   │ │
+│ │                                                  │ │                                                   │ │
 │ ╰──────────────────────────────────────────────────╯ ╰───────────────────────────────────────────────────╯ │
 │ [D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nuevo                                        │
 │ Salud del sistema                                                                                          │
-└─ [R] Comprobar   [D] Reparar   [T] Reparar   [F1] Ayuda   [TAB] Desplazarse ───────────────────────────────┘
+└─ [R] Comprobar   [D] Reparar   [T] Reparar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ─────────────────┘

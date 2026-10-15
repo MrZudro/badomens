@@ -1,11 +1,11 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ [Inicio]  Instancias  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ ╭────────────────────────────────╮   │
 │ │ Paleta de comandos             │   │
 │ │ Comandos                       │   │
 │ │ ▶ Iniciar «survival»  s        │   │
-│ │ ▼ 8 más                        │   │
+│ │   Detener «survival» (guarda … │   │
+│ │ ▼ 7 más                        │   │
 │ │ Escribe para filtrar…  Enter   │   │
 │ │ ejecutar · Esc cerrar          │   │
 │ Comandos                             │

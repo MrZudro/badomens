@@ -34,6 +34,22 @@ Estos hallazgos se basan en la lectura del código público de `main`; no son un
 - Solo eventos/avisos resumidos en Inicio. No renderizar ahí el stream crudo de la consola.
 - Acciones contextuales: abrir, iniciar, detener, reiniciar, backup y copiar conexión.
 
+### Navegación de primer nivel (SPEC 2 §15)
+
+El marco **no pinta una fila de pestañas de primer nivel**: esa fila duplicaba el
+acceso al detalle (desde Inicio ya se entra con `Enter`) y obligaba a depender de
+una fila completa de pestañas para navegar. La navegación es ahora:
+
+- Inicio es la raíz de la pila; `Enter` abre el detalle de la instancia
+  seleccionada y `Esc` vuelve.
+- `F1` abre la Ayuda (overlay; se cierra con `Esc` o `F1`), `F2` abre Salud y su
+  `Esc` vuelve a Inicio, `Ctrl+P` abre la paleta de comandos y `Ctrl+N` el asistente.
+- `Tab` y `Shift+Tab` se reservan para **«Desplazarse»** entre las zonas/paneles de
+  la pantalla actual (el panel con foco se marca con `▸` en su título, además del
+  borde en el color de acento); no cambian de pantalla.
+- La fila de **secciones del detalle** (Resumen · Consola · … · Ajustes) se mantiene
+  y se recorre con `←/→`.
+
 ### Detalle de una instancia
 
 Mantener nueve secciones funcionales, pero darles una jerarquía visual y atajos contextuales claros:
@@ -67,8 +83,7 @@ Si el servidor está apagado, no presentar un valor de configuración como si fu
 Ejemplo conceptual en un terminal ancho (no representa una captura real):
 
 ```text
-┌─ BADOMENS ─ INSTANCIAS ───────────────────────── Docker ●  Tailscale ●  2/3 activos ─┐
-│ Inicio   Instancias   Salud   Ayuda                                     vX.Y.Z       │
+┌─ BADOMENS ─ Instancias ──────────────────────── Docker ●  Tailscale ●  2/3 activos ─┐
 ├──────────────────────────────────────────────────────────────────────────────────────┤
 │ INSTANCIA: survival             Estado: ● EN EJECUCIÓN       1.21.x · Paper          │
 │                                                                                      │
@@ -238,6 +253,10 @@ No depender solo del color: usar texto e icono/etiqueta. No ocultar errores en u
 3. **Fijar layout:** header/tabs/body/status/action bar con alturas reservadas; viewport y ajuste de líneas por ancho visible.
 4. **Arreglar whitelist:** servicio de lectura/operaciones, estado live vs saved, verificación después de cada mutación y actualización de UI.
 5. **Reducir I/O:** debounce, límites de concurrencia, cancelación y protección contra respuestas obsoletas.
-6. **Actualizar snapshots y pruebas visuales:** compacto, medio, ancho, consola, acceso, formulario y error.
-7. **Retirar duplicidad con cuidado:** confirmar usos de `internal/tui/model.go`/vistas antiguas antes de eliminarlas. Mantener una única ruta probada para la TUI de producción.
-8. **Merge gate:** formato, vet, build, tests normales y race detector obligatorios; la revisión visual ayuda, pero no sustituye la suite automática.
+6. **Pulido de la hoja de Ayuda y de la barra (Fase 10):** grid alineado con orden
+   piramidal de teclas (`docs/TUI_ACCEPTANCE_TESTS.md`, HELP-*/ZONE-*), aviso
+   **(SOON)** en Plugins y retirada de la fila de pestañas superior (`Tab` =
+   «Desplazarse»).
+7. **Actualizar snapshots y pruebas visuales:** compacto, medio, ancho, consola, acceso, formulario y error.
+8. **Retirar duplicidad con cuidado:** confirmar usos de `internal/tui/model.go`/vistas antiguas antes de eliminarlas. Mantener una única ruta probada para la TUI de producción.
+9. **Merge gate:** formato, vet, build, tests normales y race detector obligatorios; la revisión visual ayuda, pero no sustituye la suite automática.

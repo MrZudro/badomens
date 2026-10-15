@@ -1474,9 +1474,6 @@ func (w *wizardScreen) Invoke(id string) tea.Cmd {
 func (w *wizardScreen) Title() string { return "Nueva instancia" }
 func (w *wizardScreen) ID() string    { return "wizard" }
 
-// NavSection coloca el asistente en la sección de instancias.
-func (w *wizardScreen) NavSection() string { return "instances" }
-
 // CapturesInput: el asistente es un formulario; con un modo activo o con la
 // ayuda abierta consume las teclas imprimibles y no deja pasar atajos globales.
 func (w *wizardScreen) CapturesInput() bool { return w.helpOpen || w.pickingVer || w.mode >= 0 }

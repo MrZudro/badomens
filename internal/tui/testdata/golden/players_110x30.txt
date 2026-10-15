@@ -1,14 +1,14 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival  🟢 En línea   Resumen   Consola   [Jugadores]   Backups   Mundos   Plugins/Mods   Red  …         │
-│ ╭─ ACCESO ────────────────────────────────────────── en vivo ─╮╭─ OPERADORES ──────────────────────── 1 ─╮ │
+│ Survival  🟢 En línea   Resumen   Consola   [Jugadores]   Backups   Mundos   Plugins/Mods (SOON)   Red  …  │
+│ ╭─ ▸ ACCESO ──────────────────────────────────────── en vivo ─╮╭─ OPERADORES ──────────────────────── 1 ─╮ │
 │ │Whitelist: ✓ ACTIVADA                                        ││  ▶ ana                                  │ │
 │ │En línea: no se pudo medir (¿servidor apagado?)              ││                                         │ │
 │ │                                                             ││                                         │ │
 │ │Jugadores permitidos                                         ││                                         │ │
 │ │  ▶ ana                                                      ││                                         │ │
 │ │  ▶ luis                                                     ││                                         │ │
+│ │                                                             ││                                         │ │
 │ │                                                             ││                                         │ │
 │ │                                                             ││                                         │ │
 │ │                                                             ││                                         │ │

@@ -1,9 +1,8 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ Survival  🟢 En línea                                              │
 │  [Resumen]  1/9                                                    │
-│ ╭─ RESUMEN ──────────────────────────────────────────────────────╮ │
+│ ╭─ ▸ RESUMEN ────────────────────────────────────────────────────╮ │
 │ │Estado:       🟢 En línea                                       │ │
 │ │Motor:        paper 1.21.4                                      │ │
 │ │Puerto:       25565                                             │ │
@@ -15,6 +14,7 @@
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Dirección:  100.64.0.1:25565   (c = copiar)                        │
 │ Versión: Minecraft 1.21.4 · Modo online (cuenta oficial)           │
+│                                                                    │
 │                                                                    │
 │ Instancia survival                                                 │
 └─ [S] Iniciar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘

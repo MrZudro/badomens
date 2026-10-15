@@ -1,10 +1,10 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
 │ ╭─ Mundo ──────────────────── 2/7 ─╮ │
 │ │▶ Semilla: > -2844874353865282…   │ │
 │ │    Texto/número que genera el ma…│ │
+│ │                                  │ │
 │ │                                  │ │
 │ │                                  │ │
 │ ╰──────────────────────────────────╯ │

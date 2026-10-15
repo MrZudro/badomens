@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ Survival  🟢 En línea                                              │
 │  [Consola]  2/9                                                    │
@@ -11,6 +10,7 @@
 │ │ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ│ │
 │ │ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                │ │
 │ │[22:10:19 INFO]: Done (1.234s)! For help, type "help"           │ │
+│ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │

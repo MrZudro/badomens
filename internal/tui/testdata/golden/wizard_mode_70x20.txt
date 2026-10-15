@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ ╭─ NUEVA INSTANCIA ──────────────────────────────────────────────╮ │
 │ │ Elige cómo configurarla:                                       │ │
@@ -10,6 +9,7 @@
 │ │ Los valores recomendados aparecen en el resumen antes de crear.│ │
 │ │                                                                │ │
 │ │ Pulsa [R] o [A] para empezar · [Esc] vuelve sin crear.         │ │
+│ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │

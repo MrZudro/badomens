@@ -1,5 +1,4 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ Survival  🟢 En línea                │
 │  [Jugadores]  3/9                    │
@@ -7,6 +6,7 @@
 │ │Whitelist: ✓ ACTIVADA             │ │
 │ │En línea: no se pudo medir (¿serv…│ │
 │ │Jugadores permitidos              │ │
+│ │  ▶ ana                           │ │
 │ ╰──────────────────────────────────╯ │
 │ Whitelist: ✓ ACTIVADA                │
 └─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘

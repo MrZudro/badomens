@@ -1,7 +1,6 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival  🟢 En línea  …  Jugadores   Backups   Mundos   Plugins/Mods   Red   Auto-apagado   [Ajustes]     │
+│ Survival  🟢 En línea  …  Backups   Mundos   Plugins/Mods (SOON)   Red   Auto-apagado   [Ajustes]          │
 │ ╭─ AJUSTES ──────────────────────────────────────────────────────────────────────────────────────────────╮ │
 │ │▶ Jugadores máximos: 20                                                                                 │ │
 │ │    Cuántos pueden estar conectados a la vez. Más jugadores = más CPU y RAM.                            │ │
@@ -15,6 +14,7 @@
 │ │    Premium: solo cuentas oficiales. Crackeado: entra cualquiera con cualquier nombre.                  │ │
 │ │  Mensaje (MOTD): Bienvenidos al servidor                                                               │ │
 │ │    Texto que ven los jugadores en la lista de servidores.                                              │ │
+│ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │

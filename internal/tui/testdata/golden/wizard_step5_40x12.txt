@@ -1,5 +1,4 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
 │ ╭─ Automatización ─────────── 6/7 ─╮ │
@@ -7,6 +6,7 @@
 │ │    Apaga el servidor si nadie en…│ │
 │ │  Tiempo de inactividad: 15m      │ │
 │ │    Cuánto tiempo sin nadie antes…│ │
+│ │  Arrancar al crear: sí           │ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ [W] Act…   [F1] Ayuda   [Esc] Atrás ┘

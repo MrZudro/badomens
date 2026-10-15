@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ Survival  🟢 En línea                                              │
 │  [Auto-apagado]  8/9                                               │
@@ -15,6 +14,7 @@
 │ │  1 h                                                           │ │
 │ │  2 h                                                           │ │
 │ │  Nunca                                                         │ │
+│ │  Desactivar                                                    │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Instancia survival                                                 │
 └─ [S] Iniciar   [F1] Ayuda   [Esc] Atrás   [TAB] Desplazarse ───────┘

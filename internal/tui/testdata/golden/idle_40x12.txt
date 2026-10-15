@@ -1,5 +1,4 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ Survival  🟢 En línea                │
 │  [Auto-apagado]  8/9                 │
@@ -7,6 +6,7 @@
 │ │Estado: activado · se apaga tras  │ │
 │ │15 min sin jugadores              │ │
 │ │Backup antes de apagar: sí        │ │
+│ │                                  │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
 └─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘

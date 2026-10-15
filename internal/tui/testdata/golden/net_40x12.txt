@@ -1,12 +1,12 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ Survival  🟢 En línea                │
 │  [Red]  7/9                          │
-│ ╭─ CONEXIÓN ───────────────────────╮ │
-│                                      │
+│ ╭─ ▸ CONEXIÓN ─────────────────────╮ │
+│ │Dirección:  100.64.0.1:25565      │ │
 │ ╰──────────────────────────────────╯ │
 │ ╭─ PUERTO ───────────────── libre ─╮ │
 │ │✓ Puerto 25565 · libre            │ │
+│ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
 └─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘

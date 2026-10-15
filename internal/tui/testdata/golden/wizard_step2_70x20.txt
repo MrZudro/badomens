@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
 │ ╭─ Jugadores ────────────────────────────────────────────── 3/7 ─╮ │
@@ -13,6 +12,7 @@
 │ │    Premium: solo cuentas oficiales. Crackeado: entra cualquier…│ │
 │ │  Lista blanca: no                                              │ │
 │ │    Solo entran los jugadores que apruebes. Muy recomendada si …│ │
+│ │  Operadores:                                                   │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
 │ │  cualquiera entra. Pulsa [W] para activar la lista blanca.     │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │

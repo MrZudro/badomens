@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › 4 Recursos › 5 Red › 6 Automat… │
 │ ╭─ Red ──────────────────────────────────────────────────── 5/7 ─╮ │
@@ -9,6 +8,7 @@
 │ │    Texto que ven los jugadores en la lista de servidores.      │ │
 │ │⚠ Riesgo de suplantación: sin modo online ni lista blanca,      │ │
 │ │  cualquiera entra. Pulsa [W] para activar la lista blanca.     │ │
+│ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │

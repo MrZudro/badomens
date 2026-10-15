@@ -22,6 +22,15 @@ func Pointer(ascii bool) string {
 	return "▶"
 }
 
+// ZoneMarker marca la zona/panel que tiene el foco por zonas («▸» o «>» en
+// ASCII): el foco se distingue por texto, no solo por color (§9 del rediseño).
+func ZoneMarker(ascii bool) string {
+	if ascii {
+		return ">"
+	}
+	return "▸"
+}
+
 // Warn devuelve el icono de aviso (⚠ o [!!]).
 func Warn(ascii bool) string {
 	if ascii {

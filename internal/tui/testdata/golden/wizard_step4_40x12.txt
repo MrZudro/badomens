@@ -1,5 +1,4 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
 │ ╭─ Red ────────────────────── 5/7 ─╮ │
@@ -7,6 +6,7 @@
 │ │    Número por el que se conectan…│ │
 │ │  Mensaje del servidor (MOTD):    │ │
 │ │    Texto que ven los jugadores e…│ │
+│ │                                  │ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ [W] Act…   [F1] Ayuda   [Esc] Atrás ┘

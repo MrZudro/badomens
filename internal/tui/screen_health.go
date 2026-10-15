@@ -99,6 +99,10 @@ type healthScreen struct {
 	// RAM asignada a las instancias: la mide el comando de refresco, no View.
 	assignedGB    float64
 	assignedKnown bool
+
+	// zone es el foco entre los dos paneles de Salud (ENTORNO · RECURSOS): Tab
+	// avanza y Shift+Tab retrocede (§1.2 «Desplazarse»).
+	zone zoneFocus
 }
 
 func newHealthScreen(sv *svc.Services, pal theme.Palette, ascii bool) *healthScreen {
@@ -223,6 +227,17 @@ func (h *healthScreen) Update(msg tea.Msg) (Screen, tea.Cmd) {
 // handleKey atiende los atajos propios de la pantalla de Salud (no globales).
 func (h *healthScreen) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
+	case "esc":
+		// Salud se apila sobre Inicio: Esc vuelve. Su salida ya no depende de la
+		// fila de pestañas superior, que se retiró (SPEC 2 §15).
+		return func() tea.Msg { return popScreenMsg{} }
+	case "tab":
+		// «Desplazarse» entre los paneles de Salud (§1.2).
+		h.zone.move(1)
+		return nil
+	case "shift+tab":
+		h.zone.move(-1)
+		return nil
 	case "R":
 		return h.Invoke("health.retry")
 	case "D":
@@ -281,6 +296,9 @@ func (h *healthScreen) View(w, hgt int) string {
 		panelH = 3
 	}
 
+	// Zonas/paneles para Tab/Shift+Tab (§1.2 «Desplazarse»): ENTORNO y RECURSOS,
+	// en columna o apilados.
+	h.zone.set(2)
 	var panels string
 	if layout.ClassifyWidth(w) == layout.Compact {
 		panels = h.stackedPanels(env, res, w, panelH)
@@ -288,9 +306,9 @@ func (h *healthScreen) View(w, hgt int) string {
 		leftW := (w - 1) / 2
 		rightW := w - 1 - leftW
 		panels = lipgloss.JoinHorizontal(lipgloss.Top,
-			components.Panel("ENTORNO", h.tag(env), h.rows(env), leftW, panelH, false, h.pal, h.ascii),
+			h.envPanel(env, leftW, panelH),
 			" ",
-			components.Panel("RECURSOS", h.tag(res), h.rows(res), rightW, panelH, false, h.pal, h.ascii))
+			h.resPanel(res, rightW, panelH))
 	}
 
 	hintText := "[D] Reparar Docker · [T] Reparar Tailscale · [R] Comprobar de nuevo"
@@ -309,7 +327,7 @@ func (h *healthScreen) View(w, hgt int) string {
 // solo ENTORNO para que el estado crítico (Docker) nunca desaparezca.
 func (h *healthScreen) stackedPanels(env, res []healthItem, w, panelH int) string {
 	if panelH < 9 {
-		return components.Panel("ENTORNO", h.tag(env), h.rows(env), w, panelH, false, h.pal, h.ascii)
+		return h.envPanel(env, w, panelH)
 	}
 	topH := len(env) + 2
 	botH := len(res) + 2
@@ -327,8 +345,21 @@ func (h *healthScreen) stackedPanels(env, res []healthItem, w, panelH int) strin
 			botH = 3
 		}
 	}
-	return components.Panel("ENTORNO", h.tag(env), h.rows(env), w, topH, false, h.pal, h.ascii) + "\n" +
-		components.Panel("RECURSOS", h.tag(res), h.rows(res), w, botH, false, h.pal, h.ascii)
+	return h.envPanel(env, w, topH) + "\n" + h.resPanel(res, w, botH)
+}
+
+// envPanel dibuja el panel ENTORNO marcando el foco de zona (§1.2).
+func (h *healthScreen) envPanel(env []healthItem, w, height int) string {
+	active := h.zone.active(0)
+	return components.Panel(components.ZoneTitle("ENTORNO", active, h.ascii), h.tag(env),
+		h.rows(env), w, height, active, h.pal, h.ascii)
+}
+
+// resPanel dibuja el panel RECURSOS marcando el foco de zona (§1.2).
+func (h *healthScreen) resPanel(res []healthItem, w, height int) string {
+	active := h.zone.active(1)
+	return components.Panel(components.ZoneTitle("RECURSOS", active, h.ascii), h.tag(res),
+		h.rows(res), w, height, active, h.pal, h.ascii)
 }
 
 // envItems compone las filas del panel ENTORNO.
@@ -572,9 +603,6 @@ func (h *healthScreen) Invoke(id string) tea.Cmd {
 
 func (h *healthScreen) Title() string { return "Salud del sistema" }
 func (h *healthScreen) ID() string    { return "health" }
-
-// NavSection indica la sección de primer nivel activa.
-func (h *healthScreen) NavSection() string { return "health" }
 
 // Status aporta el mensaje de operaciones en curso (p. ej. reparar Docker).
 func (h *healthScreen) Status() string { return h.busy }

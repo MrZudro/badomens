@@ -22,6 +22,15 @@ func frameFor(ascii bool) frameChars {
 	return frameChars{"╭", "╮", "╰", "╯", "─", "│"}
 }
 
+// ZoneTitle antepone el marcador de zona al título del panel que tiene el foco
+// (SPEC 2 §1.2 «[TAB] Desplazarse»): así el foco se lee sin depender del color.
+func ZoneTitle(name string, active, ascii bool) string {
+	if !active {
+		return name
+	}
+	return ZoneMarker(ascii) + " " + name
+}
+
 // Panel dibuja una caja con borde. w y h incluyen los bordes; el cuerpo se
 // recorta y rellena exactamente a w×h para que las columnas no bailen al lado de
 // otros paneles (§5.2). «title» se incrusta en el borde superior y «right» se

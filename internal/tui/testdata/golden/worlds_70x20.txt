@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ Survival  🟢 En línea                                              │
 │  [Mundos]  5/9                                                     │
@@ -11,6 +10,7 @@
 │ │                                                                │ │
 │ │Biblioteca de mundos                                            │ │
 │ │cargando…                                                       │ │
+│ │                                                                │ │
 │ │                                                                │ │
 │ │                                                                │ │
 │ │[G] Regenerar el mundo (borra el actual)                        │ │

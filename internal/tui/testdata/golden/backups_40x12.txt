@@ -1,5 +1,4 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ Survival  🟢 En línea                │
 │  [Backups]  4/9                      │
@@ -7,6 +6,7 @@
 │ │▶ 20260114T101500         128.5 MB│ │
 │ │[B] Crear backup ahora            │ │
 │ │[X] Restaurar (crea backup previo)│ │
+│ │[Shift+X] Podar antiguos          │ │
 │ ╰──────────────────────────────────╯ │
 │ Instancia survival                   │
 └─ [S] Ini…   [F1] Ayuda   [Esc] Atrás ┘

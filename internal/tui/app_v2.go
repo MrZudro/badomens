@@ -311,10 +311,6 @@ func (a *App) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, a.router.Update(msg)
 	}
 	switch key {
-	case "tab":
-		return a, a.cycleSection(1)
-	case "shift+tab":
-		return a, a.cycleSection(-1)
 	case "ctrl+c", "ctrl+q":
 		if a.busy {
 			return a.askQuit()
@@ -715,8 +711,6 @@ type shellStyles struct {
 	good     lipgloss.Style
 	warn     lipgloss.Style
 	bad      lipgloss.Style
-	navOn    lipgloss.Style
-	navOff   lipgloss.Style
 	barLeft  string
 	barRight string
 }
@@ -734,8 +728,6 @@ func newShellStyles(p theme.Palette, ascii bool) shellStyles {
 		good:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Good)),
 		warn:     lipgloss.NewStyle().Foreground(lipgloss.Color(p.Warn)),
 		bad:      lipgloss.NewStyle().Foreground(lipgloss.Color(p.Bad)),
-		navOn:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(p.AccentText)).Background(lipgloss.Color(p.Accent)),
-		navOff:   lipgloss.NewStyle().Foreground(lipgloss.Color(p.Muted)),
 		barLeft:  border.Render(v + " "),
 		barRight: border.Render(" " + v),
 	}
@@ -750,9 +742,9 @@ func frameChars(ascii bool) (tl, tr, bl, br, hz string) {
 	return "┌", "┐", "└", "┘", "─"
 }
 
-// View pinta la app completa: marco con cabecera, navegación, cuerpo, estado y
-// barra de acciones (§2/§3). Cabecera, nav, separador, estado y acciones tienen
-// altura fija; solo el cuerpo se desplaza.
+// View pinta la app completa: marco con cabecera, cuerpo, estado y barra de
+// acciones (§2/§3). Cabecera, separador, estado y acciones tienen altura fija;
+// solo el cuerpo se desplaza. No hay fila de pestañas de primer nivel (§15).
 func (a *App) View() string {
 	w, h := a.size.W, a.size.H
 	if w <= 0 {
@@ -786,15 +778,16 @@ func (a *App) View() string {
 		toastLines = append(toastLines, components.RenderToast(components.Toast{Text: t.Text, Kind: t.Kind}, a.pal))
 	}
 
-	// Reserva fija: cabecera (marca) 1 + nav 1 + separador 1 + estado 1 +
-	// acciones (marca) 1 = 5 líneas. El resto lo ocupan banners, toasts, pestañas
-	// y el cuerpo (el único que se desplaza).
+	// Reserva fija: cabecera (marca) 1 + separador 1 + estado 1 + acciones
+	// (marca) 1 = 4 líneas. El resto lo ocupan banners, toasts, la franja de la
+	// pantalla (Chrome) y el cuerpo, que es el único que se desplaza. No hay fila
+	// de pestañas de primer nivel (SPEC 2 §15).
 	extra := 0
 	if banners != "" {
 		extra++
 	}
 	extra += len(toastLines) + len(chromeLines)
-	bodyH := h - 5 - extra
+	bodyH := h - 4 - extra
 	if bodyH < 1 {
 		bodyH = 1
 	}
@@ -816,7 +809,6 @@ func (a *App) View() string {
 
 	lines := make([]string, 0, h)
 	lines = append(lines, a.headerView(w))
-	lines = append(lines, a.barLine(padLine(a.navView(inner), inner)))
 	lines = append(lines, a.sepLine(w))
 	if banners != "" {
 		lines = append(lines, a.barLine(padLine(banners, inner)))
@@ -844,7 +836,7 @@ func (a *App) barLine(content string) string {
 	return a.styles.barLeft + content + a.styles.barRight
 }
 
-// sepLine dibuja el separador horizontal entre la navegación y el cuerpo.
+// sepLine dibuja el separador horizontal entre la cabecera y el cuerpo.
 func (a *App) sepLine(w int) string {
 	_, _, _, _, hz := frameChars(a.ascii)
 	l, r := "├", "┤"
@@ -1012,75 +1004,6 @@ func (a *App) countersHeader() string {
 	})
 }
 
-// navView dibuja la navegación de primer nivel con la sección activa marcada con
-// corchetes (visible sin depender del color) y recortada a lo que quepa (§2).
-func (a *App) navView(w int) string {
-	active := a.navSection()
-	items := []struct{ id, label string }{
-		{"home", a.cat.T("nav.home")},
-		{"instances", a.cat.T("nav.instances")},
-		{"health", a.cat.T("nav.health")},
-		{"help", a.cat.T("nav.help")},
-	}
-	var b strings.Builder
-	used := 0
-	first := true
-	for _, it := range items {
-		label := it.label
-		on := it.id == active
-		if on {
-			label = "[" + label + "]"
-		}
-		lw := layout.Width(label)
-		need := lw
-		if !first {
-			need += 2
-		}
-		if used+need > w {
-			break
-		}
-		if !first {
-			b.WriteString("  ")
-			used += 2
-		}
-		if on {
-			b.WriteString(a.styles.navOn.Render(label))
-		} else {
-			b.WriteString(a.styles.navOff.Render(label))
-		}
-		used += lw
-		first = false
-	}
-	return b.String()
-}
-
-// navSection resuelve la sección activa por la pantalla/overlay vigente.
-func (a *App) navSection() string {
-	if o := a.router.Overlay(); o != nil {
-		if ns, ok := o.(NavSectioner); ok {
-			if s := ns.NavSection(); s != "" {
-				return s
-			}
-		}
-	}
-	if top := a.router.Top(); top != nil {
-		if ns, ok := top.(NavSectioner); ok {
-			if s := ns.NavSection(); s != "" {
-				return s
-			}
-		}
-		switch top.ID() {
-		case "instance":
-			return "instances"
-		case "health":
-			return "health"
-		case "help":
-			return "help"
-		}
-	}
-	return "home"
-}
-
 // statusView pinta la barra de estado: último mensaje de dominio con icono +
 // texto, e indicador de operación en curso a la derecha (§3).
 func (a *App) statusView(w int) string {
@@ -1213,9 +1136,11 @@ func (a *App) escApplies() bool {
 		return false
 	}
 	switch active.ID() {
-	case "home", "help", "health":
-		// En Inicio, Ayuda y Salud, Esc no retrocede (son pantallas de primer
-		// nivel o no implementan el pop): no se promete una tecla que no actúa.
+	case "home", "help":
+		// En Inicio (raíz) y en la Ayuda (que documenta su propio cierre) Esc no
+		// retrocede: no se promete una tecla que no actúa. Salud sí se apila
+		// sobre Inicio y vuelve con Esc (SPEC 2 §15: la navegación no depende de
+		// una fila de pestañas).
 		return false
 	}
 	return true
@@ -1297,73 +1222,4 @@ func itoa(n int) string {
 		buf[i] = '-'
 	}
 	return string(buf[i:])
-}
-
-// sectionOrder es el orden de las pantallas de primer nivel que recorre Tab
-// (§2): inicio → instancias → salud → ayuda.
-var sectionOrder = []string{"home", "instances", "health", "help"}
-
-// cycleSection cambia de pantalla de primer nivel con Tab (d = 1) o Shift+Tab
-// (d = -1). Un formulario con el foco (asistente, consola, modal) no llega aquí:
-// handleGlobalKey lo entrega antes a la pantalla (§5).
-func (a *App) cycleSection(d int) tea.Cmd {
-	// El asistente de creación no declara captura mientras elige el modo (no hay
-	// campo de texto con foco), pero Tab es suyo: ahí avanza de campo y de paso.
-	// Con un overlay abierto (ayuda o paleta) la navegación sí funciona.
-	if a.router.Overlay() == nil {
-		if top := a.router.Top(); top != nil && top.ID() == "wizard" {
-			return nil
-		}
-	}
-	n := len(sectionOrder)
-	idx := 0
-	cur := a.navSection()
-	for i, id := range sectionOrder {
-		if id == cur {
-			idx = i
-			break
-		}
-	}
-	return a.gotoSection(sectionOrder[((idx+d)%n+n)%n])
-}
-
-// gotoSection navega a una pantalla de primer nivel (§2):
-//   - inicio: vuelve a la raíz de la pila y cierra el overlay;
-//   - instancias: sube al detalle si ya está apilado; si no, abre el detalle de
-//     la instancia seleccionada en Inicio y, si no hay ninguna, cae a Salud;
-//   - salud: cierra el overlay y apila Salud (o se queda si ya es la cima);
-//   - ayuda: abre el overlay de ayuda.
-func (a *App) gotoSection(target string) tea.Cmd {
-	switch target {
-	case "home":
-		a.router.ClearOverlay()
-		if root := a.router.Root(); root != nil {
-			a.router.PopTo(root.ID())
-		}
-		return nil
-	case "instances":
-		a.router.ClearOverlay()
-		if a.router.Contains("instance") {
-			a.router.PopTo("instance")
-			return nil
-		}
-		if home, ok := a.router.Root().(*homeScreen); ok {
-			if slug, ok := home.selectedSlug(); ok {
-				a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, slug))
-				return a.svcInit()
-			}
-		}
-		return a.gotoSection("health")
-	case "health":
-		a.router.ClearOverlay()
-		if top := a.router.Top(); top != nil && top.ID() == "health" {
-			return nil
-		}
-		a.router.Push(newHealthScreen(a.svc, a.pal, a.ascii))
-		return a.svcInit()
-	case "help":
-		a.router.SetOverlay(newHelpScreen(a.keys, a.actions(), a.pal, a.ascii))
-		return nil
-	}
-	return nil
 }

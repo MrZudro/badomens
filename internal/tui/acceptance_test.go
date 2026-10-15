@@ -40,6 +40,9 @@ func openInstance(t *testing.T, a *App, slug string) *instanceScreen {
 	return inst
 }
 
+// frameLeft es la esquina izquierda del separador horizontal del marco.
+const frameLeft = "├"
+
 func containsStr(list []string, want string) bool {
 	for _, s := range list {
 		if s == want {
@@ -521,22 +524,34 @@ func TestUI10BarraEstadoYAccionesFijas(t *testing.T) {
 	}
 }
 
-// TestShellNavSeccionActiva: la navegación marca la sección con corchetes (visible
-// sin depender del color) y cambia al abrir el detalle, también en 40×12.
-func TestShellNavSeccionActiva(t *testing.T) {
-	a := testApp()
-	resize(a, 120, 40)
-	a.Update(pollRowsMsg{rows: []svc.Row{{Slug: "survival", Name: "Survival", State: "running"}}})
-	if out := stripANSI(a.View()); !strings.Contains(out, "[Inicio]") {
-		t.Fatalf("Inicio debe estar marcado en la nav:\n%s", out)
-	}
-	openInstance(t, a, "survival")
-	if out := stripANSI(a.View()); !strings.Contains(out, "[Instancias]") {
-		t.Fatalf("Instancias debe estar marcada en el detalle:\n%s", out)
-	}
-	resize(a, 40, 12)
-	if out := stripANSI(a.View()); !strings.Contains(out, "[Instancias]") {
-		t.Fatalf("la sección activa debe verse en 40×12:\n%s", out)
+// TestShellSinFilaDeNavegacion (§15/UX-17): el marco ya no dibuja la fila de
+// pestañas de primer nivel y sus regiones fijas (cabecera, separador, estado y
+// acciones) siguen en su sitio en cualquier tamaño.
+func TestShellSinFilaDeNavegacion(t *testing.T) {
+	for _, sz := range [][2]int{{40, 12}, {80, 24}, {110, 30}, {132, 40}} {
+		w, h := sz[0], sz[1]
+		a := testApp()
+		resize(a, w, h)
+		a.Update(pollRowsMsg{rows: []svc.Row{{Slug: "survival", Name: "Survival", State: "running"}}})
+		out := stripANSI(a.View())
+		lines := strings.Split(out, "\n")
+		if len(lines) != h {
+			t.Fatalf("%dx%d: el marco debe ocupar %d líneas, tengo %d", w, h, h, len(lines))
+		}
+		if !strings.Contains(lines[0], "badomens") {
+			t.Fatalf("%dx%d: la cabecera debe seguir siendo la primera línea: %q", w, h, lines[0])
+		}
+		if !strings.HasPrefix(strings.TrimSpace(lines[1]), frameLeft) {
+			t.Fatalf("%dx%d: tras la cabecera va el separador: %q", w, h, lines[1])
+		}
+		for _, ln := range lines {
+			if strings.Contains(ln, "Inicio") && strings.Contains(ln, "Salud") {
+				t.Fatalf("%dx%d: la fila de pestañas superior debe haber desaparecido: %q", w, h, ln)
+			}
+		}
+		if last := lines[h-1]; !strings.Contains(last, "Ayuda") {
+			t.Fatalf("%dx%d: la barra de acciones debe seguir en la última línea: %q", w, h, last)
+		}
 	}
 }
 

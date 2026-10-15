@@ -19,6 +19,10 @@ type Modal struct {
 	// RequireText, si no está vacío, exige escribirlo para habilitar la acción
 	// destructiva (confirmación reforzada, P-03).
 	RequireText string
+	// MaxWidth acota el ancho del cuadro (0 = 60 por defecto). La hoja de Ayuda
+	// lo sube para aprovechar terminales anchas y repartir sus atajos en más
+	// columnas sin romper la alineación (SPEC 2 §13.2).
+	MaxWidth int
 	// Typed es lo que el usuario ha escrito para RequireText.
 	Typed string
 }
@@ -49,8 +53,12 @@ func (m Modal) Enabled() bool {
 // Render pinta el modal centrado en el ancho w.
 func (m Modal) Render(w int, p theme.Palette, ascii bool) string {
 	boxW := w - 4
-	if boxW > 60 {
-		boxW = 60
+	max := m.MaxWidth
+	if max <= 0 {
+		max = 60
+	}
+	if boxW > max {
+		boxW = max
 	}
 	if boxW < 20 {
 		boxW = 20

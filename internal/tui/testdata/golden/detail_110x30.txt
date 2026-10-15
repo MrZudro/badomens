@@ -1,8 +1,7 @@
 ┌─ badomens 0.0.0-dev ──────────────────────────────────────────────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Survival  🟢 En línea   [Resumen]   Consola   Jugadores   Backups   Mundos   Plugins/Mods   Red  …         │
-│ ╭─ RESUMEN ────────────────────────────────────────────────────────╮╭─ CÓMO CONECTARSE ──────────────────╮ │
+│ Survival  🟢 En línea   [Resumen]   Consola   Jugadores   Backups   Mundos   Plugins/Mods (SOON)   Red  …  │
+│ ╭─ ▸ RESUMEN ──────────────────────────────────────────────────────╮╭─ CÓMO CONECTARSE ──────────────────╮ │
 │ │Motor:     paper 1.21.4         Dificultad:   normal · survival   ││Dirección:  100.64.0.1:25565        │ │
 │ │Memoria:   4G                   Estado:       🟢 En línea         ││(c = copiar)                        │ │
 │ │Puerto:    25565                Auto-apagado: sí · 15 min         ││Versión: Minecraft 1.21.4 · Modo    │ │
@@ -10,6 +9,7 @@
 │ │                                                                  ││⚠ MagicDNS desactivado: falta el    │ │
 │ │                                                                  ││nombre de conexión; usa la dirección│ │
 │ │                                                                  ││IP                                  │ │
+│ │                                                                  ││                                    │ │
 │ │                                                                  ││                                    │ │
 │ │                                                                  ││                                    │ │
 │ │                                                                  ││                                    │ │

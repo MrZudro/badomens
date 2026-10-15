@@ -1,5 +1,4 @@
 ┌─ badomens ──── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ 1 Básico › 2 Mundo › 3 Jugadores › … │
 │ ╭─ REVISAR ────────────────── 7/7 ─╮ │
@@ -7,6 +6,7 @@
 │ │  online ni lista blanca,         │ │
 │ │  cualquiera entra. [W] activa la │ │
 │ │  lista blanca.                   │ │
+│ │[Enter] Crear y arrancar · [Esc] …│ │
 │ ╰──────────────────────────────────╯ │
 │ Nueva instancia                      │
 └─ [Enter]…   [F1] Ayuda   [Esc] Atrás ┘

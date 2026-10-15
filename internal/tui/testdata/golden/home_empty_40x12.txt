@@ -1,10 +1,10 @@
 ┌─ badomens 0.0.0-dev ─── ● Docker OK ─┐
-│ [Inicio]  Instancias  Salud  Ayuda   │
 ├──────────────────────────────────────┤
 │ ╭─ INSTANCIAS ───────── 0/5 · 0/3 ─╮ │
 │ │Todavía no hay instancias         │ │
 │ │                                  │ │
 │ │ [N] Crear mi primer servidor     │ │
+│ │                                  │ │
 │ │                                  │ │
 │ │                                  │ │
 │ ╰──────────────────────────────────╯ │

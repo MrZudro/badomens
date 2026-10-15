@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ────────────────────────────────── ● Docker OK  Tailscale ●  0/5 inst · 0/3 en marcha ─┐
-│ [Inicio]  Instancias  Salud  Ayuda                                                                         │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ ╭─ INSTANCIAS ───────────────────────────────────────────────────────────────────── 0/5 · 0/3 en marcha ─╮ │
 │ │Todavía no hay instancias                                                                               │ │
@@ -11,6 +10,7 @@
 │ │Requisitos                                                                                              │ │
 │ │  ✓ Docker  instalado y en marcha                                                                       │ │
 │ │  ✓ Tailscale  IP 100.64.0.1                                                                            │ │
+│ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │
 │ │                                                                                                        │ │

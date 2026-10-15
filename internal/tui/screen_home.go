@@ -86,6 +86,9 @@ type homeScreen struct {
 	magic magicState
 	// cache guarda el detalle por slug con TTL corto (§5.2).
 	cache map[string]detailCacheEntry
+	// zone es el foco entre las zonas/paneles de Inicio (lista · detalle ·
+	// actividad): Tab avanza y Shift+Tab retrocede (§1.2 «Desplazarse»).
+	zone zoneFocus
 }
 
 func newHomeScreen(sv *svc.Services, pal theme.Palette, ascii bool) *homeScreen {
@@ -225,6 +228,14 @@ func (s *homeScreen) handleKey(msg tea.KeyMsg) (Screen, tea.Cmd) {
 		return s, s.invokeOp("instance.backup")
 	case "c":
 		return s, s.copyAddress()
+	case "tab":
+		// «Desplazarse»: mueve el foco entre las zonas/paneles de Inicio sin
+		// salir de la pantalla (SPEC 2 §1.2/§15).
+		s.zone.move(1)
+		return s, nil
+	case "shift+tab":
+		s.zone.move(-1)
+		return s, nil
 	}
 	return s, nil
 }
@@ -425,6 +436,7 @@ func (s *homeScreen) copyAddress() tea.Cmd {
 // acciones van en la barra inferior de la carcasa, no dentro del cuerpo.
 func (s *homeScreen) View(w, h int) string {
 	if len(s.rows) == 0 {
+		s.zone.set(1)
 		switch {
 		case s.loadErr != nil:
 			return s.errorView(w, h)
@@ -440,7 +452,8 @@ func (s *homeScreen) View(w, h int) string {
 	case layout.Normal:
 		return s.normalView(w, h)
 	}
-	return s.listPanel(w, h, true)
+	s.zone.set(1)
+	return s.listPanel(w, h, s.zone.active(0))
 }
 
 // wideView compone lista · detalle · actividad (≥110 celdas interiores).
@@ -453,6 +466,7 @@ func (s *homeScreen) wideView(w, h int) string {
 	if detailW < 30 {
 		return s.normalView(w, h)
 	}
+	s.zone.set(3) // lista · detalle · actividad
 	return lipgloss.JoinHorizontal(lipgloss.Top,
 		s.listPanel(listW, h, true), " ",
 		s.detailPanel(detailW, h), " ",
@@ -472,10 +486,12 @@ func (s *homeScreen) normalView(w, h int) string {
 	if detailW < 30 {
 		listW = w - 31
 		if listW < 24 {
-			return s.listPanel(w, h, true)
+			s.zone.set(1)
+			return s.listPanel(w, h, s.zone.active(0))
 		}
 		detailW = w - listW - 1
 	}
+	s.zone.set(2) // lista · detalle
 	return lipgloss.JoinHorizontal(lipgloss.Top,
 		s.listPanel(listW, h, true), " ",
 		s.detailPanel(detailW, h))
@@ -529,7 +545,7 @@ func (s *homeScreen) activityPanel(w, h int) string {
 	for _, l := range lines {
 		rendered = append(rendered, lipgloss.NewStyle().Foreground(lipgloss.Color(l.pal)).Render(layout.Truncate(l.text, w-2)))
 	}
-	return components.Panel("ACTIVIDAD", "", strings.Join(rendered, "\n"), w, h, false, s.pal, s.ascii)
+	return components.Panel(components.ZoneTitle("ACTIVIDAD", s.zone.active(2), s.ascii), "", strings.Join(rendered, "\n"), w, h, s.zone.active(2), s.pal, s.ascii)
 }
 
 // emptyView es el estado vacío: causa (CTA para crear) + requisitos, dentro de
@@ -585,7 +601,7 @@ func (s *homeScreen) reqLine(name string, ok bool, detail, fix, key string) stri
 // listPanel dibuja la lista de instancias en un panel con borde: el título lleva
 // los contadores y la fila seleccionada una banda con puntero (§5.2).
 func (s *homeScreen) listPanel(w, h int, focused bool) string {
-	return components.Panel("INSTANCIAS", s.listCounters(w), s.listBody(w-2, h-2), w, h, focused, s.pal, s.ascii)
+	return components.Panel(components.ZoneTitle("INSTANCIAS", focused, s.ascii), s.listCounters(w), s.listBody(w-2, h-2), w, h, focused, s.pal, s.ascii)
 }
 
 // listCounters resume instancias y cupos. Usa la forma completa («… en marcha»)
@@ -700,7 +716,7 @@ func (s *homeScreen) detailPanel(w, h int) string {
 		if len(s.rows) > 0 && s.cachedDetail(s.selected()) == nil {
 			msg = "cargando detalle…"
 		}
-		return components.Panel("DETALLE", "", lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(msg), w, h, false, s.pal, s.ascii)
+		return components.Panel(components.ZoneTitle("DETALLE", s.zone.active(1), s.ascii), "", lipgloss.NewStyle().Foreground(lipgloss.Color(s.pal.Muted)).Render(msg), w, h, s.zone.active(1), s.pal, s.ascii)
 	}
 	spec := s.detail.Spec
 	var lines []string
@@ -729,7 +745,7 @@ func (s *homeScreen) detailPanel(w, h int) string {
 	conn := connectionInfo(spec, s.detail.Host, s.magic)
 	lines = append(lines, "")
 	lines = append(lines, components.ConnectLines(conn, s.pal, s.ascii)...)
-	return components.Panel("DETALLE", "", strings.Join(lines, "\n"), w, h, false, s.pal, s.ascii)
+	return components.Panel(components.ZoneTitle("DETALLE", s.zone.active(1), s.ascii), "", strings.Join(lines, "\n"), w, h, s.zone.active(1), s.pal, s.ascii)
 }
 
 func (s *homeScreen) rowFor(slug string) (svc.Row, bool) {
@@ -766,9 +782,6 @@ func (s *homeScreen) Actions() []components.Action {
 
 func (s *homeScreen) Title() string { return "Instancias" }
 func (s *homeScreen) ID() string    { return "home" }
-
-// NavSection indica la sección de primer nivel activa.
-func (s *homeScreen) NavSection() string { return "home" }
 
 // Status aporta el mensaje de la barra de estado (vacío mientras no haya nada).
 func (s *homeScreen) Status() string { return s.status }

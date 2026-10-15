@@ -1,5 +1,4 @@
 ┌─ badomens 0.0.0-dev ──────────────────────── Docker sin comprobar ─┐
-│ Inicio  [Instancias]  Salud  Ayuda                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │ Survival  🟢 En línea                                              │
 │  [Jugadores]  3/9                                                  │
@@ -14,6 +13,7 @@
 │ │  ▶ ana                                                         │ │
 │ │[A] Añadir · [D] Quitar · [W] On/Off · [O] Operador             │ │
 │ │[Shift+O] Quitar operador · [R] Verificar                       │ │
+│ │                                                                │ │
 │ │                                                                │ │
 │ ╰────────────────────────────────────────────────────────────────╯ │
 │ Whitelist: ✓ ACTIVADA                                              │
