@@ -58,3 +58,47 @@ o **CONTRADICHO**, con la evidencia (comando o URL).
 | 5 | **Alcance de CurseForge.** | Sin cambios: fuera de P1 (requiere API key). Confirmado en `spec 1.md` §3.2. |
 | 6 | **Agrupación de versiones en el grid.** | Depende de cada API: Fill v3 ofrece `channel`/`support`/`java`; Mojang ofrece `type`/`releaseTime`; Fabric ofrece `stable`; NeoForge no ofrece canal por versión. El grid cae a orden + marca básica donde no haya fecha/canal. |
 | 7 | **Compatibilidad hacia atrás del JSON.** | A validar en las fases de implementación; los campos nuevos (`compatibility`, `stale`, `warning`) son aditivos. No se tocó el contrato en Fase 0. |
+
+---
+
+## 4. Cierre (tras las fases 0-12)
+
+> Añadido por el orquestador al cerrar la entrega. Contrasta lo verificado en la
+> Fase 0 con lo que acabó implementándose.
+
+### 4.1 Efecto real de cada hecho externo
+
+| Hecho | Efecto en el código entregado |
+|---|---|
+| E-01 (Paper v2 retirada) | `internal/engines/paper.go` migró a **Fill v3** con parser propio del esquema de objetos y resolución a un build **STABLE con artefacto de servidor descargable** |
+| E-03 (Java por versión + User-Agent) | El Java **verificado** (`java.version.minimum`) gana a la regla versionada; el `User-Agent` dejó de ser `badomens/0` |
+| E-05 / E-06 (Java 25) | `JavaMajorFor` mapea `26.1+` → 25 y `JavaTag` conoce `java25`; ya **no** se asume Java 8 |
+| E-07 (regresión del Maven de NeoForge) | Detección de **reducción anómala** con conservación del último catálogo validado (AC-07), aunque el upstream ya lo arregló |
+| E-08 (Fabric newest-first) | Se eliminó la suposición «el último elemento es el más reciente»: la selección ordena por esquema de versión |
+| E-09 (Forge = promociones) | `promotions_slim.json` se trata como el mapa `recommended`/`latest` que es, contrastado contra artefactos descargables |
+| E-10 (NeoForge XML, dos esquemas) | Parser XML con asociación **explícita** Minecraft ↔ NeoForge y sin ordenar alfabéticamente entre esquemas |
+| E-11 (`/loader/{game_version}`) | Fabric consulta los loaders compatibles de la versión concreta, no el catálogo general |
+| E-12 (fechas exactas de la hoja de ruta de Paper v2) | **Sigue sin verificarse**: la conclusión no depende de las fechas, sino de que el endpoint v2 devuelve 404 |
+
+### 4.2 Bloqueos que NO se pueden resolver desde badomens
+
+1. **Paper API v2 retirada** (`api.papermc.io/v2/...` → `404 unknown_method`): corregido en
+   badomens migrando a Fill v3, pero cualquier consumidor externo de la v2 seguirá roto.
+2. **CurseForge** (AC-13/AC-14 fuera de alcance por diseño): requiere *API key* y sus permisos.
+   Punto de extensión documentado en `docs/plugins-marketplace.md` §3.
+3. **`minecraft.net/.../26-1`** no respondió durante la auditoría; el requisito de Java 25 se
+   confirmó por la wiki, por el metadato de Paper Fill v3 y por la tabla de etiquetas de itzg.
+4. **`go test -race`**: no es un bloqueo de upstream, sino del entorno (requiere cgo/gcc). Queda
+   pendiente de ejecutar en CI.
+
+### 4.3 Preguntas abiertas del plan (§8): cierre
+
+| # | Pregunta | Resolución final |
+|---|---|---|
+| 1 | Política de regeneración (RG-03) | **Implementada y comunicada**: «apagar y regenerar (y reiniciar)», declarada en el diálogo **antes** de confirmar, con backup previo ofrecido. Se descartó la variante «programada» a propósito |
+| 2 | Método de consulta de jugadores | **Server List Ping** (con RCON como respaldo); la TUI no consulta en estado 🟡 y diferencia cuatro causas. RCON no es habilitable desde la TUI (`ENABLE_RCON: "FALSE"` en el compose) |
+| 3 | Nivel de instalación del daemon | **Usuario por defecto** (systemd `--user`, LaunchAgent, tarea `ONLOGON`); no se pidió elevación sin explicar el motivo |
+| 4 | Hechos externos | Reverificados (§1) e incorporados (§4.1) |
+| 5 | Alcance de CurseForge | Confirmado: fuera de P1 |
+| 6 | Agrupación de versiones en el grid | Se agrupa por versión mayor cuando la fuente lo permite; donde no hay fecha/canal (Paper Fill v3 por versión) el grid cae a orden + marca básica |
+| 7 | Compatibilidad hacia atrás del JSON | **Cerrada**: el contrato (`ok/exit_code/action/message/data/phases/error/timestamp`) no se rompió; todo campo nuevo es aditivo. Hay **tres cambios de semántica** documentados en `CHANGELOG.md` (`compatible` derivado de la compatibilidad trivalente, `java_major` puede ser 0, y el mapeo incorpora Java 25) |

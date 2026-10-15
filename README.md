@@ -208,15 +208,20 @@ badomens instance close survival
 | `badomens setup` | 🧩 asistente interactivo/desatendido de configuración |
 | `badomens instance list / inspect / create` | 📋 registro de instancias |
 | `badomens instance start / stop / close / restart / remove` | 🔄 ciclo de vida (el `start` respeta el límite de paralelas) |
-| `badomens engine list / current / use` | 🧠 catálogo y selección de motor/versión |
+| `badomens engine list / current / use / versions / compat` | 🧠 catálogo y selección de motor/versión (y compatibilidad trivalente) |
+| `badomens catalog status / refresh` | 🗂️ estado y refresco del catálogo (edad y procedencia de la caché) |
 | `badomens world list / save / use / export / import` | 🌍 biblioteca compartida de mundos |
 | `badomens backup create / list / restore / prune` | 🗃️ copias de seguridad por instancia |
 | `badomens access …` | 🚧 whitelist y operadores vía consola |
 | `badomens plugin add / list / remove` | 🔌 plugins/mods según motor (con aviso de TPS) |
+| `badomens plugin sources / search / info / versions / install / updates` | 🛒 marketplaces (Modrinth y Hangar): buscar, resolver, instalar y comprobar actualizaciones |
 | `badomens logs` · `badomens console <cmd>` | 📜 logs y consola de una instancia |
 | `badomens doctor tps` | 🩺 diagnóstico de TPS/MSPT |
+| `badomens doctor api` · `doctor preflight` | 🔎 diagnóstico por proveedor (conexión, contrato, caché) y compatibilidad previa al arranque |
+| `badomens repro export / import` | 📦 exportación declarativa reproducible de una instancia (versión y pins exactos) |
+| `badomens daemon status / ensure / install-service / uninstall-service` | ⚙️ daemon propio: estado, arranque y servicio persistente por SO |
 | `badomens metrics` | 📈 CPU/RAM/mundo/backups de una instancia |
-| `badomens tui` | 🖥️ panel interactivo: Home con actividad, detalle por pestañas (consola, jugadores, backups, mundos, plugins, red, auto-apagado, ajustes), asistente con selector de versión, Salud (`H`) y paleta (`Ctrl+P`) |
+| `badomens tui` | 🖥️ panel interactivo: Home con actividad, detalle por pestañas (consola, jugadores, backups, mundos, plugins, red, auto-apagado, ajustes), asistente con selector de versión en panel lateral, Salud (`F2`) y paleta (`Ctrl+P`). `Tab` se desplaza entre zonas; `↑/↓` mueven la selección y `Enter` confirma |
 | `badomens mcp serve` | 🔌 servidor MCP por stdio |
 | `badomens doctor` · `capacity` · `update` · `resolve-ip` | 🧪 herramientas del entorno (el `update --apply` descarga y reemplaza) |
 | `badomens uninstall` | 🧹 desinstala el binario y la configuración (`--purge` borra también los datos) |

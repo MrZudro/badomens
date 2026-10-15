@@ -6,84 +6,411 @@ versionado es [semántico](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+> 🧭 **Cierre del plan de implementación unificado (fases 0–12)** en la rama
+> `fix/estabilizacion-plan-completo`. Fusiona las dos specs (técnica y de
+> bugs/UX): transporte HTTP, los cinco proveedores, selección y compatibilidad
+> trivalente, caché resiliente, servicio de catálogo único para CLI/TUI/MCP, la
+> TUI (componentes base, flujos de creación, funciones de instancia y pulido),
+> daemon/Docker/Tailscale, descarga segura de plugins, marketplaces y el cierre
+> de observabilidad y seguridad del runtime. **Antes de leer lo demás, mira los
+> cambios de SEMÁNTICA**: hay tres que afectan a quien consume el contrato JSON.
+> La matriz defecto → prueba está en `docs/REGRESSION_MATRIX.md` y el resumen
+> para el revisor en `docs/ENTREGA_FINAL.md`.
+
+### 🔄 Cambios de SEMÁNTICA (léelos antes de consumir el contrato JSON)
+
+- **`compatible` pasa a derivarse de la compatibilidad trivalente (Fase 3,
+  T-03/API-08).** Antes, `Enrich` rellenaba `compatible: true` a ciegas cuando el
+  dato era desconocido (`if !out[i].Compatible { out[i].Compatible = true }`).
+  Ahora `compatible` es cierto **solo cuando la compatibilidad está verificada**
+  (`compatibility == "compatible"`). Consecuencia: un `compatible: false` puede
+  significar `incompatible` **o** `unknown`. Consulta el campo nuevo
+  `compatibility` (`compatible` / `incompatible` / `unknown`) antes de tratar una
+  versión como no seleccionable. La caché y el catálogo embebido anteriores a
+  esta versión (que traían `compatible: true` sin el campo trivalente) se migran
+  a `compatible` verificado.
+- **`java_major` puede valer `0` (desconocido) y ya NO se asume Java 8 (Fase 3,
+  AC-05).** `JavaMajorFor` devolvía `8` para cualquier versión no reconocida;
+  ahora devuelve `0` y el campo nuevo `java_status` dice el origen del dato:
+  `verified` (lo declara el proveedor, p. ej. `java.version.minimum` de Fill v3),
+  `inferred` (regla versionada de badomens) o `unknown`. Un `java_major: 0` es un
+  dato **desconocido**, no un Java 8. `JavaImageFor` conserva su `fallback`
+  anterior, así que la imagen Docker de una versión desconocida **no** se
+  degrada.
+- **El mapeo de Java incorpora Java 25 y Minecraft 26.x (Fases 2–3).** Se
+  reconoce el versionado por año/entrega: `26.1+` → **Java 25** (nueva etiqueta
+  `java25` en `JavaTag`). Reglas vigentes: `26.1+` → 25; `1.20.5–1.21.x` → 21;
+  `1.18–1.20.4` → 17; `1.17` → 16; `≤1.16.x` → 8; series futuras o no
+  reconocidas → **desconocido**.
+- **El contrato JSON NO se ha roto (AC-09).** Se conservan `ok`, `exit_code`,
+  `action`, `message`, `data`, `phases`, `error` y `timestamp`, y **todos los
+  comandos existentes** mantienen sus claves, su `exit_code` y sus códigos de
+  error. Todas las claves nuevas son **aditivas**: van dentro de `data` (o de
+  `error.details`) y ningún consumidor existente (Emiria/Jamcord, scripts)
+  necesita cambios. Pruebas: `internal/result/contract_test.go`
+  (`TestContratoClavesEstables`) y `internal/cli/paridad_catalogo_test.go`
+  (`TestContratoJSONCatalogoAditivo`).
+
 ### 🐛 Corregido
 
-- **latest correcto con independencia del orden de respuesta (API-05).** pickVersion
-  ya no asume que el último elemento de la lista es el más reciente: compara versiones
-  **estructuradas** con la estrategia del esquema del motor. Fabric Meta y Paper Fill v3
-  (que publican newest-first) dan ahora el mismo resultado que una lista ascendente.
-- **Recommended se calcula DESPUÉS de normalizar y ordenar (QC-05, AD-02b).** Se
-  recalcula desde cero en cada pasada, así que la recomendada es la última estable real
-  y ninguna normalización posterior deja marcas obsoletas.
-- **Orden por esquema, nunca alfabético entre esquemas.** Enrich ordena con la
+#### Fase 1 — Transporte HTTP común (`internal/engines/client.go`)
+- **Reintentos de verdad (API-01).** El tipo `Client` anunciaba "reintento
+  mínimo" en un comentario pero no tenía bucle alguno. Ahora reintenta errores de
+  conexión, timeouts, 429 y 5xx (500/502/503) con **backoff exponencial con
+  jitter**, respeta `Retry-After` (segundos y fecha HTTP) y **no reintenta**
+  400/401/403/404. La política **no** depende del texto del error (nuevo
+  `TestClientNoReintentaAunqueElTextoParezcaTransitorio`).
+- **`User-Agent` identificable (API-02).** Ya no es el fijo `badomens/0`: la
+  cabecera se compone en un único sitio (`DefaultUserAgent`) con el nombre, la
+  **versión real** del binario y la URL de contacto, como exige Paper Fill.
+- **Timeouts diferenciados** (conexión, TLS, cabeceras y cuerpo) más límite total
+  por `context.Context`; **límite de tamaño** de respuesta para JSON y XML;
+  validación de estado HTTP, `content-type` y formato; **errores tipados**
+  (`timeout`, `rate_limited`, `upstream_unavailable`, `invalid_response`,
+  `schema_mismatch`, `not_found`, `response_too_large`); soporte de
+  `ETag`/`Last-Modified`; diagnóstico con proveedor, operación y URL **saneada**
+  (sin credenciales ni cuerpos de respuesta).
+- **Cabecera `Accept` con rangos de medios válidos** (corrección posterior del
+  propio transporte).
+
+#### Fase 2 — Reparación de cada proveedor
+- **Paper migra a Fill v3 (API-03, AC-01)** y el catálogo deja de estar roto. Se
+  usan `GET /v3/projects/paper/versions` y `.../versions/{version}/builds`; el
+  esquema v3 (array de **objetos**) se transforma explícitamente; se elige un
+  build **estable con artefacto de servidor descargable** y **una versión no está
+  resuelta hasta tener el pin de build exacto** (se acabó el "éxito parcial": un
+  404/500 o una lista vacía de builds ahora propagan error tipado).
+- **Fabric usa el endpoint correcto y no acepta resolución sin loader (API-04,
+  AC-02).** Se consulta `/v2/versions/loader/{game_version}` (no el catálogo
+  general) y se **rechaza** la resolución si el loader no se confirmó.
+- **Forge deja de compartir parser con NeoForge (API-06, AC-03).** Se parsea
+  `promotions_slim.json` como lo que es (claves `recommended`/`latest` por versión
+  del juego) y se contrasta contra artefactos descargables; un JSON válido con
+  otra estructura produce `schema_mismatch` en vez de un catálogo vacío.
+- **NeoForge con parser XML propio (API-06, AC-04).** Se parsea el
+  `maven-metadata.xml` oficial (el `.json` no existe: 404), se soportan los dos
+  esquemas de versión (antiguo `21.x` y moderno `26.x`) con asociación explícita
+  Minecraft ↔ NeoForge, se **detecta la caída anómala** del número de versiones
+  (conservando el último catálogo validado) y **nunca se ordena alfabéticamente
+  entre esquemas**.
+- **Vanilla endurecido.** Manifiesto oficial `version_manifest_v2`, releases y
+  snapshots diferenciados y mapeo de Java actualizado (Java 25 / 26.x).
+- **Se elimina el patrón que silenciaba errores**
+  (`if err := client.GetJSON(...); err == nil { /* continuar */ }`): si el dato es
+  obligatorio, el error se propaga.
+
+#### Fases 3-4 — Selección exacta, compatibilidad y caché
+- **`latest` correcto con independencia del orden de respuesta (API-05).** `pickVersion`
+  ya no asume que el último elemento es el más reciente: compara versiones
+  **estructuradas** con la estrategia del esquema del motor. Fabric Meta y Paper
+  Fill v3 (que publican newest-first) dan el mismo resultado que una lista
+  ascendente.
+- **`Recommended` se calcula DESPUÉS de normalizar y ordenar (QC-05, AD-02b).** Se
+  recalcula desde cero en cada pasada, así que la recomendada es la última estable
+  real y ninguna normalización posterior deja marcas obsoletas.
+- **Orden por esquema, nunca alfabético entre esquemas.** `Enrich` ordena con la
   estrategia de cada motor: Vanilla por la fecha del manifiesto (dato oficial) y
-  Paper/Fabric/Forge/NeoForge por componentes numéricos. Casos reales cubiertos:
-  26.10 > 26.2 y 26.1 > 1.21.1.
-- **
-ormalizeMaven con reglas propias por proveedor** (Forge `<mc>-<build>`;
+  Paper/Fabric/Forge/NeoForge por componentes numéricos (`26.10 > 26.2`,
+  `26.1 > 1.21.1`).
+- **`NormalizeMaven` con reglas propias por proveedor** (Forge `<mc>-<build>`;
   NeoForge con su asociación explícita antiguo/moderno) y elección del build por
-  comparación estructurada. Es idempotente: un catálogo ya normalizado sale intacto.
-- **Rechazo de versiones explícitas inexistentes o incompatibles**, con error tipado
-  
-ot_found y sin resultado parcial (T-02/AC-06).
-- **Caché: no se sobrescribe con datos inválidos (AC-07).** Un catálogo vacío o una
-  **reducción anómala** (menos del 50 % del último validado, con un baseline de al menos
-  20 versiones) conservan el catálogo previo y generan un aviso legible. NeoForge añade
-  su propio baseline de versiones publicadas.
-- **Java: nunca se asume Java 8 (AC-05).** JavaMajorFor devuelve **0** (desconocido)
-  en lugar de 8 para una versión no reconocida y JavaImageFor sigue devolviendo el
-  allback sin cambios cuando el Java es desconocido.
+  comparación estructurada. Es idempotente.
+- **Compatibilidad trivalente (T-03, API-08) y modelo normalizado con
+  procedencia**: `loader_version`, `build`, `channel`, `released_at`,
+  `java_major`, `java_status`, `compatibility`, `source`, `fetched_at`, `stale` y
+  `warning`.
+- **Se rechazan las versiones explícitas inexistentes o incompatibles**, con
+  error tipado `not_found` y sin resultado parcial (T-02/AC-06).
+- **`Resolved.Validate` + `Registry.Resolve`**: ruta única que valida **todos** los
+  pins obligatorios antes de devolver. No existe el objeto de resolución
+  parcialmente válido.
+- **Caché: no se sobrescribe con datos inválidos (AC-07).** Un catálogo vacío o
+  una **reducción anómala** (menos del 50 % del último validado, con un baseline
+  de al menos 20 versiones) conservan el catálogo previo y generan un aviso
+  legible. NeoForge añade su propio baseline de versiones publicadas. La escritura
+  es **atómica** y hay **deduplicación** de solicitudes simultáneas.
+
+#### Fase 5 — Cliente y proveedores en una sola ruta
+- **`CatalogService` es el único punto de entrada** para CLI, TUI y MCP; ningún
+  consumidor vuelve a hablar con `provider.Resolve`. La TUI deja de reconstruir
+  reglas de resolución.
+- **Operaciones que modifican runtime informan su desenlace (AC-10):** `applied`,
+  `partial` o `failed`, con sus `phases` y un `follow_up` con el reintento exacto.
+  Ninguna operación informa de éxito antes de verificar (T-08).
+
+#### Fase 6 — Componentes base de la TUI
+- **Selector unificado** (lista y grid, con las cuatro flechas y selección por
+  **valor**) reutilizado por creación, regeneración y ajustes; se eliminan las
+  implementaciones propias.
+- **Barra inferior única** con formato `[Tecla] Etiqueta` y contextual; `Ctrl+P`,
+  `F2` y `Ctrl+Q` salen de la barra pero siguen funcionando y se documentan en
+  Ayuda.
+- **Sistema central de notificaciones con TTL** (5-8 s info/éxito, hasta 30 s
+  error/aviso; **máximo absoluto 30 s** y descarte manual). Lo persistente
+  (MagicDNS) vive en Salud, no como aviso flotante.
+- **Estado único del servidor + semáforo** 🟢/🟡/🔴 **con texto** (nunca solo
+  color), visible en todas las sub-pantallas; las consultas asíncronas se
+  cancelan al cambiar de instancia y una respuesta tardía no pisa otro estado.
+- **Prioridad de teclado determinista** (modal → input → control → pantalla →
+  globales): las letras imprimibles se escriben literalmente mientras un
+  formulario captura el foco.
+- **MagicDNS se reevalúa en vivo.** El aviso nació de leer el `MagicDNS`
+  **persistido** en el registro de la instancia (`connection.Derive` lo emitía
+  siempre que estuviera vacío), así que nunca desaparecía. Ahora la TUI consulta
+  el estado real de Tailscale (`tailscale.Probe`) y el aviso vive en Salud.
+
+#### Fase 7 — Creación rápida y avanzada
+- **`↓` nunca avanza de paso.** El paso cambia con `Enter` sobre la celda
+  «Continuar a Recursos →» (o `Tab`); `↑/↓` mueven la selección dentro del paso.
+- **Panel lateral de versiones en grid**, agrupado por versión mayor, con la
+  última estable marcada, snapshots/betas separadas y atajo `[R]` de refresco
+  (`catalog refresh`). Si la carga falla: error claro con reintento y etiqueta de
+  caché vencida, nunca una lista vacía silenciosa.
+- **AD-02 (se elige un motor/versión y arranca otro) resuelto:** al cambiar de
+  motor se **resetea** la versión y la resolución (se descartan las respuestas
+  tardías por número de secuencia), la selección va por **valor**, el payload se
+  construye desde el objeto `Resolved` del servicio y la config **persistida se
+  verifica contra el resumen** (si no coinciden, se avisa; no hay éxito
+  silencioso).
+
+#### Fase 8 — Daemon, Docker, Tailscale y MagicDNS
+- **Mecanismo común detectar → levantar → elevar → informar** en
+  `internal/infra`, con estados tipados (`ready`, `starting`, `down`,
+  `not_installed`, `needs_elevation`, `needs_login`, `degraded`, `unavailable`),
+  sondeo con estado «Cargando» 🟡, cancelable, y **pasos manuales por SO**.
+  Ninguna elevación se pide sin explicar el motivo y ningún fallo bloquea el resto
+  de la app.
+- **Servicio persistente del daemon** para Linux (systemd usuario/sistema), macOS
+  (launchd agent/daemon) y Windows (tarea programada `ONLOGON`), sin instalar
+  nada en silencio.
+- **Todos los procesos se lanzan con argumentos separados** (`internal/execx`):
+  nunca se concatena una cadena de shell.
+- **Defecto corregido de paso: `tailscale.InRange`** comparaba el segundo octeto
+  del rango CGNAT como **texto**, lo que descartaba direcciones válidas
+  `100.64.x.x`–`100.99.x.x` (como `100.66.32.62`). Ahora compara numéricamente y
+  valida los cuatro octetos.
+
+#### Fase 9 — Funciones de instancia
+- **Jugadores:** Server List Ping con respaldo RCON, sin consultar mientras el
+  servidor está 🟡 Cargando, con reintentos y **cuatro mensajes diferenciados**
+  (apagado / iniciando / consulta no disponible / error de conexión) y sin
+  respuestas tardías que pisen otra instancia.
+- **Regeneración con política ÚNICA y explícita:** «apagar y regenerar» (detiene,
+  borra el mundo, guarda la semilla y vuelve a arrancar), **explicada en el
+  diálogo antes de confirmar**, con backup previo ofrecido, progreso visible,
+  indicador persistente mientras dura y aviso cuando no se pudo verificar (T-08).
+- **`[D] Borrar`** visible en la lista y en el detalle, con confirmación
+  reforzada (nombre exacto), detalle de lo que se elimina, backup previo y apagado
+  previo con aviso; estado recuperable ante fallo parcial.
+- **Copiar dirección** se deriva antes del primer arranque (tailnet, MagicDNS, red
+  local), permite elegir cuando hay varias y explica **por qué** y **qué hacer**
+  cuando no hay ninguna.
+- **Backup visible y funcional**; la restauración **valida el checksum antes** de
+  modificar datos (era un defecto real: antes borraba `server/` y descomprimía sin
+  verificar).
+
+#### Fase 10 — Pulido de UI
+- **Ayuda en grid alineado** que se adapta al ancho, con orden en cascada
+  piramidal por longitud de tecla e incluyendo los comandos retirados de la barra
+  (`Ctrl+P`, `F2`, `Ctrl+Q`).
+- **`[Esc] Atrás` resaltado** mientras el input de comandos tiene el foco; `Esc`
+  devuelve el foco sin ejecutar nada.
+- **Plugins muestra `(SOON)`** en la pestaña y en el panel: ya no sugiere que la
+  gestión desde la TUI esté operativa.
+- **Eliminada la pestaña superior de primer nivel** de detalle (sección 15):
+  desaparece la fila `Inicio · Instancias · Salud · Ayuda` y el código muerto
+  asociado. El detalle se sigue abriendo desde Inicio con `Enter` y se vuelve con
+  `Esc`; `Tab` queda como «Desplazarse» entre zonas.
+- Consola: buffer y viewport dentro de su región, sin desplazar la barra inferior
+  ni mostrar logs crudos en otra pestaña.
+
+#### Fase 11.1 — Descarga segura de plugins/mods (AC-08, API-07)
+- **Se acabó el `io.ReadAll` de hasta 256 MiB en memoria y la escritura directa al
+  destino.** Ahora hay **streaming con límite aplicado durante la copia**
+  (64 MiB por defecto, techo absoluto 1 GiB), **https obligatorio** (excepto
+  `--allow-http` explícito), **anti-SSRF** (loopback, privados, link-local, CGNAT,
+  multicast y reservados; validado en la URL y sobre la **IP resuelta** en el
+  dialer, cerrando el DNS rebinding, y en **cada** redirección, máximo 5),
+  **nombre de archivo validado**, temporal dentro del destino y **movimiento
+  atómico**, inspección estructural del JAR/ZIP **sin descomprimir** (límites de
+  entradas, bytes declarados, ratio de compresión, rutas inseguras y cifrado) y
+  **SHA-256** cuando el proveedor lo publica. El registro persistente se actualiza
+  **solo tras la instalación completa**; un fallo no deja archivo, ni registro, ni
+  temporales.
+
+#### Fase 11.2-11.3 — Marketplaces y actualizaciones (AC-13, AC-14)
+- **Adaptadores Modrinth (API v2) y Hangar (API v1) con un parser propio cada uno**
+  (T-06) sobre el **transporte HTTP común** y sin clientes paralelos.
+- **`compatible` ≠ `desconocido`:** un resultado de búsqueda **no** demuestra nada;
+  la compatibilidad se calcula sobre metadatos declarados y un loader que solo
+  declara `spigot` **no** se marca compatible con `paper`.
+- **Resolución exacta o error (AC-06):** sin versión, loader, versión de Minecraft
+  o checksum utilizable, la resolución falla con motivo estable y **no se descarga
+  "lo que haya"**. Un `sha1` se informa pero **no** se usa como prueba de
+  integridad.
+- **Dependencias obligatorias ausentes o incompatibles bloquean** la resolución con
+  explicación; **nunca se instala una dependencia automáticamente**.
+- **Registro de procedencia** (`<data>/instances/<slug>/plugins.json`) con proyecto
+  de origen, versión instalada, versión objetivo y checksum, **migración aditiva**
+  de los registros antiguos (que se leen como `origen: desconocido`, sin inventar
+  datos) y URLs de origen **saneadas**.
+- **`plugin updates` comprueba sin instalar** (`installed_modified: false`): no
+  descarga, no modifica el archivo ni su checksum.
+
+#### Fase 12 — Observabilidad, seguridad del runtime y funciones P2
+- **Diagnóstico por proveedor (AC-12):** cada fallo de catálogo publica
+  `provider`, `operation`, `status`, `http_status`, `cache_state`,
+  `resolution_complete`, `retryable`, `attempts`, `retry_after_seconds`, la
+  antigüedad legible de la caché y un mensaje humano, además de códigos estables
+  para agentes; distingue red / respuesta inválida / versión inexistente /
+  incompatibilidad real. **Nunca** guarda cuerpos de error, tokens ni URLs con
+  credenciales.
+- **Seguridad del runtime (6.3):** validación de **slugs, nombres de backup y de
+  mundo** y de las rutas de CLI/MCP (rechaza `..`, separadores, mayúsculas,
+  caracteres de control y nombres reservados de Windows); **restauración de
+  backups con checksum verificado ANTES de tocar los datos** (antes se borraba y
+  descomprimía a ciegas) y sustitución por `rename` con reversión; **límites** de
+  tamaño de backup (8 GiB de origen) y de artefactos; permisos 0700/0600 donde
+  aplica; **la publicación de puertos ya nunca usa `0.0.0.0`** (aborta con motivo
+  tipado si `HostIP` falta, no es IPv4 o es comodín); secretos fuera de logs y
+  JSON; verificación criptográfica de las actualizaciones del binario.
+
+#### Correcciones menores de codificación
+- Comentarios y avisos de terceros de `internal/plugins` con la codificación
+  corregida.
 
 ### ➕ Añadido
 
-- **Modelo normalizado aditivo** en Version y Resolved: loader_version, uild,
-  channel, eleased_at, java_major, java_status, compatibility, source,
-  etched_at, stale y warning.
-- **Campo compatibility (trivalente):** compatible, incompatible o unknown.
-- **Campo java_status:** erified (lo declara el proveedor, p. ej. Fill v3 con
-  java.version.minimum), inferred (regla versionada) o unknown. Reglas
-  versionadas que cubren Minecraft 26.x: 26.1+ → **Java 25**, 1.20.5–1.21.x → 21,
-  1.18–1.20.4 → 17, 1.17 → 16, ≤1.16.x → 8. Nueva etiqueta java25 en JavaTag.
-- **CheckCompatibility:** valida Minecraft + motor + loader/build + Java + imagen
-  Docker y devuelve el estado trivalente con el motivo de la incertidumbre.
-- **Resolved.Validate y Registry.Resolve:** ruta única de resolución que valida
-  todos los pines obligatorios antes de devolver (AC-06: no existe el objeto de
-  resolución parcialmente válido).
-- **Caché reforzada (internal/engines/versions.go):** el documento de caché guarda
-  ahora provider, updated_at, schema, alidated, etag, last_modified y
-  published_count (los documentos antiguos se siguen leyendo); validación ANTES de
-  escribir; escritura atómica con sync; uso de ETag/Last-Modified (304 =
-  refrescar la fecha sin reescribir datos); **deduplicación de solicitudes simultáneas**
-  (una sola petición para N llamadas concurrentes); Cache.Status con estados
-  explícitos resh, stale, invalid y unavailable; Cache.Refresh.
-- **Comandos catalog status [motor] y catalog refresh [motor] | --all** (aditivos).
-- **engine list <motor> unificado** sobre la MISMA ruta de caché y normalización que
-  engine versions (ya no consulta el proveedor sin caché), con --all, --refresh
-  y --limit. engine versions incorpora --refresh y expone el estado del catálogo y
-  el modelo normalizado.
-- **engines.Filter** para aplicar el filtro de canales desde CLI, TUI y MCP.
+#### Fases 1-4
+- Errores tipados del transporte y `Meta` con `ETag`/`Last-Modified`.
+- `engines.Filter` para filtrar canales desde CLI, TUI y MCP.
+- `ConditionalProvider` (Paper y Vanilla) para aprovechar los validadores HTTP.
+- `java.go` con reglas versionadas, `JavaRequirementFor` (con origen) y la etiqueta
+  `java25`.
+
+#### Fase 4
+- Comandos **`catalog status [motor]`** y **`catalog refresh [motor] | --all`**.
+- `Cache.Status` con los estados `fresh`, `stale`, `invalid` y `unavailable`, y
+  `Cache.Refresh`.
+- El documento de caché guarda `provider`, `updated_at`, `schema`, `validated`,
+  `etag`, `last_modified` y `published_count` (los documentos antiguos se siguen
+  leyendo).
+
+#### Fase 5
+- `engines.CatalogService` con `ListVersions`, `ResolveVersion`,
+  `GetCatalogStatus`, `RefreshCatalog` y `CheckCompatibility`.
+- **`engine compat <motor>`**, con códigos de salida estables: `compatible` → 0,
+  `unknown` → 1 (aviso con `reason`), `incompatible` → 2.
+- **`engine list <motor>` unificado** sobre la MISMA ruta de caché y normalización
+  que `engine versions` (antes consultaba el proveedor sin caché); `engine
+  versions` incorpora `--refresh` y expone el estado del catálogo y el modelo
+  normalizado. `versionData` se renombró a `engineVersionData`.
+- `result.Outcome` (`applied`/`partial`/`failed`) y `result.PhaseFor`.
+- Herramientas MCP nuevas: `badomens_engine_resolve`, `badomens_catalog_status` y
+  `badomens_engine_compat`; la respuesta de error de MCP publica
+  `_meta.code`, `_meta.hint` y `_meta.details` (con el diagnóstico cuando aplica).
+
+#### Fase 6
+- `components.Selector`, `components.Footer`, `components.Notification` y el
+  estado de servidor (`components/serverstate.go`).
+- `svc.Infra` (fachada de infraestructura para la TUI) con su fake.
+
+#### Fase 8
+- Comandos **`daemon status | ensure | install-service | uninstall-service`**.
+- `tailscale status` publica `status` (tipado), `magic_dns_enabled` y
+  `magic_dns_reason`; `tailscale ensure` admite `--allow-elevation` y `--login`.
+- `docker status|ensure` añade `infra_status`; `doctor` añade los chequeos
+  **MagicDNS** y **Daemon**.
+- Herramienta MCP de solo lectura `badomens_infra_status` y
+  `badomens_tailscale_status` enriquecida.
+
+#### Fase 11.1
+- Paquetes `internal/plugins/download` (descargador con política) y
+  `internal/plugins/archive` (inspección JAR/ZIP sin descomprimir).
+- En `plugin add`: `--max-size`, `--allow-http`, `--allow-loopback`,
+  `--allow-private`, `--on-conflict`, `--sha256`. Claves nuevas en `data`:
+  `source`, `size_bytes`, `sha256`, `checksum_verified`, `archive`,
+  `security_warning` y, cuando aplican, `renamed_from`, `replaced` y `warning`; los
+  fallos HTTP añaden `details.http_status`.
+
+#### Fase 11.2-11.3
+- Paquete `internal/plugins/marketplace` con `modrinth`, `hangar`, `resolve` e
+  `install`, y el registro de procedencia (`internal/plugins/provenance.go`).
+- Comandos **`plugin sources`, `plugin search`, `plugin info`, `plugin versions`,
+  `plugin install` y `plugin updates`**, con sus claves aditivas en `data`
+  (`sources`, `results`, `versions`, `provenance`, `updates`…) y su propia entrada
+  en el manifiesto (`badomens commands`) y en la tabla de paridad CLI↔TUI.
+
+#### Fase 12
+- **`doctor api [motor]`**: conectividad, código HTTP, tiempos, formato, contrato,
+  esquema, edad y procedencia de la caché por proveedor, con veredicto `ok` /
+  aviso (hay caché utilizable) / error y resumen con códigos 0/1/2. Admite
+  `--timeout` y `--base motor=URL` (espejo o pruebas).
+- **`doctor preflight [instancia]`**: veredicto trivalente previo al arranque.
+- **`repro export [instancia]` / `repro import <archivo>`**: exportación
+  declarativa reproducible de una instancia (manifiesto 0600 y escritura atómica)
+  que valida motor, versión exacta (rechaza `latest`) y todos los pines
+  obligatorios antes de escribir.
+- `internal/engines/probe.go` (sonda por proveedor), `diagnostic.go` (objeto de
+  diagnóstico) y `doctor/api.go`.
+- `doctor` añade un chequeo `Catálogo <motor>` por motor con estado, número de
+  versiones, aviso y antigüedad legible (sin tocar la red).
 
 ### 🔧 Cambiado
 
-- **Semántica de compatible (T-03, API-08) — ATENCIÓN a los consumidores.**
-  compatible pasa a ser cierto **solo cuando la compatibilidad está verificada**. Se
-  elimina el relleno a ciegas que convertía lo desconocido en compatible. Un
-  compatible: false puede significar ahora unknown: consulta el campo nuevo
-  compatibility antes de tratar una versión como no seleccionable. La caché y el
-  catálogo embebido anteriores a esta versión (que traían compatible: true sin el
-  campo trivalente) se migran a compatible verificado.
-- internal/engines/{paper,fabric,forge,neoforge}.go reciben cambios
-  **estrictamente aditivos**: fijan Compatibility en las entradas que su propio
-  catálogo oficial publica, y Paper y Vanilla implementan ConditionalProvider
-  (ListAllWithMeta) para aprovechar ETag/Last-Modified. pickVersion se traslada a
-  select.go con la firma pickVersion(engine, list, version).
-- internal/engines/embedded.json incorpora compatibility: "compatible" en sus 27
-  entradas (proceden de catálogos oficiales).
-- internal/cli/root.go registra el comando catalog (una línea, aditiva).
+- `internal/engines/{paper,fabric,forge,neoforge}.go` reciben cambios
+  **estrictamente aditivos**: fijan `Compatibility` en las entradas que su propio
+  catálogo oficial publica. `pickVersion` se traslada a `select.go` con la firma
+  `pickVersion(engine, list, version)`.
+- `internal/engines/embedded.json` incorpora `compatibility: "compatible"` en sus
+  27 entradas (proceden de catálogos oficiales).
+- `provision.Resolver` pasa de `Provider(name)` a
+  `ResolveVersion(ctx, motor, versión)`: `*engines.CatalogService` la cumple
+  directamente, así que `provision` deja de hablar con proveedores.
+- `internal/cli/idle_service.go` delega en `internal/infra/service.go` (sin
+  mecanismos paralelos).
+- `runtime.HostIP` y la plantilla de Compose publican `"{{.HostIP}}:{{.Port}}:25565"`;
+  `tailscale.host_ip` (que existía sin usarse) pasa a ser una sobrescritura
+  explícita y validada.
+- El paquete `internal/plugins` se reparte en `plugins` (catálogo y orquestación),
+  `plugins/download` y `plugins/archive`; `Add` se conserva para los llamadores
+  existentes.
 
-> **Pendiente para la Fase 5:** CatalogService y la fachada común CLI/TUI/MCP, y
-> exponer el modelo normalizado en la herramienta MCP adomens_engine_versions
-> (internal/cli/tools.go), que aún publica solo los campos anteriores.
+### 🔒 Seguridad
+
+- **Descarga de plugins/mods (API-07, AC-08):** streaming con límite, https por
+  defecto, anti-SSRF por URL, nombre **y** IP resuelta, redirecciones acotadas y
+  revalidadas, nombre normalizado, inspección estructural JAR/ZIP sin descomprimir,
+  checksum SHA-256 y movimiento atómico. Un JAR válido **no** es un plugin seguro:
+  el aviso de código de terceros acompaña siempre al resultado y no promete
+  garantías que no se pueden verificar.
+- **Marketplaces:** un resultado de búsqueda no demuestra compatibilidad ni
+  seguridad; los checksums `sha512` se verifican, los `sha1` solo se informan, y un
+  artefacto sin checksum fuerte exige `--allow-unverified` (y queda avisado).
+- **Runtime (12.4):** slugs y nombres validados en CLI y MCP (sin escrituras fuera
+  de `<data>/instances/<slug>/`), restauración de backups con checksum previo,
+  límites de disco/tamaño de backup, permisos 0700/0600, publicación de puertos
+  jamás en `0.0.0.0`, secretos fuera de logs/JSON y verificación criptográfica de
+  las actualizaciones del binario.
+- **Procedencia:** la URL de origen se guarda saneada (sin credenciales ni
+  parámetros) y el diagnóstico nunca incluye cuerpos de respuesta ni tokens.
+
+### 🗑️ Retirado
+
+- La **fila de pestañas de primer nivel** de la TUI (`Inicio · Instancias · Salud ·
+  Ayuda` con `Tab`) y su código muerto asociado (claves, mensajes y estilos):
+  duplicaba el acceso al detalle y obligaba a depender de una fila completa de
+  pestañas para navegar.
+
+### ⏳ Próximos pasos
+
+- Ideas, mejoras y correcciones tras el primer uso en producción. Abre un issue
+  en [el repositorio](https://github.com/MrZudro/badomens/issues) 🐛.
+- **Lo que sigue bloqueado o pendiente** (detalle en `docs/ENTREGA_FINAL.md` y
+  `docs/UPSTREAM_VERIFICATION.md`): Paper API v2 está retirada (ya migrado a Fill
+  v3), la regresión del Maven de NeoForge del 27-sep-2026 quedó **cerrada por el
+  upstream**, la API de CurseForge exige una **API key** (fuera de P1) y `-race`
+  no puede ejecutarse en el entorno de desarrollo actual (requiere cgo).
 
 ## [1.2.1] - 2026-10-14
 
@@ -495,92 +822,6 @@ ot_found y sin resultado parcial (T-02/AC-06).
   Markdown de GitHub (badges, admonitions, diagramas y tablas).
 - **🚀 Workflows**: el pipeline de release crea la *prerelease* para etiquetas
   semánticas de pre-lanzamiento (ver `.goreleaser.yaml` y `release.yml`).
-
-## [Unreleased]
-
-### 🐛 Corregido
-
-- **latest correcto con independencia del orden de respuesta (API-05).** pickVersion
-  ya no asume que el último elemento de la lista es el más reciente: compara versiones
-  **estructuradas** con la estrategia del esquema del motor. Fabric Meta y Paper Fill v3
-  (que publican newest-first) dan ahora el mismo resultado que una lista ascendente.
-- **Recommended se calcula DESPUÉS de normalizar y ordenar (QC-05, AD-02b).** Se
-  recalcula desde cero en cada pasada, así que la recomendada es la última estable real
-  y ninguna normalización posterior deja marcas obsoletas.
-- **Orden por esquema, nunca alfabético entre esquemas.** Enrich ordena con la
-  estrategia de cada motor: Vanilla por la fecha del manifiesto (dato oficial) y
-  Paper/Fabric/Forge/NeoForge por componentes numéricos. Casos reales cubiertos:
-  26.10 > 26.2 y 26.1 > 1.21.1.
-- **
-ormalizeMaven con reglas propias por proveedor** (Forge `<mc>-<build>`;
-  NeoForge con su asociación explícita antiguo/moderno) y elección del build por
-  comparación estructurada. Es idempotente: un catálogo ya normalizado sale intacto.
-- **Rechazo de versiones explícitas inexistentes o incompatibles**, con error tipado
-  
-ot_found y sin resultado parcial (T-02/AC-06).
-- **Caché: no se sobrescribe con datos inválidos (AC-07).** Un catálogo vacío o una
-  **reducción anómala** (menos del 50 % del último validado, con un baseline de al menos
-  20 versiones) conservan el catálogo previo y generan un aviso legible. NeoForge añade
-  su propio baseline de versiones publicadas.
-- **Java: nunca se asume Java 8 (AC-05).** JavaMajorFor devuelve **0** (desconocido)
-  en lugar de 8 para una versión no reconocida y JavaImageFor sigue devolviendo el
-  allback sin cambios cuando el Java es desconocido.
-
-### ➕ Añadido
-
-- **Modelo normalizado aditivo** en Version y Resolved: loader_version, uild,
-  channel, eleased_at, java_major, java_status, compatibility, source,
-  etched_at, stale y warning.
-- **Campo compatibility (trivalente):** compatible, incompatible o unknown.
-- **Campo java_status:** erified (lo declara el proveedor, p. ej. Fill v3 con
-  java.version.minimum), inferred (regla versionada) o unknown. Reglas
-  versionadas que cubren Minecraft 26.x: 26.1+ → **Java 25**, 1.20.5–1.21.x → 21,
-  1.18–1.20.4 → 17, 1.17 → 16, ≤1.16.x → 8. Nueva etiqueta java25 en JavaTag.
-- **CheckCompatibility:** valida Minecraft + motor + loader/build + Java + imagen
-  Docker y devuelve el estado trivalente con el motivo de la incertidumbre.
-- **Resolved.Validate y Registry.Resolve:** ruta única de resolución que valida
-  todos los pines obligatorios antes de devolver (AC-06: no existe el objeto de
-  resolución parcialmente válido).
-- **Caché reforzada (internal/engines/versions.go):** el documento de caché guarda
-  ahora provider, updated_at, schema, alidated, etag, last_modified y
-  published_count (los documentos antiguos se siguen leyendo); validación ANTES de
-  escribir; escritura atómica con sync; uso de ETag/Last-Modified (304 =
-  refrescar la fecha sin reescribir datos); **deduplicación de solicitudes simultáneas**
-  (una sola petición para N llamadas concurrentes); Cache.Status con estados
-  explícitos resh, stale, invalid y unavailable; Cache.Refresh.
-- **Comandos catalog status [motor] y catalog refresh [motor] | --all** (aditivos).
-- **engine list <motor> unificado** sobre la MISMA ruta de caché y normalización que
-  engine versions (ya no consulta el proveedor sin caché), con --all, --refresh
-  y --limit. engine versions incorpora --refresh y expone el estado del catálogo y
-  el modelo normalizado.
-- **engines.Filter** para aplicar el filtro de canales desde CLI, TUI y MCP.
-
-### 🔧 Cambiado
-
-- **Semántica de compatible (T-03, API-08) — ATENCIÓN a los consumidores.**
-  compatible pasa a ser cierto **solo cuando la compatibilidad está verificada**. Se
-  elimina el relleno a ciegas que convertía lo desconocido en compatible. Un
-  compatible: false puede significar ahora unknown: consulta el campo nuevo
-  compatibility antes de tratar una versión como no seleccionable. La caché y el
-  catálogo embebido anteriores a esta versión (que traían compatible: true sin el
-  campo trivalente) se migran a compatible verificado.
-- internal/engines/{paper,fabric,forge,neoforge}.go reciben cambios
-  **estrictamente aditivos**: fijan Compatibility en las entradas que su propio
-  catálogo oficial publica, y Paper y Vanilla implementan ConditionalProvider
-  (ListAllWithMeta) para aprovechar ETag/Last-Modified. pickVersion se traslada a
-  select.go con la firma pickVersion(engine, list, version).
-- internal/engines/embedded.json incorpora compatibility: "compatible" en sus 27
-  entradas (proceden de catálogos oficiales).
-- internal/cli/root.go registra el comando catalog (una línea, aditiva).
-
-> **Pendiente para la Fase 5:** CatalogService y la fachada común CLI/TUI/MCP, y
-> exponer el modelo normalizado en la herramienta MCP adomens_engine_versions
-> (internal/cli/tools.go), que aún publica solo los campos anteriores.
-
-### ⏳ Próximos pasos
-
-- Ideas, mejoras y correcciones tras el primer uso en producción. Abre un issue
-  en [el repositorio](https://github.com/MrZudro/badomens/issues) 🐛.
 
 ---
 
