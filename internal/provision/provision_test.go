@@ -3,6 +3,7 @@ package provision
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/MrZudro/badomens/internal/config"
@@ -120,5 +121,101 @@ func TestCreateStartRequiereRuntime(t *testing.T) {
 	}
 	if _, err := os.Stat(deps.Manager.SpecPath(res.Spec.Slug)); err != nil {
 		t.Fatalf("el spec debe quedar guardado: %v", err)
+	}
+}
+
+// catalogoCambiante simula un catálogo que publica un build NUEVO en cada
+// llamada (builds[i]): reproduce la carrera entre la resolución mostrada en el
+// resumen y la creación (AD-02).
+type catalogoCambiante struct {
+	builds []string
+	i      int
+}
+
+func (s *catalogoCambiante) ResolveVersion(_ context.Context, engine, version string) (engines.Resolved, error) {
+	e, ok := engines.ByName(engine)
+	if !ok {
+		return engines.Resolved{}, errx.Usage("motor desconocido "+engine, "")
+	}
+	v := strings.TrimSpace(version)
+	if v == "" {
+		v = "1.21.6"
+	}
+	b := "1"
+	if s.i < len(s.builds) {
+		b = s.builds[s.i]
+	}
+	s.i++
+	pins := map[string]string{}
+	for _, dep := range engines.RequiredPins(e) {
+		pins[dep] = b
+	}
+	return engines.Resolved{Version: v, Pins: pins, Source: e.Name, Compatibility: engines.CompatibilityCompatible}, nil
+}
+
+// TestCreateInyectaPinsExactos: si el llamador aporta los pins ya resueltos y
+// revisados, se persiste EXACTAMENTE ese build aunque el catálogo devuelva otro
+// nuevo durante la creación (AD-02/T-08).
+func TestCreateInyectaPinsExactos(t *testing.T) {
+	deps, _ := testDeps(t)
+	camb := &catalogoCambiante{builds: []string{"1", "2"}}
+	deps.Resolver = camb
+	// 1) Resolución revisada por el usuario (build 1).
+	reviewed, err := camb.ResolveVersion(context.Background(), "paper", "1.21.6")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reviewed.Pins["PAPER_BUILD"] != "1" {
+		t.Fatalf("la resolución revisada debe ser el build 1, tengo %q", reviewed.Pins["PAPER_BUILD"])
+	}
+	// 2) Creación: el catálogo ya devolvería el build 2, pero mandan los pins
+	// revisados.
+	res, err := Create(context.Background(), deps, Request{
+		Name: "pinned", Engine: "paper", Pins: reviewed.Pins,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := res.Spec.Pins["PAPER_BUILD"]; got != "1" {
+		t.Fatalf("la configuración persistida debe usar el pin revisado (1), tengo %q", got)
+	}
+	if res.Spec.Version != "1.21.6" {
+		t.Fatalf("versión persistida: %q", res.Spec.Version)
+	}
+	// El mapa inyectado no se comparte con el spec (sin mutaciones cruzadas).
+	reviewed.Pins["PAPER_BUILD"] = "mutado"
+	if res.Spec.Pins["PAPER_BUILD"] != "1" {
+		t.Fatal("el spec no debe compartir el mapa de pins de la petición")
+	}
+}
+
+// TestCreateSinPinsUsaLosDelCatalogo: sin inyección rige la resolución del
+// servicio (comportamiento previo intacto).
+func TestCreateSinPinsUsaLosDelCatalogo(t *testing.T) {
+	deps, _ := testDeps(t)
+	deps.Resolver = &catalogoCambiante{builds: []string{"7"}}
+	res, err := Create(context.Background(), deps, Request{Name: "sinpins", Engine: "paper"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := res.Spec.Pins["PAPER_BUILD"]; got != "7" {
+		t.Fatalf("sin pins inyectados debe usarse el build del catálogo (7), tengo %q", got)
+	}
+}
+
+// TestCreateRechazaPinsInvalidos: un pin obligatorio vacío o «latest» se
+// rechaza y no deja instancia escrita (invariante AC-06).
+func TestCreateRechazaPinsInvalidos(t *testing.T) {
+	for _, pin := range []string{"", "latest"} {
+		deps, _ := testDeps(t)
+		_, err := Create(context.Background(), deps, Request{
+			Name: "bad", Engine: "paper", Pins: map[string]string{"PAPER_BUILD": pin},
+		})
+		if err == nil {
+			t.Fatalf("el pin %q debe rechazarse", pin)
+		}
+		if _, serr := deps.Manager.Load("bad"); serr == nil {
+			t.Fatal("una petición con pins inválidos no debe dejar instancia escrita")
+		}
 	}
 }

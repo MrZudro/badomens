@@ -282,3 +282,47 @@ func TestHomeCacheDetallePorSlug(t *testing.T) {
 		t.Fatal("la caché debe caducar pasado el TTL")
 	}
 }
+
+// BenchmarkInteractionTecla mide la "latencia de interacción" de la Fase 12.2:
+// una tecla (Update) más el repintado (View) en Inicio con 50 instancias.
+func BenchmarkInteractionTecla(b *testing.B) {
+	a := NewApp(svc.NewFake(nil), darkOpts())
+	rows := make([]svc.Row, 50)
+	for i := range rows {
+		rows[i] = svc.Row{Slug: fmt.Sprintf("i%02d", i), Name: "Instancia", State: "running", Port: 25565}
+	}
+	a.Update(pollRowsMsg{rows: rows})
+	a.Update(tea.WindowSizeMsg{Width: 120, Height: 35})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		key := tea.KeyMsg{Type: tea.KeyDown}
+		if i%2 == 1 {
+			key = tea.KeyMsg{Type: tea.KeyUp}
+		}
+		a.Update(key)
+		_ = a.View()
+	}
+}
+
+// BenchmarkViewConsolaCompacta mide el render de la Consola con 2.000 líneas en un
+// terminal compacto (60×18): el caso más exigente de la matriz de estabilidad.
+func BenchmarkViewConsolaCompacta(b *testing.B) {
+	a := NewApp(goldenSvc(), darkOpts())
+	a.router.Push(newInstanceScreen(a.svc, a.pal, a.ascii, "survival"))
+	if inst, ok := a.router.Top().(*instanceScreen); ok {
+		inst.detail = &svc.Detail{Spec: goldenSpec(), State: "running"}
+		inst.tab = 1
+		var sb strings.Builder
+		for i := 0; i < 2000; i++ {
+			fmt.Fprintf(&sb, "[22:10:%02d INFO]: linea numero %d con acentos áéí y texto de relleno\n", i%60, i)
+		}
+		inst.logs = sb.String()
+	}
+	a.Update(tea.WindowSizeMsg{Width: 60, Height: 18})
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = a.View()
+	}
+}

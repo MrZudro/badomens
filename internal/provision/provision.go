@@ -23,9 +23,16 @@ import (
 // Request describe lo que el operador quiere crear. Los campos vacíos toman los
 // valores por defecto (motor paper, última versión, memoria de la config…).
 type Request struct {
-	Name             string
-	Engine           string
-	Version          string
+	Name    string
+	Engine  string
+	Version string
+	// Pins son los pines EXACTOS (build/loader/forge) ya resueltos y
+	// revisados por el llamador (la TUI los toma del objeto Resolved del
+	// servicio): si se aportan, se usan TAL CUAL (tras validarlos) en lugar
+	// de re-resolver, de modo que la configuración persistida coincida con
+	// el resumen aunque el catálogo publique un build nuevo entre la
+	// resolución y la creación (AD-02).
+	Pins             map[string]string
 	Memory           string
 	CPU              int
 	Port             int
@@ -116,6 +123,20 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 	resolved, err := d.Resolver.ResolveVersion(ctx, eng.Name, req.Version)
 	if err != nil {
 		return nil, err
+	}
+
+	// 3.b) Inyección exacta de pins (AD-02/T-08): si el llamador aporta los pins
+	// que ya revisó (la TUI los toma del objeto Resolved del servicio), se usan
+	// TAL CUAL tras validarlos, en vez de confiar en una re-resolución que pudo
+	// cambiar (un build nuevo publicado entre el resumen y la creación). Así lo
+	// persistido coincide EXACTAMENTE con lo que el usuario revisó.
+	if len(req.Pins) > 0 {
+		pinned := resolved
+		pinned.Pins = req.Pins
+		if verr := pinned.Validate(eng); verr != nil {
+			return nil, verr
+		}
+		resolved.Pins = copyPins(req.Pins)
 	}
 
 	// 4) Recursos.
@@ -252,3 +273,16 @@ func Create(ctx context.Context, d Deps, req Request) (*Result, error) {
 }
 
 func quote(s string) string { return "\"" + s + "\"" }
+
+// copyPins devuelve una copia de los pins para no compartir el mapa con el
+// llamador (evita mutaciones cruzadas entre la peticion y el spec guardado).
+func copyPins(in map[string]string) map[string]string {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}

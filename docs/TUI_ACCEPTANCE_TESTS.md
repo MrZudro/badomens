@@ -281,3 +281,80 @@ Casos nuevos: complementan los `UI-*`, `KEY-*`, `SEL-*`, `WLD-*`, `CON-*` y
 | BK-01 | `[B] Backup` en la lista y en el detalle | El atajo está visible con la etiqueta «Backup» y crea la copia desde ambas pantallas. |
 | BK-02 | `[X]` restaurar | Pide confirmación explicando que se valida el checksum y se crea un backup previo; `Esc` no restaura; `[y]` restaura el backup señalado. |
 | BK-03 (svc) | Restaurar un backup dañado o sin `sha256` | La restauración se rechaza **antes** de tocar `server/`, no se crea el backup previo y el error explica el problema de integridad. |
+
+
+## Accesibilidad y rendimiento (Fase 12) — ampliación
+
+Casos nuevos: complementan los `KEY-*`, `UI-*`, `PERF-*`, `FOCUS-*`, `SEM-*` y
+`WIZ-*` anteriores (no duplican ninguna suite) y se ejecutan contra `App` +
+`Router` + `svc` (fake determinista). Código:
+`internal/tui/accessibility_test.go`, `internal/tui/perf12_test.go`,
+`internal/tui/components/serverstate_test.go`, `internal/tui/svc/memo_test.go`,
+`internal/tui/svc/limit_test.go`, `internal/provision/provision_test.go`.
+
+### Accesibilidad (§12.1 del plan; §6.1 de la spec)
+
+| ID | Escenario / pasos | Resultado esperado | Prueba |
+|---|---|---|---|
+| A11Y-01 | Semáforo en `running`, `restarting`, `exited` y un estado crudo desconocido (`paused`) | Cada estado lleva luz + TEXTO («En línea»/«Cargando…»/«Apagado»/«Desconocido»); ninguno depende solo del color y el desconocido no se confunde con el apagado. | `TestA11Y01SemaforoConTextoSegunEstado`, `TestServerStateTextoSiemprePresente`, `TestServerStateOfDesconocido` |
+| A11Y-02 | Input enfocado (consola con `/` y prompt de whitelist con `A`): escribir `n`, `a`, `q`, `d`, `b` | Se escriben LITERALMENTE; no navegan, no abren overlays, no borran, no hacen backup ni salen. | `TestA11Y02LetrasLiteralesConInputEnfocado` |
+| A11Y-03 | Compatibilidad del catálogo: compatible / incompatible / desconocida (`unknown`) / sin dato | Cada veredicto se comunica con texto («compatible», «incompatible», «sin verificar (unknown)»), nunca solo color. | `TestA11Y03CompatibilidadTrivalenteConTexto` |
+| A11Y-04 | Inicio, Detalle (con `←/→`) y Ayuda (F1/Esc) en 60×18, 80×24, 100×30 y 132×40 | Ninguna línea desborda; el pie vive en la última línea con «[F1] Ayuda»; abrir/cerrar la Ayuda funciona; nada esencial depende de una fila de pestañas. | `TestA11Y04TerminalesCompactos` |
+| A11Y-05 | Operación en curso (`busy`) | El indicador de actividad lleva TEXTO y no bloquea la navegación ni el pie (no es el único indicador). | `TestA11Y05CargaNoBloqueaNiEsElUnicoIndicador` |
+| A11Y-06 | Modo `--plain` y salida estructurada | `badomens tui --plain` imprime un resumen lineal sin cajas; el contrato JSON sigue siendo un único documento con las claves estables. | `TestTUIPlainResumenLineal`, `TestSalidaEstructuradaYHumana` |
+
+### Estabilidad y rendimiento (§12.2 del plan; §6.2 de la spec)
+
+| ID | Escenario / pasos | Resultado esperado | Prueba |
+|---|---|---|---|
+| PIN-01 | Resolver (el catálogo devuelve el build 1) y crear con un catálogo que publica un build 2 durante la creación | Se persiste EXACTAMENTE el build revisado (1); sin pins inyectados rige el catálogo. Pins inválidos (`""`/`latest`) se rechazan sin dejar instancia escrita. | `TestCreateInyectaPinsExactos`, `TestCreateSinPinsUsaLosDelCatalogo`, `TestCreateRechazaPinsInvalidos`, `TestPIN01InyeccionDePinsDelResumen` |
+| PIN-02 | `badomens setup --pins PAPER_BUILD=123` | Flag aditivo: los pins se inyectan en la creación; sin `--pins` se resuelve por el servicio. | `parsePins` (CLI) + `PIN-01` |
+| PERF-06 | `trimLogs` con 0, 1, 200 y 2.000 líneas (y por encima del límite) | Buffer circular acotado a `maxLogLines`; 0 líneas → vacío. | `TestPERF06TrimLogsBufferCircular` |
+| PERF-08 | Consola con 2.000 líneas + una línea de 500 caracteres en 60×18 | El viewport ocupa exactamente su región; el pie no se desplaza; el render no pinta el buffer completo. | `TestPERF08ViewportAcotadoAZonaVisible` |
+| PERF-09 | 90 latidos de sondeo (intervalo de estado 3 s) con navegación de por medio | Exactamente 30 consultas de estado (una por intervalo); sin tareas duplicadas. | `TestPERF09PollingSinTareasDuplicadas` |
+| PERF-09b | 400 ciclos de navegación con la app abierta | No se acumulan goroutines. | `TestPERF09bNavegacionSinAcumularGoroutines` |
+| PERF-10 | Operación lenta con `busy` | El teclado responde de inmediato y la vista sigue pintándose. | `TestPERF10OperacionLentaNoBloqueaTeclado` |
+| PERF-11 | Métricas mínimas | Latencia de interacción, tiempo de render y heap medidos; peticiones externas acotadas por el semáforo del servicio. | `TestPERF11MetricasMinimas` |
+| PERF-12 | 50 avisos seguidos | La cola de avisos/eventos queda acotada (máx. 3). | `TestPERF12EventosAcotados` |
+| PERF-07 (svc) | 30 operaciones externas con límite 3, y cancelación de contexto en espera | Nunca hay más de N en vuelo; `acquire` respeta la cancelación. | `TestSemAcotaConcurrencia`, `TestSemCancelaEnEspera` |
+| PERF-06b (svc) | Lecturas repetidas de `Versions`/`Resolve`/`Status` dentro del TTL; `Refresh`; TTL vencido | La caché en MEMORIA sirve lo repetido (1 consulta); `Refresh` invalida y el TTL caduca. | `TestMemoCatalogLecturasRepetidas` |
+
+**Caché en memoria, deduplicación y cancelación.** La caché persistente y la
+deduplicación de peticiones simultáneas viven en `engines.Cache` (no se
+duplican). Encima, la TUI añade una caché en MEMORIA de TTL corto
+(`svc.NewMemoCatalog`, 2 s) para lecturas repetidas. La cancelación por
+**generación/secuencia** ya cubre el abandono de pantalla o el cambio de
+instancia: consola (`instanceLogsMsg` con `gen`), detalle por slug/`gen`,
+asistente (`wizardResolvedMsg`/`wizardVersionsMsg` con `seq`) y jugadores. Ver
+`KEY-10`, `TestConsolaDescartaRespuestasObsoletas`,
+`TestConsolaSalirInvalidaGeneracion`, `WIZ-08` y `TestHomeCacheDetallePorSlug`.
+
+### Estabilidad de la TUI (plan §6.3) — mapa de cobertura
+
+| Requisito del plan (§6.3) | Dónde se prueba |
+|---|---|
+| Letras literales en inputs | `KEY-02`, `KEY-06`, `FOCUS-01`, `A11Y-02` |
+| Cambios rápidos de instancia con peticiones pendientes | `KEY-10`, `PERF-01`, `WIZ-08`, `SEM-03`, `PLAY-03`, `TestConsolaDescartaRespuestasObsoletas` |
+| Whitelist persistida distinta de la lista real | `ACL-02`, `ACL-06` |
+| Consola con 0, 1, 200 y 2.000 líneas | `UI-03`, `CON-04`, `PERF-06` |
+| Logs largos con secuencias ANSI, emojis y acentos | `UI-04`, `UI-08`, `PERF-08` |
+| Terminales 60×18, 80×24, 100×30 y 132×40 | `A11Y-04`, `UI-01`…`UI-10`, `HELP-01` |
+| Operaciones lentas sin bloquear teclado | `PERF-03`, `PERF-04`, `PERF-10` |
+| Goroutines y polling sin acumulación | `PERF-02`, `PERF-09`, `PERF-09b` |
+| Caché en memoria + persistente; sin deduplicar lo ya deduplicado | `PERF-06b` (memoria), caché del catálogo (persistente/dedup) |
+| Límite de concurrencia en consultas externas | `PERF-07` |
+
+### Comandos de verificación (Fase 12)
+
+```bash
+# Interacción, foco, accesibilidad, estabilidad y creación (sin red ni Docker)
+go test ./internal/tui/... ./internal/provision/ ./internal/cli/ -count=1
+
+# Benchmarks reproducibles de render e interacción (baseline en perf_test.go)
+go test -bench BenchmarkView ./internal/tui/
+go test -bench 'BenchmarkInteraction|BenchmarkViewConsola' ./internal/tui/
+
+# Detector de carreras: NO está disponible en este entorno (requiere cgo).
+# Debe ejecutarse en CI con cgo habilitado:
+#   CGO_ENABLED=1 go test -race ./...
+```

@@ -226,13 +226,13 @@ func New(cfg *config.Config) (*Services, error) {
 		DataDir:      cfg.DataDir,
 		Repo:         cfg.Repo,
 		Engines:      engines.Order,
-		Instances:    &realInstances{m: m, rt: rt},
+		Instances:    &realInstances{m: m, rt: rt, sem: newSem(defaultExternalConcurrency)},
 		Lifecycle:    &realLifecycle{rt: rt, m: m},
 		Backups:      &realBackups{be: be, m: m, rt: rt},
 		Ports:        &allocPorts{a: alloc},
 		DockerState:  &realDocker{cfg: cfg},
 		Idle:         &realIdle{cfg: cfg, m: m, rt: rt, be: be},
-		Catalog:      NewCatalog(catalog),
+		Catalog:      NewMemoCatalog(NewCatalog(catalog), 0, nil),
 		Creator:      &realCreator{cfg: cfg, m: m, rt: rt, catalog: catalog, alloc: alloc},
 		Players:      &realPlayers{m: m, rt: rt},
 		Access:       &realAccess{m: m, rt: rt},
@@ -514,6 +514,9 @@ func (c *realCreator) Create(ctx context.Context, req provision.Request) (Create
 type realInstances struct {
 	m  *instance.Manager
 	rt *runtime.Runtime
+	// sem acota las consultas externas por instancia (estado, métricas, SLP):
+	// con muchas instancias no se lanzan todas a la vez (Fase 12.2).
+	sem *sem
 }
 
 func (r *realInstances) Rows(ctx context.Context) ([]Row, error) {
@@ -528,6 +531,14 @@ func (r *realInstances) Rows(ctx context.Context) ([]Row, error) {
 		wg.Add(1)
 		go func(i int, s *instance.Spec) {
 			defer wg.Done()
+			// Límite de concurrencia: como mucho N consultas externas a la vez.
+			if r.sem != nil {
+				if aerr := r.sem.acquire(ctx); aerr != nil {
+					out[i] = Row{Slug: s.Slug, Name: s.Name, State: "unknown", PlayersOnline: -1}
+					return
+				}
+				defer r.sem.release()
+			}
 			out[i] = r.row(ctx, s, host)
 		}(i, s)
 	}

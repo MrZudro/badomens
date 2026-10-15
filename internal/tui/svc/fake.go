@@ -406,7 +406,14 @@ func (f *fakeCreator) specFor(req provision.Request, slug string) *instance.Spec
 		version = f.versions[len(f.versions)-1].Version
 	}
 	pins := map[string]string{}
-	if e, ok := engines.ByName(engine); ok {
+	// Si la petición trae los pins EXACTOS ya resueltos (la TUI los toma del
+	// objeto Resolved), el fake los persiste tal cual: es lo que permite probar
+	// que la configuración guardada coincide con el resumen (AD-02).
+	if len(req.Pins) > 0 {
+		for k, v := range req.Pins {
+			pins[k] = v
+		}
+	} else if e, ok := engines.ByName(engine); ok {
 		for _, dep := range engines.RequiredPins(e) {
 			pins[dep] = "1"
 		}

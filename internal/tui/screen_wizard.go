@@ -1101,11 +1101,11 @@ func (w *wizardScreen) pickRecommended() {
 	}
 }
 
-// buildRequest reúne los valores del asistente en una petición de creación.
 // buildRequest reúne los valores del asistente en una petición de creación. El
-// motor y la versión salen del objeto Resolved del SERVICIO (nunca de índices ni
-// de valores por defecto): es lo que garantiza que se cree exactamente lo que se
-// revisó en el resumen (AD-02).
+// motor, la versión y los PINS salen del objeto Resolved del SERVICIO (nunca de
+// índices ni de valores por defecto): es lo que garantiza que se cree EXACTAMENTE
+// lo que se revisó en el resumen, aunque el catálogo publique un build nuevo
+// entre la resolución y la creación (AD-02/T-08).
 func (w *wizardScreen) buildRequest() provision.Request {
 	req := provision.Request{Engine: w.engine.Name, Start: true}
 	if w.resolution != nil {
@@ -1113,6 +1113,9 @@ func (w *wizardScreen) buildRequest() provision.Request {
 			req.Engine = w.resEngine
 		}
 		req.Version = w.resolution.Version
+		// Los pins EXACTOS revisados viajan con la petición: provision los usa
+		// tal cual (validados) en lugar de re-resolver.
+		req.Pins = w.resolution.Pins
 	} else {
 		req.Version = strings.TrimSpace(w.versionValue())
 	}

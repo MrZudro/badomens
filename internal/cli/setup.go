@@ -36,6 +36,9 @@ type createOpts struct {
 	icon             string
 	plugins          string
 	noStart          bool
+	// pins son los pines exactos ya resueltos (CLAVE=valor) que se inyectan en
+	// la creación (AD-02); vacío = resolver por el servicio.
+	pins string
 }
 
 func newSetupCmd(e *Env) *cobra.Command {
@@ -142,6 +145,7 @@ func addCreateFlags(cmd *cobra.Command, o *createOpts) {
 	f.StringVar(&o.motd, "motd", "", "descripción visible en Minecraft")
 	f.StringVar(&o.icon, "icon", "", "ruta al PNG del icono del servidor")
 	f.StringVar(&o.plugins, "plugins", "", "archivos .jar o URLs separados por comas")
+	f.StringVar(&o.pins, "pins", "", "pines exactos ya resueltos, CLAVE=valor separados por comas (p. ej. PAPER_BUILD=123); vacío = resolver por el servicio")
 	f.BoolVar(&o.noStart, "no-start", false, "configurar sin arrancar")
 }
 
@@ -186,6 +190,7 @@ func runSetup(cmd *cobra.Command, e *Env, o *createOpts, interactive bool) (*res
 		Motd:             o.motd,
 		Icon:             o.icon,
 		Plugins:          setup.ParseCommaList(o.plugins),
+		Pins:             parsePins(o.pins),
 		Start:            !o.noStart,
 	}
 
@@ -345,4 +350,28 @@ func yesBool(ans string, def bool) bool {
 		return false
 	}
 	return def
+}
+
+// parsePins convierte «CLAVE=valor,CLAVE2=valor2» en el mapa de pines exactos
+// (AD-02): permite inyectar en la creación la resolución que el operador ya
+// revisó, sin volver a resolver. Las entradas sin «=» o con clave vacía se
+// ignoran; sin entradas válidas devuelve nil (se resuelve por el servicio).
+func parsePins(s string) map[string]string {
+	out := map[string]string{}
+	for _, item := range strings.Split(s, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(item, "=")
+		k = strings.TrimSpace(k)
+		if !ok || k == "" {
+			continue
+		}
+		out[k] = strings.TrimSpace(v)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

@@ -508,3 +508,79 @@ func TestWIZ09LaUINoFiltraVersionesDelServicio(t *testing.T) {
 		t.Fatalf("la falta de verificación debe verse en el detalle: %q", it.Detail)
 	}
 }
+
+// capturaPins envuelve un Creator para registrar los pins que viajan con la
+// petición de creación (AD-02).
+type capturaPins struct {
+	svc.Creator
+	got map[string]string
+}
+
+func (c *capturaPins) Create(ctx context.Context, req provision.Request) (svc.CreateOutcome, error) {
+	c.got = req.Pins
+	return c.Creator.Create(ctx, req)
+}
+
+// PIN-01 (AD-02/T-08, hueco P0 de la Fase 7): el asistente inyecta en la petición
+// de creación los PINS EXACTOS del objeto Resolved del servicio, no solo motor y
+// versión, de modo que la configuración persistida coincide con el resumen aunque
+// el catálogo publique un build nuevo entre la resolución y la creación.
+func TestPIN01InyeccionDePinsDelResumen(t *testing.T) {
+	s := svc.NewFakeWith(nil, svc.FakeOptions{IdleWatcherActive: true})
+	cap := &capturaPins{Creator: s.Creator}
+	s.Creator = cap
+	a := NewApp(s, darkOpts())
+	resize(a, 120, 40)
+	a.router.Push(newWizardScreen(a.svc, a.pal, a.ascii))
+	wz, _ := a.router.Top().(*wizardScreen)
+	if cmd := wz.start(0); cmd != nil {
+		a.Update(ejecutaCmd(cmd))
+	}
+	wz.cur = 0
+	wz.enterField()
+	for _, r := range "pins" {
+		a.Update(press(string(r)))
+	}
+	for i := 0; i < 20 && wz.step != len(wz.steps)-1; i++ {
+		_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyTab})
+		if cmd != nil {
+			a.Update(ejecutaCmd(cmd))
+		}
+	}
+	if wz.resolution == nil || len(wz.resolution.Pins) == 0 {
+		t.Fatalf("el resumen debe tener una resolución con pins: %+v", wz.resolution)
+	}
+	want := map[string]string{}
+	for k, v := range wz.resolution.Pins {
+		want[k] = v
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	msg := ejecutaCmd(cmd)
+	created, ok := msg.(wizardCreatedMsg)
+	if !ok {
+		t.Fatalf("mensaje inesperado: %T", msg)
+	}
+	if created.err != nil {
+		t.Fatalf("creación: %v", created.err)
+	}
+	if created.mismatch != "" {
+		t.Fatalf("la config persistida no debe discrepar del resumen: %s", created.mismatch)
+	}
+	if len(cap.got) == 0 {
+		t.Fatal("la petición de creación debe llevar los pins del Resolved (AD-02)")
+	}
+	for k, v := range want {
+		if cap.got[k] != v {
+			t.Fatalf("la petición debe inyectar el pin %s=%q, tengo %q (mapa %v)", k, v, cap.got[k], cap.got)
+		}
+	}
+	d, err := a.svc.Instances.Detail(context.Background(), created.slug)
+	if err != nil {
+		t.Fatalf("detalle tras crear: %v", err)
+	}
+	for k, v := range want {
+		if d.Spec.Pins[k] != v {
+			t.Fatalf("el spec persistido debe guardar el pin %s=%q, tengo %q", k, v, d.Spec.Pins[k])
+		}
+	}
+}
